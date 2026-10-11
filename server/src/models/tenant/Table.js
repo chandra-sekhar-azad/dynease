@@ -29,6 +29,39 @@ const tableSchema = new mongoose.Schema({
     type: String,
     enum: ['ACTIVE', 'INACTIVE'],
     default: 'ACTIVE'
+  },
+  isOccupied: {
+    type: Boolean,
+    default: false
+  },
+  section: {
+    type: String,
+    trim: true,
+    default: 'Main Area'
+  },
+  primaryWaiterId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  assignmentMode: {
+    type: String,
+    enum: ['MANUAL', 'AUTOMATIC', 'HYBRID'],
+    default: 'HYBRID'
+  },
+  assignedAt: {
+    type: Date,
+    default: null
+  },
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  assignmentStatus: {
+    type: String,
+    enum: ['ASSIGNED', 'UNASSIGNED', 'REASSIGNED'],
+    default: 'UNASSIGNED'
   }
 }, { timestamps: true });
 

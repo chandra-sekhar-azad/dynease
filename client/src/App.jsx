@@ -39,6 +39,7 @@ import RestaurantDashboard from './pages/restaurant/Dashboard';
 import StaffManagement from './pages/restaurant/StaffManagement';
 import Orders from './pages/restaurant/Orders';
 import RestaurantSettings from './pages/restaurant/Settings';
+import WaiterAssignment from './pages/restaurant/WaiterAssignment';
 import { Loader2 } from 'lucide-react';
 
 function SubdomainWrapper({ subdomain, children }) {
@@ -109,6 +110,7 @@ function App() {
               <Route path="tables" element={<TablesManagement />} />
               <Route path="staff" element={<StaffManagement />} />
               <Route path="orders" element={<Orders />} />
+              <Route path="assignment" element={<WaiterAssignment />} />
               <Route path="settings" element={<RestaurantSettings />} />
             </Route>
             <Route path="/waiter" element={<WaiterLayout />}>
@@ -189,6 +191,15 @@ function App() {
           <Route path="tables" element={<TablesManagement />} />
           <Route path="staff" element={<StaffManagement />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="assignment" element={<WaiterAssignment />} />
+          <Route path="settings" element={<RestaurantSettings />} />
+        </Route>
+        
+        {/* Waiter Routes */}
+        <Route path="/waiter" element={<WaiterLayout />}>
+          <Route index element={<LiveOrders />} />
+          <Route path="past-orders" element={<PastOrders />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
         
         {/* Admin Routes */}

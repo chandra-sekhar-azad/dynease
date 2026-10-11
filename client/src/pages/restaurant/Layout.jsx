@@ -15,9 +15,10 @@ export default function RestaurantLayout() {
   const links = [
     { name: 'Dashboard', path: '/restaurant', icon: <LayoutDashboard size={20} /> },
     { name: 'Orders', path: '/restaurant/orders', icon: <ClipboardList size={20} /> },
+    { name: 'Tables & QR', path: '/restaurant/tables', icon: <Grid size={20} /> },
+    { name: 'Waiter Assignment', path: '/restaurant/assignment', icon: <Users size={20} /> },
     { name: 'Menu', path: '/restaurant/menu', icon: <Utensils size={20} /> },
     { name: 'Categories', path: '/restaurant/categories', icon: <FolderOpen size={20} /> },
-    { name: 'Tables & QR', path: '/restaurant/tables', icon: <Grid size={20} /> },
     { name: 'Staff', path: '/restaurant/staff', icon: <Users size={20} /> },
     { name: 'Settings', path: '/restaurant/settings', icon: <Settings size={20} /> },
   ];
@@ -34,8 +35,18 @@ export default function RestaurantLayout() {
       
       <aside className={`fixed md:static inset-y-0 left-0 z-50 bg-slate-900 text-white flex flex-col transition-transform duration-300 w-64 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'}`}>
         <div className="w-64 flex flex-col h-full">
-          <div className="p-6 flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-green-500">Restaurant Panel</h2>
+          <div className="p-6 flex justify-between items-center border-b border-slate-800">
+            <Link to="/restaurant" className="flex items-center gap-2">
+              <img 
+                src="/brand/logo-horizontal-reversed.svg" 
+                alt="Dynease" 
+                className="h-8 w-auto object-contain"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/brand/logo-horizontal-reversed.png';
+                }}
+              />
+            </Link>
             <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
               <X size={24} />
             </button>

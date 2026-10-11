@@ -29,6 +29,7 @@ require('./src/sockets')(io);
 app.set('io', io);
 
 const { initSubscriptionJobs } = require('./src/jobs/subscriptionJobs');
+const { initAssignmentTimeoutJobs } = require('./src/jobs/assignmentTimeoutJobs');
 
 // Database connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/dynease')
@@ -37,6 +38,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/dynease')
     
     // Initialize CRON jobs
     initSubscriptionJobs();
+    initAssignmentTimeoutJobs();
 
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

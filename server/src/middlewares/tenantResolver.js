@@ -28,18 +28,22 @@ module.exports = async (req, res, next) => {
       return next();
     }
 
-    // Lookup in registry
+    // Lookup in registry (Postgres first, with Mongo fallback)
+    const PostgresAdapter = require('../services/PostgresAdapter');
+    let pgRegistry = await PostgresAdapter.getRegistryBySubdomain(subdomain).catch(() => null);
+
     const registry = await RestaurantRegistry.findOne({ subdomain, status: 'ACTIVE' });
-    if (!registry) {
+    if (!registry && !pgRegistry) {
       return res.status(404).json({ success: false, message: 'Restaurant not found or not active.' });
     }
 
     // Get database connection
-    const tenantDb = await TenantDatabaseManager.getConnection(registry.databaseName);
+    const tenantDb = registry ? await TenantDatabaseManager.getConnection(registry.databaseName) : null;
     
     // Attach to request
     req.tenantDb = tenantDb;
-    req.tenantRegistry = registry;
+    req.tenantRegistry = registry || pgRegistry;
+    req.pg = PostgresAdapter;
 
     next();
   } catch (error) {

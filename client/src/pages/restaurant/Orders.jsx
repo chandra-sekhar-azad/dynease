@@ -208,14 +208,15 @@ export default function Orders() {
                       <td className="px-4 py-4 whitespace-nowrap font-medium text-gray-900">₹{order.total}</td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          order.status === 'PENDING' || order.status === 'NEW' ? 'bg-blue-100 text-blue-700' :
+                          order.status === 'PENDING' || order.status === 'NEW' ? 'bg-amber-100 text-amber-700' :
+                          order.status === 'READ' ? 'bg-blue-100 text-blue-700' :
                           order.status === 'PREPARING' ? 'bg-yellow-100 text-yellow-700' :
                           order.status === 'READY' ? 'bg-green-100 text-green-700' :
                           order.status === 'SERVED' ? 'bg-indigo-100 text-indigo-700' :
                           order.status === 'COMPLETED' || order.status === 'PAID' ? 'bg-green-100 text-green-700' :
                           'bg-gray-100 text-gray-700'
                         }`}>
-                          {order.status}
+                          {order.status === 'PENDING' ? 'NEW (UNREAD)' : order.status}
                         </span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -224,17 +225,25 @@ export default function Orders() {
                       <td className="px-4 py-4 whitespace-nowrap text-right">
                         {activeTab === 'LIVE' && (
                           <div className="flex justify-end gap-2">
+                            {order.status === 'PENDING' && (
+                              <button 
+                                onClick={() => updateOrderStatus(order.id, 'READ')}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              >
+                                Mark Read
+                              </button>
+                            )}
                             {order.status !== 'COMPLETED' && (
                                 <button 
                                   onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
                                   className="text-green-600 hover:text-green-800 text-sm font-medium"
                                 >
-                                  Complete
+                                  Complete (Free Table)
                                 </button>
                             )}
                             <button 
                               onClick={() => updateOrderStatus(order.id, 'CANCELLED')}
-                              className="text-red-600 hover:text-red-800 text-sm font-medium ml-3"
+                              className="text-red-600 hover:text-red-800 text-sm font-medium ml-2"
                             >
                               Cancel
                             </button>

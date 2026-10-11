@@ -294,10 +294,27 @@ exports.getOrders = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const Order = req.tenantDb.model('Order');
+    const { waiterId, status, unassignedOnly } = req.query;
+
+    const query = { restaurantId };
+    if (waiterId) {
+      query.assignedWaiterId = waiterId;
+    }
+    if (status) {
+      query.status = status;
+    }
+    if (unassignedOnly === 'true') {
+      query.$or = [
+        { assignedWaiterId: null },
+        { assignmentStatus: 'UNASSIGNED' }
+      ];
+    }
     
-    // Fetch today's orders or active orders. Let's fetch all orders and sort by descending date.
-    // In a real app we might paginate or filter by date range.
-    const orders = await Order.find({ restaurantId }).sort({ createdAt: -1 }).limit(100);
+    const orders = await Order.find(query)
+      .populate('assignedWaiterId', 'name email phone shiftStatus availabilityStatus')
+      .populate('tableId', 'tableNumber tableName section isOccupied primaryWaiterId')
+      .sort({ createdAt: -1 })
+      .limit(100);
     
     res.status(200).json({ success: true, data: { orders } });
   } catch (error) {
@@ -310,12 +327,19 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const { status, paymentStatus } = req.body;
+    const { status, paymentStatus, isReadByWaiter } = req.body;
     
     const Order = req.tenantDb.model('Order');
+    const Table = req.tenantDb.model('Table');
+
     const updateData = {};
     if (status) updateData.status = status;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    if (isReadByWaiter !== undefined) {
+      updateData.isReadByWaiter = isReadByWaiter;
+    } else if (status === 'READ') {
+      updateData.isReadByWaiter = true;
+    }
     
     const order = await Order.findOneAndUpdate(
       { _id: id, restaurantId },
@@ -325,15 +349,402 @@ exports.updateOrderStatus = async (req, res) => {
     
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
     
+    let tableUpdated = null;
+    // When order is COMPLETED or CANCELLED, free up the table if no other active orders exist on that table
+    if (status === 'COMPLETED' || status === 'CANCELLED') {
+      const activeOrdersCount = await Order.countDocuments({
+        restaurantId,
+        tableId: order.tableId,
+        _id: { $ne: order._id },
+        status: { $nin: ['COMPLETED', 'CANCELLED', 'PAID'] }
+      });
+
+      if (activeOrdersCount === 0) {
+        tableUpdated = await Table.findByIdAndUpdate(
+          order.tableId,
+          { isOccupied: false, lastOrderId: null },
+          { new: true }
+        );
+      }
+    } else if (status === 'READ' || status === 'PREPARING' || status === 'CONFIRMED') {
+      // Ensure table is marked occupied while order is active
+      tableUpdated = await Table.findByIdAndUpdate(
+        order.tableId,
+        { isOccupied: true, lastOrderId: order._id },
+        { new: true }
+      );
+    }
+
     // Emit socket event for order update
     const io = req.app.get('io');
     if (io) {
       io.to(`kitchen:${restaurantId}`).emit('order_updated', order);
       io.to(`waiter:${restaurantId}`).emit('order_updated', order);
+      io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
       io.to(`order:${order._id.toString()}`).emit('order_updated', order);
+
+      if (tableUpdated) {
+        io.to(`restaurant:${restaurantId}`).emit('table_updated', tableUpdated);
+        io.to(`waiter:${restaurantId}`).emit('table_updated', tableUpdated);
+      }
     }
     
-    res.status(200).json({ success: true, data: { order } });
+    res.status(200).json({ success: true, data: { order, table: tableUpdated } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+/**
+ * PATCH /api/restaurant/orders/:id/accept
+ * Waiter accepts assigned order
+ */
+exports.acceptOrder = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params;
+    const WaiterAssignmentService = require('../services/waiterAssignmentService');
+
+    const order = await WaiterAssignmentService.acceptOrder(
+      req.tenantDb,
+      restaurantId,
+      id,
+      req.user._id
+    );
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
+      io.to(`waiter:${restaurantId}`).emit('order_updated', order);
+      io.to(`order:${order._id.toString()}`).emit('order_updated', order);
+    }
+
+    res.status(200).json({ success: true, message: 'Order accepted successfully', data: { order } });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Failed to accept order' });
+  }
+};
+
+/**
+ * PATCH /api/restaurant/orders/:id/reject
+ * Waiter rejects assigned order (triggers auto-reassign or escalation)
+ */
+exports.rejectOrder = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params;
+    const { reason } = req.body;
+    const WaiterAssignmentService = require('../services/waiterAssignmentService');
+
+    const result = await WaiterAssignmentService.rejectOrder(
+      req.tenantDb,
+      restaurantId,
+      id,
+      req.user._id,
+      reason || 'Waiter rejected'
+    );
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`restaurant:${restaurantId}`).emit('order_updated', result.order);
+      io.to(`waiter:${restaurantId}`).emit('order_updated', result.order);
+
+      if (result.reassignedTo) {
+        io.to(`waiter_user:${result.reassignedTo._id.toString()}`).emit('assigned_order', {
+          id: result.order._id,
+          orderNumber: result.order.orderNumber,
+          tableNumber: result.order.tableNumber,
+          items: result.order.items,
+          total: result.order.total,
+          assignmentType: 'OVERFLOW',
+          assignmentStatus: 'PENDING_ACCEPTANCE'
+        });
+      } else {
+        io.to(`restaurant:${restaurantId}`).emit('unassigned_order_alert', {
+          orderNumber: result.order.orderNumber,
+          tableNumber: result.order.tableNumber,
+          reason: 'All waiters rejected or unavailable'
+        });
+      }
+    }
+
+    res.status(200).json({ success: true, message: 'Order rejected and processed', data: result });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Failed to reject order' });
+  }
+};
+
+/**
+ * PATCH /api/restaurant/orders/:id/reassign
+ * Manager or Admin manually reassigns order to a waiter
+ */
+exports.reassignOrder = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params;
+    const { waiterId, reason } = req.body;
+
+    const Order = req.tenantDb.model('Order');
+    const User = req.tenantDb.model('User');
+    const AssignmentEvent = req.tenantDb.model('AssignmentEvent');
+
+    const order = await Order.findOne({ _id: id, restaurantId });
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    let newWaiter = null;
+    if (waiterId) {
+      newWaiter = await User.findOne({ _id: waiterId, restaurantId, role: 'RESTAURANT_STAFF' });
+      if (!newWaiter) return res.status(400).json({ success: false, message: 'Target waiter not found in this restaurant' });
+    }
+
+    const previousWaiterId = order.assignedWaiterId;
+    order.assignedWaiterId = waiterId || null;
+    order.assignmentType = 'MANUAL_REASSIGN';
+    order.assignmentStatus = waiterId ? 'PENDING_ACCEPTANCE' : 'UNASSIGNED';
+    order.assignedAt = waiterId ? new Date() : null;
+    order.assignmentTimeoutAt = waiterId ? new Date(Date.now() + 3 * 60000) : null;
+    await order.save();
+
+    await AssignmentEvent.create({
+      restaurantId,
+      targetType: 'ORDER',
+      targetId: order._id,
+      tableId: order.tableId,
+      tableNumber: order.tableNumber,
+      previousWaiterId,
+      newWaiterId: waiterId || null,
+      assignmentMode: 'MANUAL',
+      action: waiterId ? 'REASSIGNED' : 'UNASSIGNED',
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      reason: reason || 'Manager manual reassignment'
+    }).catch(err => console.error(err));
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
+      io.to(`waiter:${restaurantId}`).emit('order_updated', order);
+      if (waiterId) {
+        io.to(`waiter_user:${waiterId.toString()}`).emit('assigned_order', {
+          id: order._id,
+          orderNumber: order.orderNumber,
+          tableNumber: order.tableNumber,
+          items: order.items,
+          total: order.total,
+          assignmentType: 'MANUAL_REASSIGN',
+          assignmentStatus: 'PENDING_ACCEPTANCE'
+        });
+      }
+    }
+
+    res.status(200).json({ success: true, message: 'Order reassigned successfully', data: { order } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+/**
+ * GET /api/restaurant/assignment/settings
+ * Fetch restaurant assignment mode & scoring configurations
+ */
+exports.getAssignmentSettings = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const WaiterAssignmentService = require('../services/waiterAssignmentService');
+    const settings = await WaiterAssignmentService.getSettings(req.tenantDb, restaurantId);
+    res.status(200).json({ success: true, data: { settings } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+/**
+ * PUT /api/restaurant/assignment/settings
+ * Update restaurant assignment configuration
+ */
+exports.updateAssignmentSettings = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const RestaurantProfile = req.tenantDb.model('RestaurantProfile');
+    const profile = await RestaurantProfile.findOne({ restaurantId });
+    if (!profile) return res.status(404).json({ success: false, message: 'Profile not found' });
+
+    profile.assignmentSettings = {
+      ...(profile.assignmentSettings || {}),
+      ...req.body
+    };
+    await profile.save();
+
+    res.status(200).json({ success: true, message: 'Assignment settings updated', data: { settings: profile.assignmentSettings } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+/**
+ * GET /api/restaurant/assignment/history
+ * Audit log of all table and order assignment events
+ */
+exports.getAssignmentHistory = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const AssignmentEvent = req.tenantDb.model('AssignmentEvent');
+    const events = await AssignmentEvent.find({ restaurantId })
+      .populate('previousWaiterId', 'name')
+      .populate('newWaiterId', 'name')
+      .populate('actorId', 'name role')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    res.status(200).json({ success: true, data: { events } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+/**
+ * GET /api/restaurant/service-requests
+ * Fetch active and recent service requests
+ */
+exports.getServiceRequests = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const ServiceRequest = req.tenantDb.model('ServiceRequest');
+    const requests = await ServiceRequest.find({ restaurantId })
+      .populate('assignedWaiterId', 'name')
+      .populate('tableId', 'tableNumber tableName section')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    res.status(200).json({ success: true, data: { serviceRequests: requests } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+/**
+ * PATCH /api/restaurant/service-requests/:id/resolve
+ * Mark a service request as acknowledged or resolved
+ */
+exports.resolveServiceRequest = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params;
+    const { status } = req.body; // 'ACKNOWLEDGED' or 'RESOLVED'
+
+    const ServiceRequest = req.tenantDb.model('ServiceRequest');
+    const request = await ServiceRequest.findOne({ _id: id, restaurantId });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+
+    request.status = status || 'RESOLVED';
+    if (status === 'ACKNOWLEDGED') {
+      request.acknowledgedAt = new Date();
+    } else if (status === 'RESOLVED') {
+      request.resolvedAt = new Date();
+      request.resolvedBy = req.user._id;
+    }
+    await request.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`restaurant:${restaurantId}`).emit('service_request_updated', request);
+      io.to(`waiter:${restaurantId}`).emit('service_request_updated', request);
+    }
+
+    res.status(200).json({ success: true, message: `Service request marked as ${request.status}`, data: { serviceRequest: request } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+/**
+ * GET /api/restaurant/waiters/workload
+ * Admin & Waiter view of live waiter workloads, shifts, and capacities
+ */
+exports.getWaitersWorkload = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const User = req.tenantDb.model('User');
+    const WaiterAssignmentService = require('../services/waiterAssignmentService');
+    const settings = await WaiterAssignmentService.getSettings(req.tenantDb, restaurantId);
+
+    const waiters = await User.find({
+      restaurantId,
+      role: 'RESTAURANT_STAFF'
+    }).populate('assignedTables', 'tableNumber tableName section');
+
+    const result = [];
+    for (const w of waiters) {
+      const { activeOrdersCount, activeRequestsCount, totalWorkload } = await WaiterAssignmentService.getWaiterWorkload(
+        req.tenantDb,
+        restaurantId,
+        w._id
+      );
+      result.push({
+        _id: w._id,
+        id: w._id,
+        name: w.name,
+        email: w.email,
+        phone: w.phone,
+        shiftStatus: w.shiftStatus || 'ON_SHIFT',
+        availabilityStatus: w.availabilityStatus || 'AVAILABLE',
+        acceptingOrders: w.acceptingOrders !== false,
+        workloadCapacity: w.workloadCapacity || settings.defaultCapacity || 5,
+        sections: w.sections || [],
+        assignedTables: w.assignedTables || [],
+        lastAssignedAt: w.lastAssignedAt,
+        activeOrdersCount,
+        activeRequestsCount,
+        totalWorkload
+      });
+    }
+
+    res.status(200).json({ success: true, data: { waiters: result } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+/**
+ * PATCH /api/restaurant/waiters/my-availability
+ * Allows a waiter to toggle their own shift or availability
+ */
+exports.updateMyAvailability = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const User = req.tenantDb.model('User');
+    const { shiftStatus, availabilityStatus, acceptingOrders } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (shiftStatus !== undefined) user.shiftStatus = shiftStatus;
+    if (availabilityStatus !== undefined) user.availabilityStatus = availabilityStatus;
+    if (acceptingOrders !== undefined) user.acceptingOrders = acceptingOrders;
+    await user.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`restaurant:${restaurantId}`).emit('waiter_status_updated', {
+        waiterId: user._id,
+        name: user.name,
+        shiftStatus: user.shiftStatus,
+        availabilityStatus: user.availabilityStatus,
+        acceptingOrders: user.acceptingOrders
+      });
+    }
+
+    res.status(200).json({ success: true, message: 'Availability updated', data: { user } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Server Error' });

@@ -16,7 +16,10 @@ exports.getStaff = async (req, res, next) => {
 exports.createStaff = async (req, res, next) => {
   try {
     const User = req.tenantDb.model('User');
-    const { name, email, password, role, phone, assignedTables } = req.body;
+    const {
+      name, email, password, role, phone, assignedTables,
+      workloadCapacity, sections, shiftStatus
+    } = req.body;
 
     if (!name || !email || !password || !role) {
       return res.status(400).json({ success: false, message: 'Please provide name, email, password, and role.' });
@@ -34,6 +37,11 @@ exports.createStaff = async (req, res, next) => {
       role,
       phone,
       assignedTables: role === 'RESTAURANT_STAFF' ? (assignedTables || []) : [],
+      workloadCapacity: workloadCapacity || 5,
+      sections: sections || [],
+      shiftStatus: shiftStatus || 'ON_SHIFT',
+      availabilityStatus: 'AVAILABLE',
+      acceptingOrders: true,
       restaurantId: req.user.restaurantId,
       isActive: true,
       emailVerified: true
@@ -49,7 +57,11 @@ exports.updateStaff = async (req, res, next) => {
   try {
     const User = req.tenantDb.model('User');
     const { id } = req.params;
-    const { name, email, role, phone, password, isActive, assignedTables } = req.body;
+    const {
+      name, email, role, phone, password, isActive,
+      assignedTables, shiftStatus, availabilityStatus,
+      acceptingOrders, workloadCapacity, sections
+    } = req.body;
 
     const user = await User.findById(id);
     if (!user) {
@@ -65,6 +77,12 @@ exports.updateStaff = async (req, res, next) => {
     user.role = role || user.role;
     user.phone = phone || user.phone;
     if (isActive !== undefined) user.isActive = isActive;
+    if (shiftStatus !== undefined) user.shiftStatus = shiftStatus;
+    if (availabilityStatus !== undefined) user.availabilityStatus = availabilityStatus;
+    if (acceptingOrders !== undefined) user.acceptingOrders = acceptingOrders;
+    if (workloadCapacity !== undefined) user.workloadCapacity = workloadCapacity;
+    if (sections !== undefined) user.sections = sections;
+
     if (user.role === 'RESTAURANT_STAFF' && assignedTables !== undefined) {
       user.assignedTables = assignedTables;
     } else if (user.role !== 'RESTAURANT_STAFF') {
@@ -76,6 +94,19 @@ exports.updateStaff = async (req, res, next) => {
     }
 
     await user.save();
+
+    // Emit waiter status update if waiter availability changed
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`restaurant:${req.user.restaurantId}`).emit('waiter_status_updated', {
+        waiterId: user._id,
+        name: user.name,
+        shiftStatus: user.shiftStatus,
+        availabilityStatus: user.availabilityStatus,
+        acceptingOrders: user.acceptingOrders,
+        workloadCapacity: user.workloadCapacity
+      });
+    }
 
     res.status(200).json({ success: true, message: 'Staff updated.', data: { staff: user } });
   } catch (error) {

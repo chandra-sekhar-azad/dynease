@@ -42,13 +42,48 @@ const orderSchema = new mongoose.Schema({
   total: { type: Number, required: true },
   status: {
     type: String,
-    enum: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'],
+    enum: ['PENDING', 'READ', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'],
     default: 'PENDING'
+  },
+  isReadByWaiter: {
+    type: Boolean,
+    default: false
   },
   paymentStatus: {
     type: String,
     enum: ['PENDING', 'PAID', 'FAILED'],
     default: 'PENDING'
+  },
+  assignedWaiterId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  assignmentType: {
+    type: String,
+    enum: ['PRIMARY', 'OVERFLOW', 'MANUAL_REASSIGN', 'UNASSIGNED'],
+    default: 'PRIMARY'
+  },
+  assignmentStatus: {
+    type: String,
+    enum: ['PENDING_ACCEPTANCE', 'ACCEPTED', 'REJECTED', 'TIMEOUT', 'UNASSIGNED'],
+    default: 'PENDING_ACCEPTANCE'
+  },
+  assignedAt: {
+    type: Date,
+    default: null
+  },
+  assignmentTimeoutAt: {
+    type: Date,
+    default: null
+  },
+  acceptedAt: {
+    type: Date,
+    default: null
+  },
+  rejectionReason: {
+    type: String,
+    default: null
   }
 }, { timestamps: true });
 

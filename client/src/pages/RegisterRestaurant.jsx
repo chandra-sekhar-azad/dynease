@@ -115,7 +115,7 @@ export default function RegisterRestaurant() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Restaurant Name <span className="text-red-500">*</span></label>
-                  <input name="name" type="text" required value={formData.name} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all outline-none text-gray-900 bg-gray-50 hover:bg-white" />
+                  <input name="name" type="text"  required value={formData.name} placeholder="Restaurant Name..." onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all outline-none text-gray-900 bg-gray-50 hover:bg-white" />
                 </div>
   
                 <div>
@@ -148,7 +148,7 @@ export default function RegisterRestaurant() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Owner Full Name <span className="text-red-500">*</span></label>
-                  <input name="ownerName" type="text" required value={formData.ownerName} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all outline-none text-gray-900 bg-gray-50 hover:bg-white" />
+                  <input name="ownerName" type="text" required placeholder="Owner Name...." value={formData.ownerName} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all outline-none text-gray-900 bg-gray-50 hover:bg-white" />
                 </div>
                 
                 <div>

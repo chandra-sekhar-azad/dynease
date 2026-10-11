@@ -28,4 +28,7 @@ router.post('/orders', orderLimiter, checkSubscription, publicController.createO
 // Allow fetching an existing order even if expired, since customers may need to see their bill
 router.get('/orders/:orderId', publicController.getOrder);
 
+// Customer Service Requests (Call waiter, water, bill, cutlery)
+router.post('/service-requests', checkSubscription, publicController.createServiceRequest);
+
 module.exports = router;

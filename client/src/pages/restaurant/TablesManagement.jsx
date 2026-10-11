@@ -43,6 +43,19 @@ export default function TablesManagement() {
 
   useEffect(() => {
     fetchTables();
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    let socket;
+    try {
+      const { io } = require ? {} : {}; // Vite import below if needed
+    } catch {}
+
+    const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
+    // Dynamically connect or re-fetch on focus
+    const interval = setInterval(fetchTables, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleAddTable = async (e) => {
@@ -183,17 +196,24 @@ export default function TablesManagement() {
                   <h3 className="text-2xl font-bold text-gray-900 mb-1">Table {table.tableNumber}</h3>
                   <p className="text-gray-500 font-medium">{table.tableName || 'Main Area'} • {table.capacity || 4} Seats</p>
                 </div>
-                <button 
-                  onClick={() => handleToggleStatus(table)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-colors border ${
-                    table.status === 'ACTIVE' 
-                      ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
-                      : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
-                  }`}
-                  title="Click to toggle status"
-                >
-                  {table.status}
-                </button>
+                <div className="flex flex-col items-end gap-1.5">
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    table.isOccupied ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}>
+                    {table.isOccupied ? '• Occupied' : '• Free'}
+                  </span>
+                  <button 
+                    onClick={() => handleToggleStatus(table)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors border ${
+                      table.status === 'ACTIVE' 
+                        ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
+                        : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                    }`}
+                    title="Click to toggle status"
+                  >
+                    {table.status}
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col items-center bg-gray-50 p-6 rounded-xl border border-gray-100 mb-6">

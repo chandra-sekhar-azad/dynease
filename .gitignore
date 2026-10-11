@@ -1,29 +1,55 @@
 # Node dependencies
 node_modules/
-npm-debug.log
-yarn-error.log
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production
-.env.production.local
-
-# Build outputs (Client & Server)
-dist/
-build/
-dist-ssr/
-
-# Logs
-logs
-*.log
+*/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# OS specific files
+# Environment & Secrets (Crucial)
+.env
+.env.*
+!.env.example
+*.env
+server/.env
+client/.env
+app/.env
+server/.env.*
+client/.env.*
+app/.env.*
+
+# Build outputs (Client & Mobile)
+dist/
+build/
+dist-ssr/
+client/dist/
+*.tsbuildinfo
+
+# Expo & Mobile builds
+.expo/
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+*.apk
+*.aab
+.kotlin/
+android/
+ios/
+
+# Server generated static assets (optional if built dynamically)
+server/public/assets/
+
+# Logs & Runtime
+logs/
+*.log
+
+# OS & Temp files
 .DS_Store
 .DS_Store?
 ._*
@@ -32,11 +58,12 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 
-# Editor directories and files
-.idea
-.vscode
+# Editor & IDE configurations
+.idea/
+.vscode/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+.claude/

@@ -261,7 +261,7 @@ function InteractivePhoneMockup() {
         <div className="flex-1 bg-white flex items-center justify-center h-full w-full">
           <div className="text-center animate-pulse">
             <img src={iconImg} alt="Dynease Icon" className="w-24 h-24 mx-auto mb-4 object-contain" />
-            <h1 className="text-3xl font-extrabold text-orange-600 tracking-widest">Dynease</h1>
+            <h1 className="text-3xl font-extrabold text-green-600 tracking-widest">Dynease</h1>
           </div>
         </div>
       ) : (
@@ -301,7 +301,7 @@ function InteractivePhoneMockup() {
                   </div>
                   <div className="flex justify-between items-center mt-2">
                     <span className="font-bold text-sm">{item.price}</span>
-                    <button className="w-6 h-6 bg-[#ff6b00] text-white rounded-full flex items-center justify-center text-lg leading-none">+</button>
+                    <button className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-lg leading-none">+</button>
                   </div>
                 </div>
               </div>
@@ -346,7 +346,7 @@ function InteractivePhoneMockup() {
           <div className="p-4 flex flex-col gap-4">
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded">Preparing</span>
+                <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">Preparing</span>
                 <span className="text-xs text-gray-500">10:42 AM</span>
               </div>
               <p className="font-bold text-sm mb-1">Order #4092</p>

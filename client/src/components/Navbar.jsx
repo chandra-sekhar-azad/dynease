@@ -7,11 +7,16 @@ export default function Navbar({ minimal = false }) {
 
   return (
     <nav className={`flex justify-between items-center px-5 md:px-8 py-3 mx-4 mt-4 fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-md border border-white/50 shadow-sm rounded-full md:w-fit md:mx-auto md:gap-12 ${minimal ? 'border-b border-[var(--color-border)]' : ''}`}>
-      <Link to="/" className="text-[24px] font-bold text-[var(--color-text)] tracking-tight flex items-center gap-3">
-        <div className="bg-[var(--color-primary)] text-white p-2 rounded-lg flex items-center justify-center">
-          <Utensils size={24} />
-        </div>
-        Dynease
+      <Link to="/" className="flex items-center gap-2.5">
+        <img 
+          src="/brand/logo-horizontal.svg" 
+          alt="Dynease Logo" 
+          className="h-8 md:h-9 w-auto object-contain"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/brand/logo-horizontal.png';
+          }}
+        />
       </Link>
       
       {minimal ? (

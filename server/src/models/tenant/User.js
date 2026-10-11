@@ -43,6 +43,33 @@ const userSchema = new mongoose.Schema({
   assignedTables: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Table'
+  }],
+  shiftStatus: {
+    type: String,
+    enum: ['ON_SHIFT', 'OFF_SHIFT'],
+    default: 'ON_SHIFT'
+  },
+  availabilityStatus: {
+    type: String,
+    enum: ['AVAILABLE', 'BUSY', 'PAUSED'],
+    default: 'AVAILABLE'
+  },
+  acceptingOrders: {
+    type: Boolean,
+    default: true
+  },
+  workloadCapacity: {
+    type: Number,
+    default: 5,
+    min: 1
+  },
+  lastAssignedAt: {
+    type: Date,
+    default: null
+  },
+  sections: [{
+    type: String,
+    trim: true
   }]
 }, { timestamps: true });
 

@@ -82,13 +82,23 @@ export default function WaiterDashboard() {
     ? orders.filter(o => assignedTableIds.includes(o.tableId))
     : orders;
 
-  const updateOrderStatus = async (orderId: string, status: string) => {
+  const updateOrderStatus = async (orderId: string, status: string, options?: { isReadByWaiter?: boolean }) => {
     try {
-      const res = await apiClient.patch(`/restaurant/orders/${orderId}/status`, { status });
+      const payload: any = { status };
+      if (options?.isReadByWaiter !== undefined) {
+        payload.isReadByWaiter = options.isReadByWaiter;
+      }
+      const res = await apiClient.patch(`/restaurant/orders/${orderId}/status`, payload);
       if (res.data?.success) {
-        // Optimistically update the UI by removing the completed order
-        setOrders(prev => prev.filter(o => o.id !== orderId));
-        Alert.alert('Success', `Order marked as ${status}`);
+        if (['COMPLETED', 'CANCELLED', 'PAID'].includes(status)) {
+          // Optimistically update the UI by removing completed order
+          setOrders(prev => prev.filter(o => o.id !== orderId));
+          Alert.alert('Table Cleared', 'Order completed and table is now freed for next guests!');
+        } else {
+          // Update order status in place
+          setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status, isReadByWaiter: true } : o));
+          Alert.alert('Order Acknowledged', 'Order marked as read.');
+        }
       } else {
         Alert.alert('Error', res.data?.message || 'Failed to update order status');
       }
@@ -98,44 +108,62 @@ export default function WaiterDashboard() {
     }
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View>
-          <Text style={styles.tableName}>Table {item.tableNumber || item.table}</Text>
-          <Text style={styles.orderId}>{item.orderNumber || item.id?.substring(0,8)}</Text>
-        </View>
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>{item.status}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.itemsList}>
-        {item.items?.map((orderItem: any, i: number) => (
-          <View key={i} style={styles.itemRow}>
-            <Text style={styles.itemText}>{orderItem.quantity || orderItem.qty}x {orderItem.itemName || orderItem.name}</Text>
-          </View>
-        ))}
-      </View>
+  const renderItem = ({ item }: { item: any }) => {
+    const isRead = item.isReadByWaiter || item.status !== 'PENDING';
 
-      <TouchableOpacity 
-        style={styles.completeButton}
-        onPress={() => {
-          Alert.alert(
-            'Complete Order',
-            'Are you sure you want to mark this order as completed?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Complete', style: 'default', onPress: () => updateOrderStatus(item.id, 'COMPLETED') }
-            ]
-          );
-        }}
-      >
-        <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-        <Text style={styles.completeButtonText}>Mark as Completed</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={styles.tableName}>Table {item.tableNumber || item.table}</Text>
+            <Text style={styles.orderId}>{item.orderNumber || item.id?.substring(0,8)}</Text>
+          </View>
+          <View style={[styles.statusBadge, isRead ? styles.statusBadgeRead : styles.statusBadgePending]}>
+            <Text style={[styles.statusText, isRead ? styles.statusTextRead : styles.statusTextPending]}>
+              {isRead ? item.status : 'NEW (UNREAD)'}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.itemsList}>
+          {item.items?.map((orderItem: any, i: number) => (
+            <View key={i} style={styles.itemRow}>
+              <Text style={styles.itemText}>{orderItem.quantity || orderItem.qty}x {orderItem.itemName || orderItem.name}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.actionButtonsRow}>
+          {!isRead && (
+            <TouchableOpacity 
+              style={styles.readButton}
+              onPress={() => updateOrderStatus(item.id, 'READ', { isReadByWaiter: true })}
+            >
+              <Ionicons name="eye-outline" size={18} color="#16a34a" />
+              <Text style={styles.readButtonText}>Mark as Read</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity 
+            style={[styles.completeButton, !isRead ? styles.completeButtonCompact : null]}
+            onPress={() => {
+              Alert.alert(
+                'Clear Table & Complete Order',
+                `Are you sure Table ${item.tableNumber || item.table}'s order is completed? This will free the table for new customers and move this order to Past Orders.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Complete & Free Table', style: 'default', onPress: () => updateOrderStatus(item.id, 'COMPLETED') }
+                ]
+              );
+            }}
+          >
+            <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+            <Text style={styles.completeButtonText}>Completed (Free Table)</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -249,15 +277,25 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statusBadge: {
-    backgroundColor: '#f0fdf4',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
+  statusBadgePending: {
+    backgroundColor: '#fef3c7',
+  },
+  statusBadgeRead: {
+    backgroundColor: '#f0fdf4',
+  },
   statusText: {
-    color: '#16a34a',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  statusTextPending: {
+    color: '#d97706',
+  },
+  statusTextRead: {
+    color: '#16a34a',
   },
   itemsList: {
     maxHeight: 120,
@@ -289,19 +327,44 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
   },
-  completeButton: {
-    backgroundColor: '#22c55e',
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 15,
+  },
+  readButton: {
+    flex: 1,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1.5,
+    borderColor: '#16a34a',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 15,
+  },
+  readButtonText: {
+    color: '#16a34a',
+    fontWeight: 'bold',
+    marginLeft: 6,
+    fontSize: 13,
+  },
+  completeButton: {
+    flex: 1,
+    backgroundColor: '#16a34a',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  completeButtonCompact: {
+    flex: 1.3,
   },
   completeButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     marginLeft: 6,
-    fontSize: 14,
+    fontSize: 13,
   }
 });

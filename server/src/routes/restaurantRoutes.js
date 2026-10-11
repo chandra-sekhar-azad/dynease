@@ -25,6 +25,20 @@ router.patch('/menu/:id/status', restaurantController.toggleMenuItemStatus);
 // ── Order routes ──
 router.get('/orders', restaurantController.getOrders);
 router.patch('/orders/:id/status', restaurantController.updateOrderStatus);
+router.patch('/orders/:id/accept', restaurantController.acceptOrder);
+router.patch('/orders/:id/reject', restaurantController.rejectOrder);
+router.patch('/orders/:id/reassign', restrictTo('RESTAURANT_OWNER'), restaurantController.reassignOrder);
+
+// ── Assignment & Workload routes ──
+router.get('/assignment/settings', restaurantController.getAssignmentSettings);
+router.put('/assignment/settings', restrictTo('RESTAURANT_OWNER'), restaurantController.updateAssignmentSettings);
+router.get('/assignment/history', restaurantController.getAssignmentHistory);
+router.get('/waiters/workload', restaurantController.getWaitersWorkload);
+router.patch('/waiters/my-availability', restaurantController.updateMyAvailability);
+
+// ── Service Request routes ──
+router.get('/service-requests', restaurantController.getServiceRequests);
+router.patch('/service-requests/:id/resolve', restaurantController.resolveServiceRequest);
 
 // ── Stats routes ──
 router.get('/stats', restrictTo('RESTAURANT_OWNER'), restaurantController.getStats);

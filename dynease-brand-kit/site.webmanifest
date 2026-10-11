@@ -1,0 +1,35 @@
+{
+  "name": "Dynease",
+  "short_name": "Dynease",
+  "description": "QR ordering, digital menu and smart restaurants",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0f8a4b",
+  "background_color": "#effaf3",
+  "icons": [
+    {
+      "src": "/icons/android/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/android/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/android/maskable-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/android/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

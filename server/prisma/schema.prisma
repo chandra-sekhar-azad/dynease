@@ -1,0 +1,419 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------
+// 1. Central / Platform Models
+// ----------------------------------------------------
+
+enum RestaurantStatus {
+  PENDING_APPROVAL
+  PROVISIONING
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  PROVISIONING_FAILED
+}
+
+enum SubscriptionStatus {
+  PENDING
+  TRIAL
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubscriptionPlanType {
+  FREE
+  GROWTH
+  PRO
+}
+
+model RestaurantRegistry {
+  id                    String              @id @default(uuid())
+  restaurantId          String              @unique
+  restaurantName        String
+  slug                  String              @unique
+  subdomain             String              @unique
+  databaseName          String              @unique
+  ownerEmail            String
+  ownerName             String?
+  ownerPhone            String?
+  googleReviewLink      String?             @default("")
+  status                RestaurantStatus    @default(PENDING_APPROVAL)
+  selectedPlan          SubscriptionPlanType @default(FREE)
+  subscriptionStatus    SubscriptionStatus  @default(PENDING)
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  activatedAt           DateTime?
+  lastPaymentAt         DateTime?
+  paymentStatus         String?
+  renewalHistory        Json?               @default("[]")
+  remindersSent         Json?               @default("{\"sevenDay\": false, \"threeDay\": false, \"oneDay\": false, \"expired\": false}")
+  approvedAt            DateTime?
+  suspendedAt           DateTime?
+  databaseProvisioned   Boolean             @default(true)
+  databaseProvisionedAt DateTime?
+  renewalRequest        Json?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  profile               RestaurantProfile?
+
+  @@map("dynease_restaurant_registries")
+}
+
+model SubscriptionPlan {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  price       Float
+  features    Json?    @default("[]")
+  durationDays Int     @default(30)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("subscription_plans")
+}
+
+model PlatformAd {
+  id        String   @id @default(uuid())
+  title     String
+  imageUrl  String
+  linkUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_ads")
+}
+
+model RestaurantRegistration {
+  id             String   @id @default(uuid())
+  restaurantName String
+  restaurantType String   @default("Restaurant")
+  subdomain      String   @unique
+  ownerName      String
+  ownerPhone     String
+  ownerPassword  String
+  selectedPlan   String   @default("FREE")
+  status         String   @default("PENDING_APPROVAL")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("restaurant_registrations")
+}
+
+model SupportMessage {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String?
+  phone     String?
+  message   String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("support_messages")
+}
+
+// ----------------------------------------------------
+// 2. Tenant / Restaurant Models
+// ----------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN
+  RESTAURANT_OWNER
+  RESTAURANT_ADMIN
+  RESTAURANT_STAFF
+  KITCHEN_STAFF
+  CUSTOMER
+}
+
+enum ShiftStatus {
+  ON_SHIFT
+  OFF_SHIFT
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BUSY
+  PAUSED
+}
+
+enum TableAssignmentMode {
+  MANUAL
+  AUTOMATIC
+  HYBRID
+}
+
+enum OrderAssignmentStatus {
+  PENDING_ACCEPTANCE
+  ACCEPTED
+  REJECTED
+  TIMED_OUT
+  UNASSIGNED
+}
+
+enum OrderStatus {
+  PENDING
+  READ
+  PREPARING
+  SERVED
+  COMPLETED
+  CANCELLED
+  PAID
+}
+
+enum ServiceRequestType {
+  CALL_WAITER
+  WATER
+  CUTLERY
+  BILL
+  CLEANING
+  OTHER
+}
+
+enum ServiceRequestStatus {
+  OPEN
+  ASSIGNED
+  ACKNOWLEDGED
+  RESOLVED
+  CANCELLED
+}
+
+model RestaurantProfile {
+  id                 String              @id @default(uuid())
+  restaurantId       String              @unique
+  name               String
+  subtitle           String?
+  slug               String
+  type               String              @default("Restaurant")
+  description        String?
+  logo               Json?
+  coverImage         Json?
+  address            Json?
+  phone              String?
+  email              String?
+  openingHours       Json?
+  cuisineType        String[]            @default([])
+  taxInfo            Json?
+  currency           String              @default("INR")
+  isActive           Boolean             @default(true)
+  googleReviewLink   String?             @default("")
+  assignmentSettings Json?               @default("{\"mode\": \"HYBRID\", \"defaultCapacity\": 5, \"weightWorkload\": 0.60, \"weightRecentAssignment\": 0.25, \"weightSectionMismatch\": 0.15, \"allowOverflow\": true, \"acceptanceTimeoutMinutes\": 3, \"reassignmentPolicy\": \"AUTO_REASSIGN\"}")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  registry           RestaurantRegistry? @relation(fields: [restaurantId], references: [restaurantId], onDelete: Cascade)
+  users              User[]
+  categories         Category[]
+  menuItems          MenuItem[]
+  tables             Table[]
+  orders             Order[]
+  serviceRequests    ServiceRequest[]
+  assignmentEvents   AssignmentEvent[]
+
+  @@map("dynease_restaurant_profiles")
+}
+
+model User {
+  id                 String             @id @default(uuid())
+  restaurantId       String
+  name               String
+  email              String
+  password           String
+  role               UserRole           @default(RESTAURANT_STAFF)
+  phone              String?
+  isActive           Boolean            @default(true)
+  
+  // Waiter-to-Table fields
+  shiftStatus        ShiftStatus        @default(ON_SHIFT)
+  availabilityStatus AvailabilityStatus @default(AVAILABLE)
+  acceptingOrders    Boolean            @default(true)
+  workloadCapacity   Int                @default(5)
+  lastAssignedAt     DateTime?
+  sections           String[]           @default([])
+  
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  restaurant         RestaurantProfile  @relation(fields: [restaurantId], references: [restaurantId], onDelete: Cascade)
+  primaryTables      Table[]            @relation("PrimaryTableWaiter")
+  assignedOrders     Order[]            @relation("AssignedWaiterOrders")
+  serviceRequests    ServiceRequest[]   @relation("AssignedWaiterRequests")
+
+  @@unique([restaurantId, email])
+  @@index([restaurantId, role, isActive, shiftStatus])
+  @@map("dynease_users")
+}
+
+model Category {
+  id           String            @id @default(uuid())
+  restaurantId String
+  name         String
+  displayOrder Int               @default(0)
+  isActive     Boolean           @default(true)
+  image        Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  restaurant   RestaurantProfile @relation(fields: [restaurantId], references: [restaurantId], onDelete: Cascade)
+  menuItems    MenuItem[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, isActive])
+  @@map("dynease_categories")
+}
+
+model MenuItem {
+  id                String            @id @default(uuid())
+  restaurantId      String
+  categoryId        String?
+  category          String
+  name              String
+  description       String?
+  price             Float
+  image             Json?
+  isAvailable       Boolean           @default(true)
+  dietaryPreference String            @default("VEG") // VEG, NON_VEG, EGG
+  preparationTime   Int?              @default(15)
+  variants          Json?             @default("[]")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  restaurant        RestaurantProfile @relation(fields: [restaurantId], references: [restaurantId], onDelete: Cascade)
+  categoryRel       Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, category])
+  @@index([restaurantId, isAvailable])
+  @@map("dynease_menu_items")
+}
+
+model Table {
+  id               String              @id @default(uuid())
+  restaurantId     String
+  tableNumber      String
+  capacity         Int                 @default(4)
+  section          String?
+  status           String              @default("ACTIVE") // ACTIVE, INACTIVE, OCCUPIED
+  qrCodeToken      String              @unique
+  qrCodeUrl        String?
+  
+  // Waiter Assignment
+  primaryWaiterId  String?
+  assignmentMode   TableAssignmentMode @default(HYBRID)
+  assignedAt       DateTime?
+  assignedBy       String?
+  assignmentStatus String              @default("ACTIVE")
+  
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  restaurant       RestaurantProfile   @relation(fields: [restaurantId], references: [restaurantId], onDelete: Cascade)
+  primaryWaiter    User?               @relation("PrimaryTableWaiter", fields: [primaryWaiterId], references: [id], onDelete: SetNull)
+  orders           Order[]
+  serviceRequests  ServiceRequest[]
+
+  @@unique([restaurantId, tableNumber])
+  @@index([restaurantId, status])
+  @@map("dynease_tables")
+}
+
+model Order {
+  id                  String                @id @default(uuid())
+  restaurantId        String
+  tableId             String
+  tableNumber         String
+  customerName        String?               @default("Guest")
+  customerPhone       String?
+  items               Json                  // Array of { menuItemId, name, price, quantity, customizations }
+  totalAmount         Float
+  taxAmount           Float                 @default(0)
+  discountAmount      Float                 @default(0)
+  finalAmount         Float
+  status              OrderStatus           @default(PENDING)
+  orderNumber         String
+  isReadByWaiter      Boolean               @default(false)
+  specialInstructions String?
+  paymentStatus       String                @default("PENDING") // PENDING, PAID, FAILED
+  paymentMethod       String?               @default("CASH")
+  
+  // Waiter-to-Table Assignment
+  assignedWaiterId    String?
+  assignmentType      String?               @default("PRIMARY") // PRIMARY, OVERFLOW, MANUAL, UNASSIGNED
+  assignmentStatus    OrderAssignmentStatus @default(PENDING_ACCEPTANCE)
+  assignedAt          DateTime?
+  assignmentTimeoutAt DateTime?
+  acceptedAt          DateTime?
+  rejectionReason     String?
+
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  restaurant          RestaurantProfile     @relation(fields: [restaurantId], references: [restaurantId], onDelete: Cascade)
+  table               Table                 @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  assignedWaiter      User?                 @relation("AssignedWaiterOrders", fields: [assignedWaiterId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, status])
+  @@index([restaurantId, assignedWaiterId, status])
+  @@index([restaurantId, tableId, status])
+  @@map("dynease_orders")
+}
+
+model ServiceRequest {
+  id               String               @id @default(uuid())
+  restaurantId     String
+  tableId          String
+  tableNumber      String
+  type             ServiceRequestType   @default(CALL_WAITER)
+  note             String?              @default("")
+  status           ServiceRequestStatus @default(OPEN)
+  assignedWaiterId String?
+  acknowledgedAt   DateTime?
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  restaurant       RestaurantProfile    @relation(fields: [restaurantId], references: [restaurantId], onDelete: Cascade)
+  table            Table                @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  assignedWaiter   User?                @relation("AssignedWaiterRequests", fields: [assignedWaiterId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, status])
+  @@index([restaurantId, assignedWaiterId, status])
+  @@map("dynease_service_requests")
+}
+
+model AssignmentEvent {
+  id               String            @id @default(uuid())
+  restaurantId     String
+  targetType       String            // TABLE, ORDER, SERVICE_REQUEST
+  targetId         String
+  tableId          String?
+  tableNumber      String?
+  previousWaiterId String?
+  newWaiterId      String?
+  assignmentMode   String            @default("HYBRID")
+  action           String            // ASSIGNED, REASSIGNED, ACCEPTED, REJECTED, TIMED_OUT, UNASSIGNED
+  actorId          String?
+  actorRole        String?           // WAITER, MANAGER, SYSTEM
+  score            Float?
+  scoreInputs      Json?
+  reason           String?
+  createdAt        DateTime          @default(now())
+
+  restaurant       RestaurantProfile @relation(fields: [restaurantId], references: [restaurantId], onDelete: Cascade)
+
+  @@index([restaurantId, targetType, targetId])
+  @@index([restaurantId, createdAt])
+  @@map("dynease_assignment_events")
+}

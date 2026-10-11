@@ -2,7 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function CustomerSidebar({ isOpen, onClose, tableLabel, googleReviewLink }) {
+export default function CustomerSidebar({ isOpen, onClose, tableLabel, googleReviewLink, onOpenServiceRequest }) {
   if (!isOpen) return null;
 
   return (
@@ -15,9 +15,21 @@ export default function CustomerSidebar({ isOpen, onClose, tableLabel, googleRev
           </button>
         </div>
         <div className="p-4 space-y-4 flex-1">
-          <Link to="/" onClick={onClose} className="block text-gray-700 font-bold hover:text-green-600 transition-colors">Home / Menu</Link>
-          <Link to="/cart" onClick={onClose} className="block text-gray-700 font-bold hover:text-green-600 transition-colors">Your Cart</Link>
-          <Link to="/feedback" onClick={onClose} className="block text-gray-700 font-bold hover:text-green-600 transition-colors">Leave Feedback</Link>
+          <Link to="/" onClick={onClose} className="block text-gray-700 font-bold hover:text-emerald-600 transition-colors">Home / Menu</Link>
+          <Link to="/cart" onClick={onClose} className="block text-gray-700 font-bold hover:text-emerald-600 transition-colors">Your Cart</Link>
+          {onOpenServiceRequest && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenServiceRequest();
+              }}
+              className="w-full text-left font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 p-2.5 rounded-xl border border-emerald-200 transition-colors flex items-center justify-between"
+            >
+              <span>Call Waiter / Service</span>
+              <span className="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full font-medium">Quick</span>
+            </button>
+          )}
+          <Link to="/feedback" onClick={onClose} className="block text-gray-700 font-bold hover:text-emerald-600 transition-colors">Leave Feedback</Link>
           {googleReviewLink ? (
             <a 
               href={googleReviewLink} 

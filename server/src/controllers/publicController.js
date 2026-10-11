@@ -365,29 +365,72 @@ exports.createOrder = async (req, res, next) => {
       paymentStatus: 'PENDING'
     });
 
+    // --- Dynamic Waiter Assignment ---
+    const WaiterAssignmentService = require('../services/waiterAssignmentService');
+    const assignment = await WaiterAssignmentService.assignWaiterForOrder(
+      tenantDb,
+      registry.restaurantId,
+      table,
+      order._id
+    );
+
+    order.assignedWaiterId = assignment.assignedWaiterId;
+    order.assignmentType = assignment.assignmentType;
+    order.assignmentStatus = assignment.assignmentStatus;
+    order.assignedAt = assignment.assignedAt;
+    order.assignmentTimeoutAt = assignment.assignmentTimeoutAt;
+    await order.save();
+
+    // Mark table as occupied
+    await Table.findByIdAndUpdate(table._id, {
+      isOccupied: true,
+      lastOrderId: order._id
+    });
+
     const io = req.app.get('io');
     if (io) {
+      io.to(`restaurant:${registry.restaurantId}`).emit('table_updated', {
+        tableId: table._id,
+        isOccupied: true,
+        lastOrderId: order._id,
+        primaryWaiterId: table.primaryWaiterId
+      });
+
       const payload = {
         id: order._id,
+        _id: order._id,
         orderNumber: order.orderNumber,
+        tableId: order.tableId,
         tableNumber: order.tableNumber,
         items: order.items,
         total: order.total,
         status: order.status,
+        assignedWaiterId: order.assignedWaiterId,
+        assignmentType: order.assignmentType,
+        assignmentStatus: order.assignmentStatus,
+        assignmentTimeoutAt: order.assignmentTimeoutAt,
         createdAt: order.createdAt
       };
 
       // Emit to kitchen
       io.to(`kitchen:${registry.restaurantId}`).emit('new_order', payload);
 
+      // Emit to restaurant admin/manager
+      io.to(`restaurant:${registry.restaurantId}`).emit('new_order', payload);
+
       // Emit to all waiters
       io.to(`waiter:${registry.restaurantId}`).emit('new_order', payload);
 
-      // Emit to assigned waiters
-      const User = tenantDb.model('User');
-      const waiters = await User.find({ role: 'RESTAURANT_STAFF', assignedTables: table._id });
-      for (const w of waiters) {
-        io.to(`waiter_user:${w._id.toString()}`).emit('new_order', payload);
+      // Emit directly to assigned waiter room
+      if (order.assignedWaiterId) {
+        io.to(`waiter_user:${order.assignedWaiterId.toString()}`).emit('assigned_order', payload);
+      } else {
+        // Notify managers if order is unassigned
+        io.to(`restaurant:${registry.restaurantId}`).emit('unassigned_order_alert', {
+          orderNumber: order.orderNumber,
+          tableNumber: order.tableNumber,
+          reason: assignment.reason
+        });
       }
     }
 
@@ -429,6 +472,69 @@ exports.getOrder = async (req, res, next) => {
     }
 
     res.status(200).json({ success: true, data: { order } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/public/service-requests
+ * Customer creates a service request (Call waiter, Water, Cutlery, Bill)
+ */
+exports.createServiceRequest = async (req, res, next) => {
+  try {
+    const info = requireTenantDb(req, res);
+    if (!info) return;
+    const { tenantDb, registry } = info;
+
+    const { tableId, type, note } = req.body;
+    if (!tableId) {
+      return res.status(400).json({ success: false, message: 'tableId is required.' });
+    }
+
+    const Table = tenantDb.model('Table');
+    const table = await Table.findById(tableId);
+    if (!table || table.status !== 'ACTIVE') {
+      return res.status(400).json({ success: false, message: 'Invalid or inactive table.' });
+    }
+
+    const ServiceRequest = tenantDb.model('ServiceRequest');
+    const serviceRequest = await ServiceRequest.create({
+      restaurantId: registry.restaurantId,
+      tableId: table._id,
+      tableNumber: table.tableNumber,
+      type: type || 'CALL_WAITER',
+      note: note || '',
+      status: 'OPEN',
+      assignedWaiterId: table.primaryWaiterId || null
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      const payload = {
+        id: serviceRequest._id,
+        _id: serviceRequest._id,
+        tableId: table._id,
+        tableNumber: table.tableNumber,
+        type: serviceRequest.type,
+        note: serviceRequest.note,
+        status: serviceRequest.status,
+        assignedWaiterId: serviceRequest.assignedWaiterId,
+        createdAt: serviceRequest.createdAt
+      };
+
+      io.to(`restaurant:${registry.restaurantId}`).emit('new_service_request', payload);
+      io.to(`waiter:${registry.restaurantId}`).emit('new_service_request', payload);
+      if (serviceRequest.assignedWaiterId) {
+        io.to(`waiter_user:${serviceRequest.assignedWaiterId.toString()}`).emit('assigned_service_request', payload);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Service request created successfully',
+      data: { serviceRequest }
+    });
   } catch (error) {
     next(error);
   }

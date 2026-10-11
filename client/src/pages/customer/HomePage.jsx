@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Loader2, Plus, Minus, X, Menu as MenuIcon, ArrowLeft } from 'lucide-react';
+import { Search, ShoppingBag, Loader2, Plus, Minus, X, Menu as MenuIcon, ArrowLeft, Bell } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
 import CustomerSidebar from '../../components/customer/CustomerSidebar';
+import ServiceRequestModal from '../../components/customer/ServiceRequestModal';
 
 export default function HomePage({ forcedSlug }) {
   const { slug: paramSlug } = useParams();
@@ -16,6 +17,7 @@ export default function HomePage({ forcedSlug }) {
   const [activeDiet, setActiveDiet] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [errorCode, setErrorCode] = useState('');
@@ -303,21 +305,38 @@ export default function HomePage({ forcedSlug }) {
         </div>
       )}
 
-      {/* ── Floating Cart Button ── */}
-      <div className="fixed bottom-6 left-0 right-0 z-50 pointer-events-none px-4 flex justify-end">
-        <div className="w-full max-w-md mx-auto flex justify-end">
-          <Link
-            to="/cart"
-            aria-label="View cart"
-            className="pointer-events-auto relative p-4 bg-[var(--color-primary)] text-white shadow-lg hover:bg-[var(--color-primary-light)] transition-colors flex items-center justify-center rounded-none"
-          >
-            <ShoppingBag size={22} className="text-white" />
-            {cartCount > 0 && (
-              <span className="absolute top-0 right-0 -mt-2 -mr-2 w-6 h-6 bg-[var(--color-accent)] text-white text-xs flex items-center justify-center font-medium border-2 border-white">
-                {cartCount}
+      {/* ── Floating Action Buttons (Cart & Call Waiter) ── */}
+      <div className="fixed bottom-6 left-0 right-0 z-50 pointer-events-none px-4 flex justify-between">
+        <div className="w-full max-w-md mx-auto flex items-center justify-between">
+          {session?.table && (
+            <button
+              onClick={() => setIsServiceModalOpen(true)}
+              aria-label="Call Waiter"
+              className="pointer-events-auto flex items-center gap-2 px-3.5 py-3 bg-white/95 backdrop-blur-md border border-emerald-600/30 text-emerald-800 shadow-xl rounded-full text-xs font-bold hover:bg-emerald-50 transition-all hover:scale-105 active:scale-95"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
               </span>
-            )}
-          </Link>
+              <Bell size={16} className="text-emerald-600" />
+              <span>Call Waiter</span>
+            </button>
+          )}
+
+          <div className="ml-auto">
+            <Link
+              to="/cart"
+              aria-label="View cart"
+              className="pointer-events-auto relative p-4 bg-[var(--color-primary)] text-white shadow-lg hover:bg-[var(--color-primary-light)] transition-colors flex items-center justify-center rounded-none"
+            >
+              <ShoppingBag size={22} className="text-white" />
+              {cartCount > 0 && (
+                <span className="absolute top-0 right-0 -mt-2 -mr-2 w-6 h-6 bg-[var(--color-accent)] text-white text-xs flex items-center justify-center font-medium border-2 border-white">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -326,6 +345,12 @@ export default function HomePage({ forcedSlug }) {
         onClose={() => setIsSidebarOpen(false)} 
         tableLabel={tableLabel} 
         googleReviewLink={restaurant?.googleReviewLink}
+        onOpenServiceRequest={() => setIsServiceModalOpen(true)}
+      />
+
+      <ServiceRequestModal
+        isOpen={isServiceModalOpen}
+        onClose={() => setIsServiceModalOpen(false)}
       />
 
     </div>

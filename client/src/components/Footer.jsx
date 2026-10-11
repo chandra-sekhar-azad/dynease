@@ -6,11 +6,16 @@ export default function Footer({ className = "" }) {
   return (
     <footer className={`bg-[#06341a] text-white py-12 px-4 md:px-12 border-t border-[#094825] ${className}`}>
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-        <Link to="/" className="text-[24px] font-bold text-white tracking-tight flex items-center gap-3">
-          <div className="bg-white text-[#06341a] p-2 rounded-lg flex items-center justify-center">
-            <Utensils size={20} />
-          </div>
-          Dynease
+        <Link to="/" className="flex items-center gap-2.5">
+          <img 
+            src="/brand/logo-horizontal-reversed.svg" 
+            alt="Dynease" 
+            className="h-8 md:h-9 w-auto object-contain"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/brand/logo-horizontal-reversed.png';
+            }}
+          />
         </Link>
         
         <div className="flex flex-wrap justify-center gap-8 text-sm font-medium">

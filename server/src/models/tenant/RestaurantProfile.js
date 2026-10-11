@@ -62,6 +62,43 @@ const restaurantProfileSchema = new mongoose.Schema({
   googleReviewLink: {
     type: String,
     default: ''
+  },
+  assignmentSettings: {
+    mode: {
+      type: String,
+      enum: ['MANUAL', 'AUTOMATIC', 'HYBRID'],
+      default: 'HYBRID'
+    },
+    defaultCapacity: {
+      type: Number,
+      default: 5,
+      min: 1
+    },
+    weightWorkload: {
+      type: Number,
+      default: 0.60
+    },
+    weightRecentAssignment: {
+      type: Number,
+      default: 0.25
+    },
+    weightSectionMismatch: {
+      type: Number,
+      default: 0.15
+    },
+    allowOverflow: {
+      type: Boolean,
+      default: true
+    },
+    acceptanceTimeoutMinutes: {
+      type: Number,
+      default: 3
+    },
+    reassignmentPolicy: {
+      type: String,
+      enum: ['AUTO_REASSIGN', 'ESCALATE_TO_MANAGER'],
+      default: 'AUTO_REASSIGN'
+    }
   }
 }, { timestamps: true });
 

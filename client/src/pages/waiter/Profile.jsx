@@ -114,6 +114,21 @@ export default function Profile() {
                 <p className="font-medium text-gray-800">{user.phone || 'Not provided'}</p>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+              <div className="bg-gray-50 p-3 rounded-xl">
+                <span className="text-xs text-gray-400 font-semibold block">Shift Status</span>
+                <span className="font-bold text-gray-800 text-sm">{user.shiftStatus || 'ON_SHIFT'}</span>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-xl">
+                <span className="text-xs text-gray-400 font-semibold block">Availability</span>
+                <span className="font-bold text-green-700 text-sm">{user.availabilityStatus || 'AVAILABLE'}</span>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-xl">
+                <span className="text-xs text-gray-400 font-semibold block">Order Capacity</span>
+                <span className="font-bold text-gray-800 text-sm">{user.workloadCapacity || 5} Orders</span>
+              </div>
+            </div>
           </div>
         </div>
 
