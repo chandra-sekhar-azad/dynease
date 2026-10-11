@@ -153,7 +153,7 @@ export default function WaiterDashboard() {
       </View>
       
       {loading ? (
-        <ActivityIndicator size="large" color="#f97316" style={{ marginTop: 50 }} />
+        <ActivityIndicator size="large" color="#16a34a" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
           data={filteredOrders}
@@ -161,7 +161,7 @@ export default function WaiterDashboard() {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#f97316']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#16a34a']} />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 15,
     borderLeftWidth: 4,
-    borderLeftColor: '#f97316',
+    borderLeftColor: '#16a34a',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -249,13 +249,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statusBadge: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0fdf4',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   statusText: {
-    color: '#ea580c',
+    color: '#16a34a',
     fontSize: 12,
     fontWeight: 'bold',
   },

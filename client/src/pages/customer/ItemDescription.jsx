@@ -68,7 +68,7 @@ export default function ItemDescription() {
         </div>
         
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{item.name}</h1>
-        <p className="text-3xl font-extrabold text-orange-600 mb-4">₹{item.price}</p>
+        <p className="text-3xl font-extrabold text-green-600 mb-4">₹{item.price}</p>
         
         <p className="text-gray-600 leading-relaxed mb-8 font-medium">
           {item.desc}
@@ -78,13 +78,13 @@ export default function ItemDescription() {
           <h3 className="text-lg font-bold text-gray-900 mb-4">Add-ons</h3>
           <div className="space-y-3">
             {item.addons.map(addon => (
-              <label key={addon.id} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${selectedAddons.includes(addon.id) ? 'border-orange-500 bg-orange-50/50' : 'border-gray-200 hover:border-orange-300'}`}>
+              <label key={addon.id} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${selectedAddons.includes(addon.id) ? 'border-green-500 bg-green-50/50' : 'border-gray-200 hover:border-green-300'}`}>
                 <div className="flex items-center gap-3">
                   <input 
                     type="checkbox" 
                     checked={selectedAddons.includes(addon.id)}
                     onChange={() => handleAddonToggle(addon.id)}
-                    className="w-5 h-5 accent-orange-600 rounded cursor-pointer" 
+                    className="w-5 h-5 accent-green-600 rounded cursor-pointer" 
                   />
                   <span className="font-semibold text-gray-800">{addon.name}</span>
                 </div>
@@ -98,7 +98,7 @@ export default function ItemDescription() {
           <h3 className="text-lg font-bold text-gray-900 mb-4">Special Instructions</h3>
           <textarea 
             placeholder="E.g., Make it extra spicy..." 
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium"
             rows="3"
           ></textarea>
         </div>
@@ -115,13 +115,13 @@ export default function ItemDescription() {
           <span className="font-bold text-lg">{quantity}</span>
           <button 
             onClick={() => setQuantity(quantity + 1)}
-            className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shadow-sm text-orange-600 hover:bg-orange-200 transition-colors"
+            className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shadow-sm text-green-600 hover:bg-green-200 transition-colors"
           >
             <Plus size={20} />
           </button>
         </div>
         
-        <button className="flex-1 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl flex items-center justify-center gap-3 font-bold text-lg shadow-lg shadow-orange-200 transition-all hover:-translate-y-0.5">
+        <button className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-2xl flex items-center justify-center gap-3 font-bold text-lg shadow-lg shadow-green-200 transition-all hover:-translate-y-0.5">
           Add Item • ₹{calculateTotal()}
         </button>
       </div>

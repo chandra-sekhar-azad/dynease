@@ -135,19 +135,19 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc', padding: 20 },
-  title: { fontSize: 36, fontWeight: 'bold', color: '#0f172a', marginBottom: 8 },
+  title: { fontSize: 36, fontWeight: 'bold', color: '#16a34a', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#64748b', marginBottom: 20 },
   
   roleSelector: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 8, padding: 4, marginBottom: 20, width: '100%' },
   roleButton: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 6 },
   roleButtonActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1, elevation: 2 },
   roleText: { color: '#64748b', fontWeight: '600', fontSize: 16 },
-  roleTextActive: { color: '#0f172a', fontWeight: 'bold' },
+  roleTextActive: { color: '#16a34a', fontWeight: 'bold' },
 
   input: { width: '100%', backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 16 },
   passwordContainer: { width: '100%', flexDirection: 'row', backgroundColor: '#fff', borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
   passwordInput: { flex: 1, padding: 15, fontSize: 16 },
   eyeIcon: { padding: 15 },
-  loginButton: { width: '100%', backgroundColor: '#f97316', padding: 15, borderRadius: 8, alignItems: 'center', marginBottom: 30 },
+  loginButton: { width: '100%', backgroundColor: '#16a34a', padding: 15, borderRadius: 8, alignItems: 'center', marginBottom: 30 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });

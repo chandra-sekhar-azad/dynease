@@ -32,7 +32,7 @@ export default function OrderConfirmation() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-orange-500 w-10 h-10" />
+        <Loader2 className="animate-spin text-green-500 w-10 h-10" />
       </div>
     );
   }
@@ -47,21 +47,21 @@ export default function OrderConfirmation() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden">
         {/* Success Banner */}
-        <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-8 text-center text-white">
+        <div className="bg-gradient-to-r from-green-500 to-amber-500 p-8 text-center text-white">
           <CheckCircle size={56} className="mx-auto mb-3 drop-shadow-md" />
           <h1 className="text-2xl font-extrabold mb-1">Order Placed! 🎉</h1>
-          <p className="text-orange-100 text-sm">Your order has been sent to the kitchen</p>
+          <p className="text-green-100 text-sm">Your order has been sent to the kitchen</p>
         </div>
 
         {/* Order Info */}
         <div className="p-6 space-y-4">
-          <div className="flex justify-between items-center bg-orange-50 rounded-2xl px-4 py-3">
+          <div className="flex justify-between items-center bg-green-50 rounded-2xl px-4 py-3">
             <div>
               <p className="text-xs text-gray-500 font-medium">Order Number</p>
-              <p className="text-xl font-extrabold text-orange-600">{order.orderNumber}</p>
+              <p className="text-xl font-extrabold text-green-600">{order.orderNumber}</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500 font-medium">Table</p>
@@ -88,7 +88,7 @@ export default function OrderConfirmation() {
 
           {/* Status */}
           <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
-            <UtensilsCrossed size={20} className="text-orange-500" />
+            <UtensilsCrossed size={20} className="text-green-500" />
             <div>
               <p className="text-sm font-semibold text-gray-800">Status: {order.status}</p>
               <p className="text-xs text-gray-500">Our team will prepare your order shortly</p>
@@ -99,7 +99,7 @@ export default function OrderConfirmation() {
           <div className="flex gap-3 pt-2">
             <Link
               to="/"
-              className="flex-1 text-center bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+              className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors text-sm"
             >
               Order More
             </Link>

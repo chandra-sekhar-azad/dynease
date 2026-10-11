@@ -148,7 +148,7 @@ export default function Orders() {
               placeholder="Search orders..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 w-64"
+              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-64"
             />
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
           </div>
@@ -158,13 +158,13 @@ export default function Orders() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="flex border-b border-gray-100">
           <button
-            className={`flex-1 py-4 font-medium text-center transition-colors ${activeTab === 'LIVE' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-50/30' : 'text-gray-500 hover:bg-gray-50'}`}
+            className={`flex-1 py-4 font-medium text-center transition-colors ${activeTab === 'LIVE' ? 'text-green-500 border-b-2 border-green-500 bg-green-50/30' : 'text-gray-500 hover:bg-gray-50'}`}
             onClick={() => setActiveTab('LIVE')}
           >
             Live Orders ({liveOrders.length})
           </button>
           <button
-            className={`flex-1 py-4 font-medium text-center transition-colors ${activeTab === 'PAST' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-50/30' : 'text-gray-500 hover:bg-gray-50'}`}
+            className={`flex-1 py-4 font-medium text-center transition-colors ${activeTab === 'PAST' ? 'text-green-500 border-b-2 border-green-500 bg-green-50/30' : 'text-gray-500 hover:bg-gray-50'}`}
             onClick={() => setActiveTab('PAST')}
           >
             Past Orders ({pastOrders.length})
@@ -174,7 +174,7 @@ export default function Orders() {
         <div className="p-6">
           {loading ? (
             <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+              <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
             </div>
           ) : displayOrders.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
@@ -210,7 +210,7 @@ export default function Orders() {
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                           order.status === 'PENDING' || order.status === 'NEW' ? 'bg-blue-100 text-blue-700' :
                           order.status === 'PREPARING' ? 'bg-yellow-100 text-yellow-700' :
-                          order.status === 'READY' ? 'bg-orange-100 text-orange-700' :
+                          order.status === 'READY' ? 'bg-green-100 text-green-700' :
                           order.status === 'SERVED' ? 'bg-indigo-100 text-indigo-700' :
                           order.status === 'COMPLETED' || order.status === 'PAID' ? 'bg-green-100 text-green-700' :
                           'bg-gray-100 text-gray-700'

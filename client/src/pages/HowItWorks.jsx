@@ -71,10 +71,10 @@ export default function HowItWorks() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-[#eafaf0] via-[#f7fdf9] to-white font-sans">
       <Navbar />
       
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16">
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-6">How It Works</h1>
           <p className="text-xl text-gray-600 font-medium">From Registration to Real-Time Orders</p>
@@ -83,21 +83,21 @@ export default function HowItWorks() {
           </p>
         </div>
 
-        <div className="space-y-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {steps.map((step, idx) => (
-            <div key={idx} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-8 items-start hover:shadow-md transition-shadow relative overflow-hidden group">
+            <div key={idx} className="bg-gradient-to-b from-white to-[#f4faf6] p-8 rounded-3xl shadow-md border border-[#e2f5ea] flex flex-col gap-6 items-start hover:shadow-xl hover:border-[var(--color-primary)] transition-all transform hover:-translate-y-1 relative overflow-hidden group">
               <div className="absolute -right-4 -top-4 text-[120px] font-black text-gray-50 opacity-50 select-none group-hover:scale-110 transition-transform">
                 {step.num}
               </div>
               <div className="shrink-0 bg-orange-50 p-4 rounded-2xl relative z-10">
                 {step.icon}
               </div>
-              <div className="relative z-10">
-                <div className="flex items-center gap-4 mb-2">
-                  <span className="text-orange-500 font-bold text-xl">{step.num}</span>
-                  <h3 className="text-2xl font-bold text-gray-900">{step.title}</h3>
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-orange-500 font-bold text-lg">{step.num}</span>
+                  <h3 className="text-xl font-bold text-gray-900 leading-tight">{step.title}</h3>
                 </div>
-                <p className="text-gray-600 text-lg leading-relaxed mt-2">
+                <p className="text-gray-600 text-base leading-relaxed mt-2">
                   {step.desc}
                 </p>
               </div>
@@ -106,7 +106,7 @@ export default function HowItWorks() {
         </div>
 
         <div className="mt-20 text-center">
-          <a href="/register" className="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold text-xl py-5 px-12 rounded-full shadow-xl shadow-orange-200 transition-all transform hover:-translate-y-1">
+          <a href="/register" className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold text-xl py-5 px-12 rounded-full shadow-xl shadow-orange-200 transition-all transform hover:-translate-y-1">
             Start Your Free Trial
           </a>
         </div>

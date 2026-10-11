@@ -35,7 +35,7 @@ export default function RestaurantLayout() {
       <aside className={`fixed md:static inset-y-0 left-0 z-50 bg-slate-900 text-white flex flex-col transition-transform duration-300 w-64 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'}`}>
         <div className="w-64 flex flex-col h-full">
           <div className="p-6 flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-orange-500">Restaurant Panel</h2>
+            <h2 className="text-2xl font-bold text-green-500">Restaurant Panel</h2>
             <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
               <X size={24} />
             </button>
@@ -49,7 +49,7 @@ export default function RestaurantLayout() {
                 key={link.path}
                 to={link.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-                  isActive ? 'bg-orange-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  isActive ? 'bg-green-600 text-white' : 'text-slate-300 hover:bg-slate-800'
                 }`}
               >
                 {link.icon}

@@ -199,7 +199,7 @@ export default function MenuManagement() {
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => navigate('/restaurant/categories')}
-            className="border border-orange-300 text-orange-600 hover:bg-orange-50 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
+            className="border border-green-300 text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
           >
             <FolderPlus size={16} /> Manage Categories
           </button>
@@ -211,7 +211,7 @@ export default function MenuManagement() {
               setImageFile(null);
               setShowAddModal(true);
             }}
-            className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
           >
             <Plus size={16} /> Add Dish
           </button>
@@ -235,7 +235,7 @@ export default function MenuManagement() {
               placeholder="Search dishes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
             />
             {searchQuery && (
               <button 
@@ -260,7 +260,7 @@ export default function MenuManagement() {
                 onClick={() => setActiveCategory(cat)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                   activeCategory === cat
-                    ? 'bg-orange-600 text-white shadow-sm'
+                    ? 'bg-green-600 text-white shadow-sm'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -343,11 +343,11 @@ export default function MenuManagement() {
                   </div>
                 </td>
                 <td className="p-4">
-                  <span className="bg-orange-50 text-orange-700 text-xs font-semibold px-2 py-1 rounded-full">
+                  <span className="bg-green-50 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">
                     {item.category}
                   </span>
                 </td>
-                <td className="p-4 font-bold text-orange-600">₹{item.price}</td>
+                <td className="p-4 font-bold text-green-600">₹{item.price}</td>
                 <td className="p-4">
                   <div className="flex flex-col gap-1">
                     <span className={`px-2 py-1 rounded text-xs font-bold ${DIET_BADGE[item.dietaryPreference] || DIET_BADGE.NONE}`}>
@@ -379,7 +379,7 @@ export default function MenuManagement() {
                   <div className="flex justify-end gap-1">
                     <button
                       onClick={() => openEditModal(item)}
-                      className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                      className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                       title="Edit Item"
                     >
                       <Edit2 size={16} />
@@ -412,30 +412,30 @@ export default function MenuManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Dish Name *</label>
-                  <input type="text" name="name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white text-sm" placeholder="e.g. Paneer Tikka" />
+                  <input type="text" name="name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm" placeholder="e.g. Paneer Tikka" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Price (₹) *</label>
-                  <input type="number" name="price" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required min="0" className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white text-sm" placeholder="249" />
+                  <input type="number" name="price" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required min="0" className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm" placeholder="249" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Category *</label>
                   {categories.length > 0 ? (
-                    <select name="category" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white text-sm">
+                    <select name="category" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm">
                       <option value="">Select category</option>
                       {categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
                     </select>
                   ) : (
-                    <div className="w-full p-2.5 border border-dashed border-orange-300 rounded-lg text-xs text-orange-500 bg-orange-50">
+                    <div className="w-full p-2.5 border border-dashed border-green-300 rounded-lg text-xs text-green-500 bg-green-50">
                       No categories yet. <button type="button" onClick={() => navigate('/restaurant/categories')} className="font-bold underline">Add one first.</button>
                     </div>
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Type *</label>
-                  <select name="dietaryPreference" value={formData.dietaryPreference} onChange={e => setFormData({...formData, dietaryPreference: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white text-sm">
+                  <select name="dietaryPreference" value={formData.dietaryPreference} onChange={e => setFormData({...formData, dietaryPreference: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm">
                     <option value="VEG">🟢 Veg</option>
                     <option value="NON_VEG">🔴 Non-Veg</option>
                     <option value="VEGAN">🌿 Vegan</option>
@@ -445,7 +445,7 @@ export default function MenuManagement() {
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1 text-gray-700">Description</label>
-                <textarea name="description" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white text-sm" rows="2" placeholder="Delicious grilled cottage cheese..." />
+                <textarea name="description" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm" rows="2" placeholder="Delicious grilled cottage cheese..." />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1 text-gray-700">Photo (Optional)</label>
@@ -460,7 +460,7 @@ export default function MenuManagement() {
                     }
                   }}
                   className={`w-full p-6 border-2 border-dashed rounded-lg text-center transition-colors ${
-                    isDragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
+                    isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
                   }`}
                 >
                   <input 
@@ -471,9 +471,9 @@ export default function MenuManagement() {
                     className="hidden" 
                   />
                   <label htmlFor="menuImageUpload" className="cursor-pointer flex flex-col items-center">
-                    <ImageIcon size={32} className={`mb-2 ${isDragging ? 'text-orange-500' : 'text-gray-400'}`} />
+                    <ImageIcon size={32} className={`mb-2 ${isDragging ? 'text-green-500' : 'text-gray-400'}`} />
                     {imageFile ? (
-                      <span className="text-sm font-medium text-orange-600 truncate max-w-full px-4">{imageFile.name}</span>
+                      <span className="text-sm font-medium text-green-600 truncate max-w-full px-4">{imageFile.name}</span>
                     ) : (
                       <>
                         <span className="text-sm font-medium text-gray-700">Click to upload or drag & drop</span>
@@ -491,7 +491,7 @@ export default function MenuManagement() {
                   <button
                     type="button"
                     onClick={() => setQuantities([...quantities, { size: '', price: '' }])}
-                    className="text-xs bg-orange-100 text-orange-600 hover:bg-orange-200 px-2 py-1 rounded transition-colors font-medium"
+                    className="text-xs bg-green-100 text-green-600 hover:bg-green-200 px-2 py-1 rounded transition-colors font-medium"
                   >
                     + Add Variant
                   </button>
@@ -512,7 +512,7 @@ export default function MenuManagement() {
                               setQuantities(newQty);
                             }}
                             placeholder="e.g. Small, Medium, Large, 250ml"
-                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-orange-500"
+                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500"
                           />
                         </div>
                         <div className="flex-1">
@@ -527,7 +527,7 @@ export default function MenuManagement() {
                             }}
                             placeholder="0"
                             min="0"
-                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-orange-500"
+                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500"
                           />
                         </div>
                         <button
@@ -545,7 +545,7 @@ export default function MenuManagement() {
 
               <div className="pt-2 flex gap-3">
                 <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-colors text-sm">Cancel</button>
-                <button type="submit" disabled={isLoading} className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold disabled:opacity-50 transition-colors text-sm flex items-center justify-center gap-2">
+                <button type="submit" disabled={isLoading} className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold disabled:opacity-50 transition-colors text-sm flex items-center justify-center gap-2">
                   {isLoading ? <><Loader2 size={16} className="animate-spin" /> Uploading…</> : 'Save Dish'}
                 </button>
               </div>

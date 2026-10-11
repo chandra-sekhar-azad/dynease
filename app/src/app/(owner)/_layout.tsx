@@ -33,7 +33,7 @@ export default function OwnerLayout() {
 
   return (
     <Drawer 
-      screenOptions={{ headerShown: true, drawerActiveTintColor: '#f97316' }}
+      screenOptions={{ headerShown: true, drawerActiveTintColor: '#16a34a' }}
       drawerContent={(props) => (
         <DrawerContentScrollView {...props}>
           <DrawerItemList {...props} />

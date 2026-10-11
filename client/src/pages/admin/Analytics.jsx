@@ -26,7 +26,7 @@ export default function Analytics() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-green-500" />
       </div>
     );
   }
@@ -34,7 +34,7 @@ export default function Analytics() {
   const stats = [
     { name: 'Total Revenue', value: `₹${(data?.totalRevenue || 0).toLocaleString()}`, icon: <DollarSign size={24} />, color: 'bg-green-500' },
     { name: 'Total Orders', value: data?.totalOrders || 0, icon: <ShoppingBag size={24} />, color: 'bg-blue-500' },
-    { name: 'Active Restaurants', value: data?.activeRestaurants || 0, icon: <Store size={24} />, color: 'bg-orange-500' },
+    { name: 'Active Restaurants', value: data?.activeRestaurants || 0, icon: <Store size={24} />, color: 'bg-green-500' },
     { name: 'Total Users', value: data?.totalUsers || 0, icon: <Users size={24} />, color: 'bg-purple-500' },
   ];
 

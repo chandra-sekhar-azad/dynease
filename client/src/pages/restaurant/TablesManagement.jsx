@@ -153,7 +153,7 @@ export default function TablesManagement() {
     URL.revokeObjectURL(url);
   };
 
-  if (loading) return <div className="p-6 flex justify-center"><Loader2 className="animate-spin text-orange-500 w-8 h-8" /></div>;
+  if (loading) return <div className="p-6 flex justify-center"><Loader2 className="animate-spin text-green-500 w-8 h-8" /></div>;
 
   return (
     <div className="p-6">
@@ -162,7 +162,7 @@ export default function TablesManagement() {
           <h1 className="text-2xl font-bold text-gray-900">Tables & QR Codes</h1>
           <p className="text-gray-500 mt-1">Manage your restaurant tables and stable QR codes.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors">
+        <button onClick={() => setShowAddModal(true)} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors">
           <Plus size={20} /> Add New Table
         </button>
       </div>
@@ -172,12 +172,12 @@ export default function TablesManagement() {
           <QrCode size={48} className="text-gray-300 mb-4" />
           <h3 className="text-lg font-bold text-gray-900 mb-2">No tables found</h3>
           <p className="mb-6">Add your first table to generate a stable QR code.</p>
-          <button onClick={() => setShowAddModal(true)} className="bg-orange-100 text-orange-700 hover:bg-orange-200 px-4 py-2 rounded-lg font-medium">Add Table</button>
+          <button onClick={() => setShowAddModal(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-medium">Add Table</button>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
           {tables.map(table => (
-            <div key={table._id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:border-orange-300 transition-colors">
+            <div key={table._id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:border-green-300 transition-colors">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900 mb-1">Table {table.tableNumber}</h3>
@@ -245,7 +245,7 @@ export default function TablesManagement() {
                     value={formData.tableNumber}
                     onChange={e => setFormData({...formData, tableNumber: e.target.value})}
                     placeholder="E.g. 12 or T-12" 
-                    className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none" 
+                    className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none" 
                   />
                 </div>
                 <div>
@@ -255,7 +255,7 @@ export default function TablesManagement() {
                     value={formData.tableName}
                     onChange={e => setFormData({...formData, tableName: e.target.value})}
                     placeholder="E.g. Window Seat, Balcony" 
-                    className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none" 
+                    className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none" 
                   />
                 </div>
               </div>
@@ -263,7 +263,7 @@ export default function TablesManagement() {
                 <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-3 font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
                   Cancel
                 </button>
-                <button type="submit" disabled={actionLoading} className="flex-1 py-3 font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl transition-colors flex justify-center items-center">
+                <button type="submit" disabled={actionLoading} className="flex-1 py-3 font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors flex justify-center items-center">
                   {actionLoading ? <Loader2 className="animate-spin w-5 h-5" /> : 'Create Table'}
                 </button>
               </div>

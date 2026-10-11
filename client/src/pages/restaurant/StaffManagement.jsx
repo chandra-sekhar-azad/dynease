@@ -162,7 +162,7 @@ export default function StaffManagement() {
   const roleColors = {
     RESTAURANT_OWNER: 'bg-purple-100 text-purple-700',
     RESTAURANT_STAFF: 'bg-blue-100 text-blue-700',
-    KITCHEN_STAFF: 'bg-orange-100 text-orange-700'
+    KITCHEN_STAFF: 'bg-green-100 text-green-700'
   };
 
   return (
@@ -172,7 +172,7 @@ export default function StaffManagement() {
           <h2 className="text-xl font-bold text-gray-800">Staff Management</h2>
           <p className="text-sm text-gray-500 mt-1">Manage waiters, kitchen staff, and roles</p>
         </div>
-        <button onClick={openAddModal} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm">
+        <button onClick={openAddModal} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm">
           <Plus size={20} /> Add Staff
         </button>
       </div>
@@ -258,16 +258,16 @@ export default function StaffManagement() {
             <form className="p-6 space-y-4" onSubmit={handleSubmit}>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Full Name</label>
-                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" />
+                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email (for login)</label>
-                <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" />
+                <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
-                  <select name="role" value={formData.role} onChange={handleChange} required disabled={formData.role === 'RESTAURANT_OWNER'} className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500">
+                  <select name="role" value={formData.role} onChange={handleChange} required disabled={formData.role === 'RESTAURANT_OWNER'} className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500">
                     <option value="RESTAURANT_STAFF">Waiter</option>
                     <option value="KITCHEN_STAFF">Kitchen Staff</option>
                     {formData.role === 'RESTAURANT_OWNER' && <option value="RESTAURANT_OWNER">Owner</option>}
@@ -275,7 +275,7 @@ export default function StaffManagement() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phone (Optional)</label>
-                  <input type="text" name="phone" value={formData.phone} onChange={handleChange} className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" />
+                  <input type="text" name="phone" value={formData.phone} onChange={handleChange} className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
                 </div>
               </div>
               <div>
@@ -287,7 +287,7 @@ export default function StaffManagement() {
                     value={formData.password} 
                     onChange={handleChange} 
                     required={!editingId} 
-                    className="w-full p-2.5 pr-10 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" 
+                    className="w-full p-2.5 pr-10 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" 
                   />
                   <button
                     type="button"
@@ -307,12 +307,12 @@ export default function StaffManagement() {
                       <div className="col-span-full text-sm text-gray-500 text-center py-2">No tables found. Create tables first.</div>
                     ) : (
                       tables.map(table => (
-                        <label key={table._id} className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-orange-50 hover:border-orange-200 transition-colors">
+                        <label key={table._id} className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-200 transition-colors">
                           <input 
                             type="checkbox" 
                             checked={formData.assignedTables.includes(table._id)}
                             onChange={() => handleTableToggle(table._id)}
-                            className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 border-gray-300"
+                            className="w-4 h-4 text-green-600 rounded focus:ring-green-500 border-gray-300"
                           />
                           <span className="text-sm font-medium text-gray-700">Table {table.tableNumber}</span>
                         </label>
@@ -322,12 +322,12 @@ export default function StaffManagement() {
                 </div>
               )}
               <div className="flex items-center gap-2 pt-2">
-                <input type="checkbox" id="isActive" name="isActive" checked={formData.isActive} onChange={handleChange} className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500" />
+                <input type="checkbox" id="isActive" name="isActive" checked={formData.isActive} onChange={handleChange} className="w-4 h-4 text-green-600 rounded focus:ring-green-500" />
                 <label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">Account is Active</label>
               </div>
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 py-2.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-semibold shadow-md shadow-orange-600/20 transition-all">{editingId ? 'Save Changes' : 'Add Staff'}</button>
+                <button type="submit" className="flex-1 py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold shadow-md shadow-green-600/20 transition-all">{editingId ? 'Save Changes' : 'Add Staff'}</button>
               </div>
             </form>
           </div>

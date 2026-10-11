@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Star, CheckCircle, ArrowLeft, Menu as MenuIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -21,7 +22,7 @@ export default function FeedbackForm() {
         <CheckCircle size={64} className="text-green-500 mb-6" />
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Thank You!</h2>
         <p className="text-gray-600 text-center mb-8">Your feedback helps us improve our service.</p>
-        <button onClick={() => navigate(-1)} className="text-orange-600 font-bold hover:underline flex items-center gap-2">
+        <button onClick={() => navigate(-1)} className="text-green-600 font-bold hover:underline flex items-center gap-2">
           <ArrowLeft size={16} /> Back to Menu
         </button>
       </div>
@@ -63,13 +64,13 @@ export default function FeedbackForm() {
 
         <textarea 
           placeholder="Tell us what you loved or what we can improve..."
-          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm mb-6 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all min-h-[120px]"
+          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm mb-6 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all min-h-[120px]"
         ></textarea>
 
         <button 
           onClick={() => setSubmitted(true)}
           disabled={!rating}
-          className="w-full bg-orange-600 disabled:bg-gray-300 text-white py-4 rounded-xl font-bold text-lg transition-colors"
+          className="w-full bg-green-600 disabled:bg-gray-300 text-white py-4 rounded-xl font-bold text-lg transition-colors"
         >
           Submit Feedback
         </button>
@@ -80,6 +81,7 @@ export default function FeedbackForm() {
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 
         tableLabel={tableLabel} 
+        googleReviewLink={session?.restaurant?.googleReviewLink}
       />
     </div>
   );

@@ -325,6 +325,7 @@ export default function HomePage({ forcedSlug }) {
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 
         tableLabel={tableLabel} 
+        googleReviewLink={restaurant?.googleReviewLink}
       />
 
     </div>

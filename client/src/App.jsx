@@ -9,6 +9,7 @@ import Cart from './pages/customer/Cart';
 import Checkout from './pages/customer/Checkout';
 import OrderConfirmation from './pages/customer/OrderConfirmation';
 import FeedbackForm from './pages/customer/FeedbackForm';
+import GoogleReview from './pages/customer/GoogleReview';
 import QRMenuLoader from './pages/customer/QRMenuLoader';
 import Login from './pages/Login';
 import KitchenOrders from './pages/kitchen/Orders';
@@ -99,6 +100,7 @@ function App() {
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order/:orderId" element={<OrderConfirmation />} />
             <Route path="/feedback" element={<FeedbackForm />} />
+            <Route path="/google-review" element={<GoogleReview />} />
             <Route path="/admin" element={<Navigate to="/restaurant" replace />} />
             <Route path="/restaurant" element={<RestaurantLayout />}>
             <Route index element={<RestaurantDashboard />} />
@@ -172,6 +174,7 @@ function App() {
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order/:orderId" element={<OrderConfirmation />} />
         <Route path="/feedback" element={<FeedbackForm />} />
+        <Route path="/google-review" element={<GoogleReview />} />
         <Route path="/t/:qrToken" element={<QRMenuLoader />} />
         <Route path="/menu/:qrToken" element={<QRMenuLoader />} />
         

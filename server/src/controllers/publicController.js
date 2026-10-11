@@ -51,7 +51,8 @@ exports.getTableByQR = async (req, res, next) => {
           name: profile.name,
           slug: registry.subdomain,
           logo: profile.logo?.secure_url || null,
-          taxPercent: profile.taxInfo?.taxPercentage || 0
+          taxPercent: profile.taxInfo?.taxPercentage || 0,
+          googleReviewLink: profile.googleReviewLink || null
         },
         table: { 
           id: table._id, 
@@ -108,7 +109,8 @@ exports.getTableByNumber = async (req, res, next) => {
           subtitle: profile.subtitle || null,
           slug: registry.subdomain,
           logo: profile.logo?.secure_url || null,
-          taxPercent: profile.taxInfo?.taxPercentage || 0
+          taxPercent: profile.taxInfo?.taxPercentage || 0,
+          googleReviewLink: profile.googleReviewLink || null
         },
         table: { 
           id: table._id, 
@@ -181,7 +183,8 @@ exports.getMenu = async (req, res, next) => {
           subtitle: profile.subtitle || null,
           slug: registry.subdomain,
           logo: profile.logo?.secure_url || null,
-          taxPercent: profile.taxInfo?.taxPercentage || 0
+          taxPercent: profile.taxInfo?.taxPercentage || 0,
+          googleReviewLink: profile.googleReviewLink || null
         },
         categories
       }
@@ -259,7 +262,8 @@ exports.getRestaurantMenu = async (req, res, next) => {
           subtitle: profile.subtitle || null,
           slug: registry.subdomain,
           logo: profile.logo?.secure_url || null,
-          taxPercent: profile.taxInfo?.taxPercentage || 0
+          taxPercent: profile.taxInfo?.taxPercentage || 0,
+          googleReviewLink: profile.googleReviewLink || null
         },
         categories
       }

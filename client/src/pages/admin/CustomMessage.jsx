@@ -65,7 +65,7 @@ export default function CustomMessage() {
                 value={phone} 
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="919876543210"
-                className="w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:bg-white transition-colors text-gray-900"
+                className="w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:bg-white transition-colors text-gray-900"
               />
             </div>
             <p className="text-xs text-gray-500 mt-1">Include country code without + (e.g. 91 for India)</p>
@@ -79,14 +79,14 @@ export default function CustomMessage() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Type your message here..."
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:bg-white transition-colors text-gray-900 resize-none"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:bg-white transition-colors text-gray-900 resize-none"
             />
           </div>
 
           <button 
             type="submit" 
             disabled={loading || !phone || !message}
-            className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <><Loader2 size={20} className="animate-spin" /> Sending...</>

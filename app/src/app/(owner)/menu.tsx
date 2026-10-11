@@ -100,7 +100,7 @@ export default function MenuScreen() {
       </View>
       <View style={styles.cardActions}>
         <TouchableOpacity onPress={() => handleToggle(item)} style={styles.actionBtn}>
-          <Ionicons name={item.isAvailable ? 'toggle' : 'toggle-outline'} size={32} color={item.isAvailable ? '#f97316' : '#94a3b8'} />
+          <Ionicons name={item.isAvailable ? 'toggle' : 'toggle-outline'} size={32} color={item.isAvailable ? '#16a34a' : '#94a3b8'} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => {
           setEditingId(item._id);
@@ -113,7 +113,7 @@ export default function MenuScreen() {
           });
           setShowModal(true);
         }} style={styles.actionBtn}>
-          <Ionicons name="pencil-outline" size={24} color="#f97316" />
+          <Ionicons name="pencil-outline" size={24} color="#16a34a" />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.actionBtn}>
           <Ionicons name="trash-outline" size={24} color="#ef4444" />
@@ -137,7 +137,7 @@ export default function MenuScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#ea580c" style={{ marginTop: 50 }} />
+        <ActivityIndicator size="large" color="#16a34a" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
           data={items}
@@ -146,7 +146,7 @@ export default function MenuScreen() {
           contentContainerStyle={{ paddingBottom: 20 }}
           ListEmptyComponent={<Text style={styles.emptyText}>No menu items found.</Text>}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#16a34a']} />
           }
         />
       )}
@@ -194,13 +194,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc', padding: 15 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   title: { fontSize: 24, fontWeight: 'bold', color: '#0f172a' },
-  addButton: { flexDirection: 'row', backgroundColor: '#ea580c', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 6, alignItems: 'center' },
+  addButton: { flexDirection: 'row', backgroundColor: '#16a34a', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 6, alignItems: 'center' },
   addText: { color: '#fff', fontWeight: 'bold', marginLeft: 5 },
   
   card: { backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 12, flexDirection: 'row', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 3, borderWidth: 1, borderColor: '#f1f5f9' },
   cardInfo: { flex: 1 },
   itemName: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
-  itemCategory: { fontSize: 14, color: '#ea580c', fontWeight: '600', marginTop: 4 },
+  itemCategory: { fontSize: 14, color: '#16a34a', fontWeight: '600', marginTop: 4 },
   itemDesc: { fontSize: 13, color: '#64748b', marginTop: 4 },
   cardActions: { justifyContent: 'space-between', alignItems: 'center' },
   actionBtn: { padding: 5 },
@@ -215,10 +215,10 @@ const styles = StyleSheet.create({
   
   categoryList: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   catBadge: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#e2e8f0', borderRadius: 20 },
-  catBadgeActive: { backgroundColor: '#ea580c' },
+  catBadgeActive: { backgroundColor: '#16a34a' },
   catBadgeText: { color: '#475569', fontWeight: '600' },
   catBadgeTextActive: { color: '#fff' },
 
-  saveBtn: { backgroundColor: '#ea580c', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 30, marginBottom: 50 },
+  saveBtn: { backgroundColor: '#16a34a', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 30, marginBottom: 50 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });

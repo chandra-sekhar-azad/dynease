@@ -49,7 +49,7 @@ export default function Orders() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-xl font-bold text-gray-900 mb-2">No active session</h2>
         <p className="text-gray-500 mb-4">Please scan a table QR code to start ordering.</p>
-        <button onClick={() => navigate('/')} className="bg-orange-600 text-white px-6 py-2 rounded-xl font-medium">Go Home</button>
+        <button onClick={() => navigate('/')} className="bg-green-600 text-white px-6 py-2 rounded-xl font-medium">Go Home</button>
       </div>
     );
   }
@@ -69,7 +69,7 @@ export default function Orders() {
 
       <div className="flex-1 p-4 space-y-4 max-w-md mx-auto w-full">
         {loading ? (
-          <div className="flex justify-center py-20 text-orange-500">
+          <div className="flex justify-center py-20 text-green-500">
             <Loader2 className="animate-spin w-8 h-8" />
           </div>
         ) : ordersData.length === 0 ? (
@@ -79,7 +79,7 @@ export default function Orders() {
             <p className="text-gray-500 text-sm mb-4">You haven't placed any orders in this session.</p>
             <button 
               onClick={() => navigate('/')} 
-              className="bg-orange-100 text-orange-600 font-semibold px-5 py-2.5 rounded-xl hover:bg-orange-200 transition-colors"
+              className="bg-green-100 text-green-600 font-semibold px-5 py-2.5 rounded-xl hover:bg-green-200 transition-colors"
             >
               Browse Menu
             </button>
@@ -97,7 +97,7 @@ export default function Orders() {
                     <span className={`px-2 py-1 rounded text-xs font-bold ${
                       order.status === 'COMPLETED' || order.status === 'PAID' ? 'bg-green-100 text-green-700' :
                       order.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
-                      'bg-orange-100 text-orange-700'
+                      'bg-green-100 text-green-700'
                     }`}>
                       {order.status}
                     </span>

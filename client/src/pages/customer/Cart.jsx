@@ -25,7 +25,7 @@ export default function Cart() {
           {tableLabel && <p className="text-xs text-gray-400">{tableLabel}</p>}
         </div>
         {tableLabel && (
-          <span className="bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1 rounded-full">
+          <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
             {tableLabel}
           </span>
         )}
@@ -53,7 +53,7 @@ export default function Cart() {
                     }`} />
                     <h3 className="font-semibold text-gray-900 text-sm truncate">{item.name}</h3>
                   </div>
-                  <p className="text-orange-600 font-bold text-sm mb-2">₹{item.price}</p>
+                  <p className="text-green-600 font-bold text-sm mb-2">₹{item.price}</p>
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center bg-gray-100 rounded-full p-0.5">
@@ -66,7 +66,7 @@ export default function Cart() {
                       <span className="font-bold text-sm w-6 text-center">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.menuItemId, item.quantity + 1)}
-                        className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center shadow-sm text-white hover:bg-orange-600"
+                        className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center shadow-sm text-white hover:bg-green-600"
                       >
                         <Plus size={13} />
                       </button>
@@ -113,7 +113,7 @@ export default function Cart() {
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
             <p className="text-gray-500 text-sm mb-8">Add items from the menu to get started.</p>
-            <Link to="/" className="bg-orange-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-orange-200">
+            <Link to="/" className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-green-200">
               Browse Menu
             </Link>
           </div>
@@ -125,7 +125,7 @@ export default function Cart() {
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-100 p-4 shadow-[0_-8px_30px_-8px_rgba(0,0,0,0.1)]">
           <Link
             to="/checkout"
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-orange-200 transition-colors"
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-green-200 transition-colors"
           >
             Proceed to Checkout <ArrowRight size={20} />
           </Link>

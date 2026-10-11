@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { setCookie, getCookie } from '../utils/cookies';
 
 const RestaurantContext = createContext(null);
 
@@ -119,14 +120,19 @@ export function RestaurantProvider({ children }) {
   const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
   const cartSubtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-  // ── Orders tracking ──
+  // ── Orders tracking via Cookies (with localStorage sync) ──
   const myOrdersKey = session
-    ? `orders:${session.restaurant.slug}:${session.table.tableNumber}`
+    ? `orders_${session.restaurant.slug}_${session.table.tableNumber}`
     : null;
     
   const [myOrders, setMyOrders] = useState(() => {
     if (!myOrdersKey) return [];
     try {
+      // 1. Check cookies first
+      const cookieData = getCookie(myOrdersKey);
+      if (Array.isArray(cookieData) && cookieData.length > 0) return cookieData;
+      
+      // 2. Fallback to localStorage
       const raw = localStorage.getItem(myOrdersKey);
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
@@ -134,25 +140,44 @@ export function RestaurantProvider({ children }) {
 
   useEffect(() => {
     if (myOrdersKey) {
-      localStorage.setItem(myOrdersKey, JSON.stringify(myOrders));
+      // Store in cookies for 30 days
+      setCookie(myOrdersKey, myOrders, 30);
+      // Keep localStorage synchronized
+      try {
+        localStorage.setItem(myOrdersKey, JSON.stringify(myOrders));
+      } catch {}
     }
   }, [myOrders, myOrdersKey]);
 
   useEffect(() => {
     if (myOrdersKey) {
       try {
-        const raw = localStorage.getItem(myOrdersKey);
-        setMyOrders(raw ? JSON.parse(raw) : []);
+        const cookieData = getCookie(myOrdersKey);
+        if (Array.isArray(cookieData) && cookieData.length > 0) {
+          setMyOrders(cookieData);
+        } else {
+          const raw = localStorage.getItem(myOrdersKey);
+          setMyOrders(raw ? JSON.parse(raw) : []);
+        }
       } catch { setMyOrders([]); }
     }
   }, [myOrdersKey]);
 
   const addOrderId = useCallback((id) => {
     setMyOrders(prev => {
-      if (!prev.includes(id)) return [id, ...prev];
+      if (!prev.includes(id)) {
+        const updated = [id, ...prev];
+        if (myOrdersKey) {
+          setCookie(myOrdersKey, updated, 30);
+          try {
+            localStorage.setItem(myOrdersKey, JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      }
       return prev;
     });
-  }, []);
+  }, [myOrdersKey]);
 
   return (
     <RestaurantContext.Provider value={{

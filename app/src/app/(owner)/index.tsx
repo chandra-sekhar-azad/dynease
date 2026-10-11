@@ -40,16 +40,16 @@ export default function OwnerDashboard() {
     <ScrollView 
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#f97316']} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#16a34a']} />
       }
     >
       <Text style={styles.title}>Welcome to </Text>
-      <Text style={{fontSize: 18, fontWeight: 'bold', color: '#0f172a', marginBottom: 20}}>{restaurantName.toUpperCase()}</Text>
+      <Text style={{fontSize: 18, fontWeight: 'bold', color: '#16a34a', marginBottom: 20}}>{restaurantName.toUpperCase()}</Text>
       
       <View style={styles.cardContainer}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Today's Orders</Text>
-          <Text style={[styles.cardValue, { color: '#ea580c' }]}>{stats.todaysOrders}</Text>
+          <Text style={[styles.cardValue, { color: '#16a34a' }]}>{stats.todaysOrders}</Text>
         </View>
 
         <View style={styles.card}>
@@ -59,7 +59,7 @@ export default function OwnerDashboard() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Active Tables</Text>
-          <Text style={[styles.cardValue, { color: '#ea580c' }]}>{stats.activeTables}</Text>
+          <Text style={[styles.cardValue, { color: '#2563eb' }]}>{stats.activeTables}</Text>
         </View>
       </View>
     </ScrollView>

@@ -117,7 +117,7 @@ export default function Checkout() {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="Your name"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
               />
             </div>
             <div>
@@ -127,7 +127,7 @@ export default function Checkout() {
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="10-digit mobile number"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
               />
             </div>
           </div>
@@ -145,7 +145,7 @@ export default function Checkout() {
         <button
           onClick={handlePlaceOrder}
           disabled={loading}
-          className="w-full bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-orange-200 transition-colors"
+          className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-green-200 transition-colors"
         >
           {loading ? (
             <><Loader2 size={20} className="animate-spin" /> Placing Order…</>

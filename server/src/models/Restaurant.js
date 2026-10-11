@@ -60,6 +60,10 @@ const restaurantSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  googleReviewLink: {
+    type: String,
+    default: ''
+  },
   selectedPlan: {
     type: String,
     enum: ['FREE', 'GROWTH', 'PRO'],

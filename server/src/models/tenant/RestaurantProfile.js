@@ -58,6 +58,10 @@ const restaurantProfileSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  googleReviewLink: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 

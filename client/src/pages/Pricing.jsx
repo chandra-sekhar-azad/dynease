@@ -74,7 +74,7 @@ export default function Pricing() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#eafaf0] via-[#f7fdf9] to-white font-sans relative overflow-hidden">
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-orange-100/50 to-transparent -z-10 pointer-events-none"></div>
       <div className="absolute top-40 right-[-10%] w-96 h-96 bg-orange-300/20 rounded-full blur-3xl -z-10 pointer-events-none"></div>
@@ -83,7 +83,7 @@ export default function Pricing() {
       <Navbar />
       
       {/* Header Section */}
-      <div className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 text-center max-w-7xl mx-auto relative z-10">
+      <div className="pt-32 pb-12 px-4 sm:px-6 lg:px-8 text-center max-w-7xl mx-auto relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-100 text-orange-700 font-medium text-sm mb-6">
           <Sparkles size={16} /> Transparent Pricing, No Hidden Fees
         </div>
@@ -151,13 +151,13 @@ export default function Pricing() {
 
       {/* Trial Banner */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 relative z-10">
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 md:p-12 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl overflow-hidden relative">
+        <div className="bg-gradient-to-br from-[var(--color-primary)] to-[#156d3c] rounded-3xl p-8 md:p-12 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl overflow-hidden relative">
           
           {/* Subtle bg decor */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
           
           <div className="flex-1 relative z-10 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 text-orange-400 font-bold mb-4 bg-orange-400/10 px-4 py-1.5 rounded-full text-sm">
+            <div className="inline-flex items-center gap-2 text-white font-bold mb-4 bg-white/20 px-4 py-1.5 rounded-full text-sm">
               <Sparkles size={18} />
               <span>14-DAY FREE TRIAL</span>
             </div>
@@ -165,22 +165,22 @@ export default function Pricing() {
               Experience the platform free. <br className="hidden md:block" /> No credit card required.
             </h3>
             
-            <div className="flex flex-col md:flex-row items-center justify-center lg:justify-start gap-3 text-sm text-slate-300 mt-6 font-medium bg-slate-900/50 p-4 rounded-xl inline-flex w-full md:w-auto">
+            <div className="flex flex-col md:flex-row items-center justify-center lg:justify-start gap-3 text-sm text-green-100 mt-6 font-medium bg-black/10 p-4 rounded-xl inline-flex w-full md:w-auto">
               <span>Start your restaurant</span>
-              <span className="hidden md:block text-orange-500">→</span>
+              <span className="hidden md:block text-white/40">→</span>
               <span>Add your menu</span>
-              <span className="hidden md:block text-orange-500">→</span>
+              <span className="hidden md:block text-white/40">→</span>
               <span>Get QR codes</span>
-              <span className="hidden md:block text-orange-500">→</span>
+              <span className="hidden md:block text-white/40">→</span>
               <span className="text-white">Receive orders</span>
             </div>
           </div>
           
           <div className="relative z-10 shrink-0 w-full lg:w-auto text-center">
-            <Link to="/register" className="inline-block w-full lg:w-auto bg-orange-500 hover:bg-orange-400 text-white font-bold text-lg py-4 px-10 rounded-full shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_30px_rgba(249,115,22,0.6)] transition-all transform hover:-translate-y-1">
+            <Link to="/register" className="inline-block w-full lg:w-auto bg-white hover:bg-gray-50 text-[var(--color-primary)] font-bold text-lg py-4 px-10 rounded-full shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all transform hover:-translate-y-1">
               Start Your Trial
             </Link>
-            <p className="text-sm text-slate-400 mt-4 italic">
+            <p className="text-sm text-green-200 mt-4 italic">
               * Choose Growth or Pro after 14 days.
             </p>
           </div>

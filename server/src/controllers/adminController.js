@@ -260,7 +260,7 @@ exports.getAnalytics = async (req, res, next) => {
 exports.updateRestaurant = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, subscriptionPlan, isActive, ownerEmail, ownerName, ownerPhone, subdomain } = req.body;
+    const { name, subscriptionPlan, isActive, ownerEmail, ownerName, ownerPhone, subdomain, googleReviewLink } = req.body;
     
     const existingRestaurant = await RestaurantRegistry.findOne({ restaurantId: id });
     if (!existingRestaurant) {
@@ -269,14 +269,20 @@ exports.updateRestaurant = async (req, res, next) => {
 
     const status = isActive ? 'ACTIVE' : 'SUSPENDED';
     const updateData = { restaurantName: name, selectedPlan: subscriptionPlan, status };
+    if (googleReviewLink !== undefined) updateData.googleReviewLink = googleReviewLink;
     
-    // Reset subscription dates and status if the admin changes the plan
-    if (subscriptionPlan && subscriptionPlan !== existingRestaurant.selectedPlan) {
+    // Reset subscription dates and status if the admin changes the plan OR approves a renewal request
+    const hasPendingRenewal = existingRestaurant.renewalRequest && existingRestaurant.renewalRequest.status === 'PENDING';
+    const isPlanChanged = subscriptionPlan && subscriptionPlan !== existingRestaurant.selectedPlan;
+
+    if (isPlanChanged || hasPendingRenewal) {
+      const targetPlan = subscriptionPlan || existingRestaurant.renewalRequest?.plan || existingRestaurant.selectedPlan;
+      updateData.selectedPlan = targetPlan;
       const now = new Date();
       updateData.subscriptionStartDate = now;
       
       const newEnd = new Date(now);
-      if (subscriptionPlan === 'FREE') {
+      if (targetPlan === 'FREE') {
         newEnd.setDate(newEnd.getDate() + 14);
         updateData.subscriptionStatus = 'TRIAL';
       } else {
@@ -291,12 +297,17 @@ exports.updateRestaurant = async (req, res, next) => {
         expired: false
       };
       
-      existingRestaurant.renewalHistory.push({
-        plan: subscriptionPlan,
-        amount: 0,
+      const newHistoryItem = {
+        plan: targetPlan,
+        amount: targetPlan === 'GROWTH' ? 1999 : targetPlan === 'PRO' ? 3999 : 0,
         date: now,
-        transactionId: 'ADMIN_MANUAL_UPDATE'
-      });
+        transactionId: hasPendingRenewal ? 'RENEWAL_APPROVED' : 'ADMIN_MANUAL_UPDATE'
+      };
+
+      if (!existingRestaurant.renewalHistory) {
+        existingRestaurant.renewalHistory = [];
+      }
+      existingRestaurant.renewalHistory.push(newHistoryItem);
       updateData.renewalHistory = existingRestaurant.renewalHistory;
       updateData.$unset = { renewalRequest: 1 };
     }
@@ -326,6 +337,7 @@ exports.updateRestaurant = async (req, res, next) => {
       const RestaurantProfile = tenantDb.model('RestaurantProfile');
       const profileUpdateData = { name, isActive };
       if (subdomain) profileUpdateData.slug = subdomain;
+      if (googleReviewLink !== undefined) profileUpdateData.googleReviewLink = googleReviewLink;
       await RestaurantProfile.findOneAndUpdate({ restaurantId: id }, profileUpdateData);
 
       if (ownerEmail || ownerName || ownerPhone) {

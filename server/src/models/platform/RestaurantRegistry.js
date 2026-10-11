@@ -36,6 +36,10 @@ const restaurantRegistrySchema = new mongoose.Schema({
   ownerPhone: {
     type: String
   },
+  googleReviewLink: {
+    type: String,
+    default: ''
+  },
   status: {
     type: String,
     enum: [

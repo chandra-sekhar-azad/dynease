@@ -99,7 +99,7 @@ export default function AdsManagement() {
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
       <div className="p-6 border-b border-gray-200 flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-800">Ads Management</h2>
-        <button onClick={openAddModal} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors">
+        <button onClick={openAddModal} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors">
           <Plus size={18} /> Add New Ad
         </button>
       </div>
@@ -159,22 +159,22 @@ export default function AdsManagement() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Ad Title</label>
-                <input type="text" name="title" value={formData.title} onChange={handleInputChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" placeholder="e.g., Summer Special" />
+                <input type="text" name="title" value={formData.title} onChange={handleInputChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="e.g., Summer Special" />
               </div>
               
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Image URL</label>
-                <input type="url" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" placeholder="https://example.com/image.jpg" />
+                <input type="url" name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="https://example.com/image.jpg" />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Target Link (Optional)</label>
-                <input type="url" name="targetUrl" value={formData.targetUrl} onChange={handleInputChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" placeholder="https://example.com" />
+                <input type="url" name="targetUrl" value={formData.targetUrl} onChange={handleInputChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="https://example.com" />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
-                <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 text-gray-900 bg-white">
+                <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 text-gray-900 bg-white">
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
@@ -184,7 +184,7 @@ export default function AdsManagement() {
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">
                   Cancel
                 </button>
-                <button type="submit" disabled={isLoading} className="flex-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold shadow-lg shadow-orange-200 transition-colors disabled:opacity-50">
+                <button type="submit" disabled={isLoading} className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-200 transition-colors disabled:opacity-50">
                   {isLoading ? 'Saving...' : 'Save Ad'}
                 </button>
               </div>

@@ -73,7 +73,7 @@ export default function RequestsManagement() {
     }
   };
 
-  if (loading) return <div className="p-6 text-gray-500 flex items-center justify-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>;
+  if (loading) return <div className="p-6 text-gray-500 flex items-center justify-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin text-green-500" /></div>;
 
   return (
     <div className="p-6">
@@ -92,17 +92,17 @@ export default function RequestsManagement() {
                 <div 
                   key={request._id} 
                   onClick={() => setSelectedReq(request)}
-                  className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${selectedReq?._id === request._id ? 'border-orange-500 shadow-md ring-1 ring-orange-500' : 'border-gray-200 hover:border-orange-300 shadow-sm hover:shadow'}`}
+                  className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${selectedReq?._id === request._id ? 'border-green-500 shadow-md ring-1 ring-green-500' : 'border-gray-200 hover:border-green-300 shadow-sm hover:shadow'}`}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-bold text-gray-900 text-lg">{request.name}</h3>
                     <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded">PENDING</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">{request.type}</p>
-                  <p className="text-sm text-orange-600 mb-2 font-medium">{request.slug}.dynease.in</p>
+                  <p className="text-sm text-green-600 mb-2 font-medium">{request.slug}.dynease.in</p>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-500">Owner: {request.ownerId?.name}</span>
-                    <span className="font-semibold text-orange-600">{request.selectedPlan}</span>
+                    <span className="font-semibold text-green-600">{request.selectedPlan}</span>
                   </div>
                 </div>
               ))}
@@ -146,7 +146,7 @@ export default function RequestsManagement() {
 
               <div>
                 <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Subscription Plan</h4>
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg text-orange-800 font-bold">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg text-green-800 font-bold">
                   <Crown size={18} /> {selectedReq.selectedPlan}
                 </div>
               </div>

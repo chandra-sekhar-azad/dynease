@@ -39,7 +39,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#f97316" />
+        <ActivityIndicator size="large" color="#16a34a" />
       </View>
     );
   }
@@ -64,7 +64,7 @@ export default function ProfileScreen() {
       <View style={styles.card}>
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
-            <Ionicons name="person" size={48} color="#f97316" />
+            <Ionicons name="person" size={48} color="#16a34a" />
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.name}>{user.name}</Text>
@@ -98,7 +98,7 @@ export default function ProfileScreen() {
 
         <View style={styles.tablesContainer}>
           <View style={styles.tablesHeader}>
-            <Ionicons name="grid" size={20} color="#f97316" />
+            <Ionicons name="grid" size={20} color="#16a34a" />
             <Text style={styles.tablesTitle}>Assigned Tables</Text>
           </View>
           
@@ -119,11 +119,11 @@ export default function ProfileScreen() {
       </View>
       <View style={[styles.card, { padding: 24, marginTop: -15 }]}>
         <View style={styles.tablesHeader}>
-          <Ionicons name="help-buoy" size={20} color="#f97316" />
+          <Ionicons name="help-buoy" size={20} color="#16a34a" />
           <Text style={styles.tablesTitle}>Support</Text>
         </View>
         <Text style={{ color: '#64748b', marginBottom: 5 }}>Need help or have questions?</Text>
-        <Text style={{ color: '#f97316', fontWeight: 'bold' }}>contact@dynease.in</Text>
+        <Text style={{ color: '#16a34a', fontWeight: 'bold' }}>contact@dynease.in</Text>
       </View>
     </ScrollView>
   );
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#ffedd5',
+    backgroundColor: '#dcfce7',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 20,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   roleBadge: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#dcfce7',
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   roleText: {
-    color: '#ea580c',
+    color: '#15803d',
     fontSize: 12,
     fontWeight: 'bold',
   },

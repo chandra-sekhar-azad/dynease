@@ -2,7 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function CustomerSidebar({ isOpen, onClose, tableLabel }) {
+export default function CustomerSidebar({ isOpen, onClose, tableLabel, googleReviewLink }) {
   if (!isOpen) return null;
 
   return (
@@ -15,9 +15,28 @@ export default function CustomerSidebar({ isOpen, onClose, tableLabel }) {
           </button>
         </div>
         <div className="p-4 space-y-4 flex-1">
-          <Link to="/" onClick={onClose} className="block text-gray-700 font-bold hover:text-orange-600 transition-colors">Home / Menu</Link>
-          <Link to="/cart" onClick={onClose} className="block text-gray-700 font-bold hover:text-orange-600 transition-colors">Your Cart</Link>
-          <Link to="/feedback" onClick={onClose} className="block text-gray-700 font-bold hover:text-orange-600 transition-colors">Leave Feedback</Link>
+          <Link to="/" onClick={onClose} className="block text-gray-700 font-bold hover:text-green-600 transition-colors">Home / Menu</Link>
+          <Link to="/cart" onClick={onClose} className="block text-gray-700 font-bold hover:text-green-600 transition-colors">Your Cart</Link>
+          <Link to="/feedback" onClick={onClose} className="block text-gray-700 font-bold hover:text-green-600 transition-colors">Leave Feedback</Link>
+          {googleReviewLink ? (
+            <a 
+              href={googleReviewLink} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              onClick={onClose} 
+              className="block text-gray-700 font-bold hover:text-green-600 transition-colors"
+            >
+              Google Review
+            </a>
+          ) : (
+            <Link 
+              to="/google-review" 
+              onClick={onClose} 
+              className="block text-gray-700 font-bold hover:text-green-600 transition-colors"
+            >
+              Google Review
+            </Link>
+          )}
         </div>
         {tableLabel && (
           <div className="p-4 border-t border-gray-100 bg-gray-50">

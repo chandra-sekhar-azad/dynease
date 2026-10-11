@@ -84,7 +84,7 @@ export default function PastOrdersScreen() {
       </View>
       
       {loading ? (
-        <ActivityIndicator size="large" color="#94a3b8" style={{ marginTop: 50 }} />
+        <ActivityIndicator size="large" color="#16a34a" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
           data={filteredOrders}
@@ -92,7 +92,7 @@ export default function PastOrdersScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#94a3b8']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#16a34a']} />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

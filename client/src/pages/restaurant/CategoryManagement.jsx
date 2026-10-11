@@ -186,25 +186,25 @@ export default function CategoryManagement() {
       <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50/50 rounded-t-xl">
         <div>
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <FolderOpen size={24} className="text-orange-500" />
+            <FolderOpen size={24} className="text-green-500" />
             Category Management
           </h2>
           <p className="text-sm text-gray-500 mt-1">Manage categories for your menu items</p>
         </div>
-        <button onClick={openAddModal} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm">
+        <button onClick={openAddModal} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm">
           <Plus size={20} /> Add Category
         </button>
       </div>
 
       <div className="p-6">
         {isLoading ? (
-          <div className="flex justify-center p-8"><Loader2 className="animate-spin text-orange-500 w-8 h-8" /></div>
+          <div className="flex justify-center p-8"><Loader2 className="animate-spin text-green-500 w-8 h-8" /></div>
         ) : categories.length === 0 ? (
           <div className="text-center p-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
             <Tag size={48} className="mx-auto text-gray-300 mb-4" />
             <h3 className="text-lg font-bold text-gray-700">No categories found</h3>
             <p className="text-gray-500 mt-1">Get started by creating your first menu category.</p>
-            <button onClick={openAddModal} className="mt-4 px-4 py-2 bg-white border border-orange-200 text-orange-600 font-bold rounded-lg hover:bg-orange-50 transition-colors">
+            <button onClick={openAddModal} className="mt-4 px-4 py-2 bg-white border border-green-200 text-green-600 font-bold rounded-lg hover:bg-green-50 transition-colors">
               Create Category
             </button>
           </div>
@@ -229,7 +229,7 @@ export default function CategoryManagement() {
                       <div className="flex gap-1">
                         <button
                           onClick={() => openEditModal(cat)}
-                          className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="Edit Category"
                         >
                           <Edit2 size={16} />
@@ -256,7 +256,7 @@ export default function CategoryManagement() {
                   
                   <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Usage</span>
-                    <span className="bg-orange-50 text-orange-700 text-xs font-bold px-2 py-1 rounded-full">
+                    <span className="bg-green-50 text-green-700 text-xs font-bold px-2 py-1 rounded-full">
                       {count} {count === 1 ? 'item' : 'items'}
                     </span>
                   </div>
@@ -286,7 +286,7 @@ export default function CategoryManagement() {
                   onChange={e => setNewCategoryName(e.target.value)}
                   placeholder="e.g. Starters, Main Course"
                   required 
-                  className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" 
+                  className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" 
                 />
               </div>
               <div>
@@ -296,14 +296,14 @@ export default function CategoryManagement() {
                   onChange={e => setNewCategoryDesc(e.target.value)}
                   placeholder="Short description for the category"
                   rows="3"
-                  className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-900 bg-white" 
+                  className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" 
                 />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Category Image (Optional)</label>
                 <div 
                   className={`w-full p-4 border-2 border-dashed rounded-xl flex items-center gap-4 transition-colors ${
-                    isDragging ? 'border-orange-500 bg-orange-50' : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                    isDragging ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
                   }`}
                   onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -341,7 +341,7 @@ export default function CategoryManagement() {
                       className="hidden"
                     />
                     <label htmlFor="categoryImageUpload" className="cursor-pointer">
-                      <span className="text-sm font-semibold text-orange-600 hover:text-orange-700 underline underline-offset-2">Click to upload</span>
+                      <span className="text-sm font-semibold text-green-600 hover:text-green-700 underline underline-offset-2">Click to upload</span>
                       <span className="text-sm text-gray-500"> or drag & drop</span>
                       <p className="text-xs text-gray-400 mt-1">PNG, JPG or SVG (Max 5MB)</p>
                     </label>
@@ -350,7 +350,7 @@ export default function CategoryManagement() {
               </div>
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors">Cancel</button>
-                <button type="submit" disabled={savingCategory} className="flex-1 py-2.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-semibold shadow-md shadow-orange-600/20 transition-all flex justify-center items-center gap-2">
+                <button type="submit" disabled={savingCategory} className="flex-1 py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold shadow-md shadow-green-600/20 transition-all flex justify-center items-center gap-2">
                   {savingCategory ? <Loader2 size={16} className="animate-spin" /> : null}
                   {savingCategory ? 'Saving...' : (editingCategory ? 'Update Category' : 'Add Category')}
                 </button>

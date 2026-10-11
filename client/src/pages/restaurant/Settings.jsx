@@ -3,7 +3,7 @@ import { Loader2, Save, Store } from 'lucide-react';
 import { getTenantHeaders } from '../../context/RestaurantContext';
 
 export default function RestaurantSettings() {
-  const [profile, setProfile] = useState({ name: '', subtitle: '' });
+  const [profile, setProfile] = useState({ name: '', subtitle: '', googleReviewLink: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -20,7 +20,8 @@ export default function RestaurantSettings() {
       if (data.success && data.data.profile) {
         setProfile({
           name: data.data.profile.name || '',
-          subtitle: data.data.profile.subtitle || ''
+          subtitle: data.data.profile.subtitle || '',
+          googleReviewLink: data.data.profile.googleReviewLink || ''
         });
       }
     } catch (error) {
@@ -55,7 +56,7 @@ export default function RestaurantSettings() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader2 className="animate-spin text-orange-500 w-8 h-8" />
+        <Loader2 className="animate-spin text-green-500 w-8 h-8" />
       </div>
     );
   }
@@ -64,7 +65,7 @@ export default function RestaurantSettings() {
     <div className="max-w-3xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
         <div className="flex items-center gap-3 mb-8">
-          <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
+          <div className="p-3 bg-green-100 text-green-600 rounded-lg">
             <Store size={24} />
           </div>
           <div>
@@ -90,7 +91,7 @@ export default function RestaurantSettings() {
                   required
                   value={profile.name}
                   onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                   placeholder="e.g., Chandrika"
                 />
               </div>
@@ -103,8 +104,21 @@ export default function RestaurantSettings() {
                   type="text"
                   value={profile.subtitle}
                   onChange={(e) => setProfile(prev => ({ ...prev, subtitle: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                   placeholder="e.g., Family Restaurant"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Google Review Link <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="url"
+                  value={profile.googleReviewLink}
+                  onChange={(e) => setProfile(prev => ({ ...prev, googleReviewLink: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                  placeholder="e.g., https://g.page/r/..."
                 />
               </div>
             </div>
@@ -130,7 +144,7 @@ export default function RestaurantSettings() {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 bg-orange-500 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-orange-600 focus:ring-4 focus:ring-orange-200 transition-all disabled:opacity-70"
+              className="flex items-center gap-2 bg-green-500 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-green-600 focus:ring-4 focus:ring-green-200 transition-all disabled:opacity-70"
             >
               {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />}
               {saving ? 'Saving...' : 'Save Settings'}

@@ -28,7 +28,7 @@ export default function Settings() {
               type="text" 
               value={platformName}
               onChange={(e) => setPlatformName(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:bg-white transition-colors"
             />
           </div>
 
@@ -40,7 +40,7 @@ export default function Settings() {
               max="100"
               value={commission}
               onChange={(e) => setCommission(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:bg-white transition-colors"
             />
             <p className="text-xs text-gray-500 mt-1">This is the default commission taken from restaurant orders.</p>
           </div>
@@ -50,7 +50,7 @@ export default function Settings() {
           <button 
             type="submit" 
             disabled={loading}
-            className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
           >
             <Save size={20} />
             {loading ? 'Saving...' : 'Save Settings'}

@@ -9,7 +9,7 @@ export default function KitchenLayout() {
 
   return (
     <Drawer 
-      screenOptions={{ headerShown: true, drawerActiveTintColor: '#f59e0b' }}
+      screenOptions={{ headerShown: true, drawerActiveTintColor: '#16a34a' }}
       drawerContent={(props) => (
         <DrawerContentScrollView {...props}>
           <DrawerItemList {...props} />

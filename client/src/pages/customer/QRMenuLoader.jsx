@@ -52,12 +52,12 @@ export default function QRMenuLoader() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col items-center justify-center p-6">
         <div className="bg-white rounded-3xl shadow-xl p-10 text-center max-w-xs w-full">
-          <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <QrCode className="text-orange-500" size={36} />
+          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <QrCode className="text-green-500" size={36} />
           </div>
-          <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto mb-3" />
+          <Loader2 className="w-8 h-8 text-green-500 animate-spin mx-auto mb-3" />
           <h2 className="text-xl font-bold text-gray-900 mb-1">Scanning Table</h2>
           <p className="text-gray-500 text-sm">Setting up your session…</p>
         </div>
@@ -67,13 +67,13 @@ export default function QRMenuLoader() {
 
   if (status === 'success' && tableInfo) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col items-center justify-center p-6">
         <div className="bg-white rounded-3xl shadow-xl p-10 text-center max-w-xs w-full">
           <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">✓</span>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">{tableInfo.restaurant.name}</h2>
-          <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 font-semibold px-4 py-2 rounded-full text-sm mt-2 mb-4">
+          <div className="inline-flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 font-semibold px-4 py-2 rounded-full text-sm mt-2 mb-4">
             Table {tableInfo.table.tableNumber}
           </div>
           <p className="text-green-600 font-medium text-sm">
@@ -96,7 +96,7 @@ export default function QRMenuLoader() {
         <p className="text-gray-500 text-sm mb-6">{errorMsg}</p>
         <button
           onClick={() => window.location.reload()}
-          className="flex items-center gap-2 mx-auto bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-3 rounded-xl transition-colors"
+          className="flex items-center gap-2 mx-auto bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-3 rounded-xl transition-colors"
         >
           <RefreshCw size={18} /> Try Again
         </button>

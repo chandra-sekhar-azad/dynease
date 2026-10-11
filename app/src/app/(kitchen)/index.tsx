@@ -145,10 +145,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   progressBtn: {
-    backgroundColor: '#f59e0b',
+    backgroundColor: '#0284c7',
   },
   readyBtn: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#16a34a',
   },
   actionText: {
     color: '#fff',

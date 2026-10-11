@@ -362,7 +362,7 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const { name, subtitle } = req.body;
+    const { name, subtitle, googleReviewLink } = req.body;
     const RestaurantProfile = req.tenantDb.model('RestaurantProfile');
     
     const profile = await RestaurantProfile.findOne({ restaurantId });
@@ -372,6 +372,7 @@ exports.updateProfile = async (req, res) => {
 
     if (name) profile.name = name.trim();
     if (subtitle !== undefined) profile.subtitle = subtitle.trim();
+    if (googleReviewLink !== undefined) profile.googleReviewLink = googleReviewLink.trim();
 
     await profile.save();
     res.status(200).json({ success: true, data: { profile } });

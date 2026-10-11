@@ -127,7 +127,7 @@ export default function RestaurantDashboard() {
     }
     if (remainingDays <= 3) {
       return (
-        <div className="bg-orange-50 border border-orange-200 text-orange-800 p-4 rounded-lg flex items-start gap-3 mb-6">
+        <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-start gap-3 mb-6">
           <AlertTriangle className="shrink-0 mt-0.5" size={20} />
           <div>
             <h4 className="font-bold">Subscription Expires Soon</h4>
@@ -163,7 +163,7 @@ export default function RestaurantDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center items-center h-32">
           <p className="text-gray-500 font-medium">Today's Orders</p>
-          <h3 className="text-4xl font-bold text-orange-600 mt-2">{stats.todaysOrders}</h3>
+          <h3 className="text-4xl font-bold text-green-600 mt-2">{stats.todaysOrders}</h3>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center items-center h-32">
           <p className="text-gray-500 font-medium">Revenue</p>
@@ -197,9 +197,10 @@ export default function RestaurantDashboard() {
                 <p className="text-2xl font-bold text-gray-900 mb-6">{subscription.plan}</p>
                 
                 <p className="text-sm text-gray-500 mb-1">Expiry Date</p>
-                <p className="text-sm text-gray-500 mb-1">MM/DD/YYYY</p>
-                <p className="text-lg font-medium text-gray-800 mb-6">
-                  {subscription.endDate ? new Date(subscription.endDate).toLocaleDateString() : 'N/A'}
+                <p className="text-lg font-bold text-gray-800 mb-6">
+                  {subscription.endDate 
+                    ? new Date(subscription.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) 
+                    : 'N/A'}
                 </p>
               </div>
               
@@ -212,7 +213,7 @@ export default function RestaurantDashboard() {
                   <div 
                     className={`h-3 rounded-full ${
                       subscription.remainingDays <= 3 ? 'bg-red-500' :
-                      subscription.remainingDays <= 7 ? 'bg-orange-500' : 'bg-green-500'
+                      subscription.remainingDays <= 7 ? 'bg-green-500' : 'bg-green-500'
                     }`}
                     style={{ width: `${progressPercent}%` }}
                   ></div>
@@ -222,7 +223,7 @@ export default function RestaurantDashboard() {
                   <button 
                     onClick={() => setShowPlanModal(true)}
                     disabled={isPending}
-                    className="flex-1 bg-orange-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {isPending ? 'Request Pending' : (subscription.plan === 'FREE' ? 'Upgrade Plan' : 'Renew Subscription')}
                   </button>
@@ -247,25 +248,25 @@ export default function RestaurantDashboard() {
             <div className="p-6 space-y-4">
               <div 
                 onClick={() => setSelectedPlan('GROWTH')}
-                className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedPlan === 'GROWTH' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-200'}`}
+                className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedPlan === 'GROWTH' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-200'}`}
               >
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-lg text-gray-800">GROWTH Plan</span>
-                  {selectedPlan === 'GROWTH' && <CheckCircle className="text-orange-500" size={20} />}
+                  {selectedPlan === 'GROWTH' && <CheckCircle className="text-green-500" size={20} />}
                 </div>
-                <p className="text-orange-600 font-bold mb-2">₹999 / month</p>
+                <p className="text-green-600 font-bold mb-2">₹999 / month</p>
                 <p className="text-sm text-gray-500">Perfect for growing restaurants.</p>
               </div>
 
               <div 
                 onClick={() => setSelectedPlan('PRO')}
-                className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedPlan === 'PRO' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-200'}`}
+                className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedPlan === 'PRO' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-200'}`}
               >
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-lg text-gray-800">PRO Plan</span>
-                  {selectedPlan === 'PRO' && <CheckCircle className="text-orange-500" size={20} />}
+                  {selectedPlan === 'PRO' && <CheckCircle className="text-green-500" size={20} />}
                 </div>
-                <p className="text-orange-600 font-bold mb-2">₹1999 / month</p>
+                <p className="text-green-600 font-bold mb-2">₹1999 / month</p>
                 <p className="text-sm text-gray-500">Advanced features for power users.</p>
               </div>
 
@@ -273,7 +274,7 @@ export default function RestaurantDashboard() {
                 <button onClick={() => setShowPlanModal(false)} className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">
                   Cancel
                 </button>
-                <button onClick={submitRenewalRequest} disabled={isRequesting} className="flex-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold shadow-lg shadow-orange-200 transition-colors disabled:opacity-50">
+                <button onClick={submitRenewalRequest} disabled={isRequesting} className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-200 transition-colors disabled:opacity-50">
                   {isRequesting ? 'Sending...' : 'Send Request'}
                 </button>
               </div>

@@ -78,7 +78,7 @@ export default function SettingsScreen() {
       <View style={[styles.card, { marginTop: 20 }]}>
         <Text style={styles.sectionTitle}>Support</Text>
         <Text style={styles.label}>Need help or have questions?</Text>
-        <Text style={[styles.input, { color: '#ea580c', fontWeight: 'bold', borderWidth: 0, padding: 0 }]}>
+        <Text style={[styles.input, { color: '#16a34a', fontWeight: 'bold', borderWidth: 0, padding: 0 }]}>
           contact@dynease.in
         </Text>
       </View>
@@ -93,6 +93,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 15 },
   label: { fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 6 },
   input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', padding: 12, borderRadius: 8, fontSize: 16, marginBottom: 15 },
-  saveBtn: { backgroundColor: '#ea580c', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  saveBtn: { backgroundColor: '#16a34a', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });
