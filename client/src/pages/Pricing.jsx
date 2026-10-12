@@ -20,14 +20,14 @@ export default function Pricing() {
       name: 'Starter',
       tagline: 'Ideal for small cafes & bistros starting their digital journey',
       monthlyDisplayPrice: 999,
-      yearlyDisplayPrice: 9990,
-      savingsRupees: 1998,
+      yearlyDisplayPrice: 9999,
+      savingsRupees: 1989,
       discountPercent: 16.7,
       badge: null,
       isPopular: false,
       limits: {
         maxLocations: 1,
-        maxTables: 10,
+        maxTables: 5,
         maxMenuItems: 50,
         maxStaffAccounts: 3,
         orderHistoryDays: 7
@@ -46,8 +46,8 @@ export default function Pricing() {
       },
       displayFeatures: [
         '1 Restaurant location',
-        'Up to 10 Tables',
-        'Up to 50 Menu items',
+        'Up to 5 Tables',
+        'Up to 50 Active menu items',
         'QR ordering & live orders',
         '3 Staff accounts',
         '7 days Order history',
@@ -62,14 +62,14 @@ export default function Pricing() {
       name: 'Growth',
       tagline: 'Best for growing dine-in restaurants needing expanded capacity',
       monthlyDisplayPrice: 1999,
-      yearlyDisplayPrice: 19990,
-      savingsRupees: 3998,
+      yearlyDisplayPrice: 19999,
+      savingsRupees: 3989,
       discountPercent: 16.7,
       badge: 'Most Popular',
       isPopular: true,
       limits: {
         maxLocations: 1,
-        maxTables: 30,
+        maxTables: 20,
         maxMenuItems: 200,
         maxStaffAccounts: 10,
         orderHistoryDays: 30
@@ -81,15 +81,15 @@ export default function Pricing() {
         customerReviews: true,
         restaurantBranding: 'customizable',
         customerCrm: 'basic',
-        reportsExport: true,
+        reportsExport: false,
         multiLocationDashboard: false,
         loyaltySystem: false,
         supportLevel: 'priority'
       },
       displayFeatures: [
         '1 Restaurant location',
-        'Up to 30 Tables',
-        'Up to 200 Menu items',
+        'Up to 20 Tables',
+        'Up to 200 Active menu items',
         'QR ordering & live orders',
         '10 Staff accounts',
         '30 days Order history',
@@ -97,7 +97,6 @@ export default function Pricing() {
         'Customer reviews',
         'Customizable branding',
         'Basic Customer CRM',
-        'Reports export (CSV/Excel)',
         'Priority support'
       ]
     },
@@ -106,14 +105,14 @@ export default function Pricing() {
       name: 'Business',
       tagline: 'Perfect for established multi-table and multi-outlet food businesses',
       monthlyDisplayPrice: 3499,
-      yearlyDisplayPrice: 34990,
-      savingsRupees: 6998,
+      yearlyDisplayPrice: 34999,
+      savingsRupees: 6989,
       discountPercent: 16.7,
       badge: 'Best for Multi-Location',
       isPopular: false,
       limits: {
         maxLocations: 3,
-        maxTables: null,
+        maxTables: 40,
         maxMenuItems: null,
         maxStaffAccounts: 30,
         orderHistoryDays: 365
@@ -132,7 +131,7 @@ export default function Pricing() {
       },
       displayFeatures: [
         'Up to 3 Restaurant locations',
-        'Unlimited Tables',
+        'Up to 40 Tables',
         'Unlimited Menu items',
         'QR ordering & live orders',
         '30 Staff accounts',
@@ -141,23 +140,24 @@ export default function Pricing() {
         'Customer reviews',
         'Customizable branding',
         'Full Customer CRM',
-        'Reports export',
+        'Reports export (CSV/Excel)',
         'Multi-location dashboard',
         'Priority support'
       ]
     },
     {
-      planId: 'PRO',
-      name: 'Pro',
-      tagline: 'Enterprise-grade platform for restaurant chains and franchises',
-      monthlyDisplayPrice: 5999,
-      yearlyDisplayPrice: 59990,
-      savingsRupees: 11998,
+      planId: 'CUSTOM',
+      name: 'Custom',
+      tagline: 'Enterprise-grade platform tailored for restaurant chains and franchises',
+      monthlyDisplayPrice: 'Custom',
+      yearlyDisplayPrice: 'Custom',
+      savingsRupees: 0,
       discountPercent: 16.7,
       badge: 'Enterprise & Chains',
       isPopular: false,
+      isCustom: true,
       limits: {
-        maxLocations: 5,
+        maxLocations: null,
         maxTables: null,
         maxMenuItems: null,
         maxStaffAccounts: null,
@@ -167,6 +167,7 @@ export default function Pricing() {
         qrOrdering: true,
         liveOrders: true,
         salesAnalytics: 'consolidated',
+        customerReviews: true,
         restaurantBranding: 'advanced',
         customerCrm: 'loyalty',
         reportsExport: true,
@@ -175,7 +176,7 @@ export default function Pricing() {
         supportLevel: 'priority_onboarding'
       },
       displayFeatures: [
-        'Up to 5 Restaurant locations',
+        'Unlimited Restaurant locations',
         'Unlimited Tables',
         'Unlimited Menu items',
         'QR ordering & live orders',
@@ -185,9 +186,9 @@ export default function Pricing() {
         'Customer reviews',
         'Advanced restaurant branding',
         'Full CRM + Loyalty rewards',
-        'Reports export',
+        'Reports export (CSV/Excel)',
         'Multi-location dashboard',
-        'Priority support + onboarding'
+        'Priority support + dedicated onboarding'
       ]
     }
   ];
@@ -238,6 +239,7 @@ export default function Pricing() {
           btnStyle: 'bg-indigo-600 hover:bg-indigo-700 text-white',
           checkColor: 'text-indigo-600'
         };
+      case 'CUSTOM':
       case 'PRO':
         return {
           icon: <Crown className="text-amber-500" size={24} />,
@@ -322,6 +324,7 @@ export default function Pricing() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch pt-4">
           {plans.map((tier) => {
             const visual = getPlanVisuals(tier.planId);
+            const isCustomPlan = tier.isCustom || tier.planId === 'CUSTOM' || tier.monthlyPricePaise === null || typeof (billingCycle === 'monthly' ? tier.monthlyDisplayPrice : tier.yearlyDisplayPrice) !== 'number';
             const price = billingCycle === 'monthly' ? tier.monthlyDisplayPrice : tier.yearlyDisplayPrice;
             const period = billingCycle === 'monthly' ? '/month' : '/year';
 
@@ -357,35 +360,59 @@ export default function Pricing() {
 
                   {/* Price */}
                   <div className="flex items-baseline mb-1">
-                    <span className="text-3xl sm:text-4xl font-extrabold tracking-tight font-serif text-gray-900">
-                      ₹{price.toLocaleString('en-IN')}
-                    </span>
-                    <span className="ml-1.5 text-xs font-semibold text-gray-500">
-                      {period}
-                    </span>
+                    {!isCustomPlan ? (
+                      <>
+                        <span className="text-3xl sm:text-4xl font-extrabold tracking-tight font-serif text-gray-900">
+                          ₹{Number(price).toLocaleString('en-IN')}
+                        </span>
+                        <span className="ml-1.5 text-xs font-semibold text-gray-500">
+                          {period}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-2xl sm:text-3xl font-extrabold tracking-tight font-serif text-gray-900">
+                        Custom Pricing
+                      </span>
+                    )}
                   </div>
 
                   {/* Savings / Billing Subtext */}
                   <div className="min-h-[24px] mb-6">
-                    {billingCycle === 'yearly' ? (
-                      <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                        Save ₹{tier.savingsRupees.toLocaleString('en-IN')}/year ({tier.discountPercent}%)
-                      </span>
+                    {!isCustomPlan ? (
+                      billingCycle === 'yearly' ? (
+                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                          Save ₹{(tier.savingsRupees || 0).toLocaleString('en-IN')}/year (~{tier.discountPercent}%)
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">
+                          Billed monthly, cancel anytime
+                        </span>
+                      )
                     ) : (
-                      <span className="text-[11px] text-gray-400">
-                        Billed monthly, cancel anytime
+                      <span className="text-[11px] text-gray-500 font-medium">
+                        Tailored pricing based on requirements
                       </span>
                     )}
                   </div>
 
                   {/* CTA Button */}
-                  <Link
-                    to={`/register?plan=${tier.planId}&cycle=${billingCycle}`}
-                    className={`w-full text-center py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${visual.btnStyle}`}
-                  >
-                    <span>{tier.isPopular ? 'Choose Growth' : `Get Started with ${tier.name}`}</span>
-                    <ArrowRight size={16} />
-                  </Link>
+                  {isCustomPlan ? (
+                    <a
+                      href="callto"
+                      className={`w-full text-center py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${visual.btnStyle}`}
+                    >
+                      <span>Talk to Sales</span>
+                      <ArrowRight size={16} />
+                    </a>
+                  ) : (
+                    <Link
+                      to={`/register?plan=${tier.planId}&cycle=${billingCycle}`}
+                      className={`w-full text-center py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${visual.btnStyle}`}
+                    >
+                      <span>{tier.isPopular ? 'Choose Growth' : `Get Started with ${tier.name}`}</span>
+                      <ArrowRight size={16} />
+                    </Link>
+                  )}
 
                   {/* Features List */}
                   <div className="mt-6 pt-6 border-t border-gray-100 flex-1">
@@ -437,37 +464,49 @@ export default function Pricing() {
                     <th className="py-4 px-4 text-center">Starter</th>
                     <th className="py-4 px-4 text-center bg-emerald-50/50 text-emerald-900">Growth</th>
                     <th className="py-4 px-4 text-center">Business</th>
-                    <th className="py-4 px-4 text-center">Pro</th>
+                    <th className="py-4 px-4 text-center">Custom</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                  {/* Pricing Overview Section */}
+                  <tr className="bg-gray-100/60 font-bold text-gray-900 text-xs">
+                    <td colSpan="5" className="py-2.5 px-6 uppercase tracking-wider text-[11px]">Pricing Structure</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Monthly Price</td>
+                    <td className="py-3.5 px-4 text-center font-bold">₹999</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold text-emerald-700">₹1,999</td>
+                    <td className="py-3.5 px-4 text-center font-bold">₹3,499</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-amber-600">Custom pricing</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Yearly Price</td>
+                    <td className="py-3.5 px-4 text-center font-bold">₹9,999</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold text-emerald-700">₹19,999</td>
+                    <td className="py-3.5 px-4 text-center font-bold">₹34,999</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-amber-600">Custom pricing</td>
+                  </tr>
+
                   {/* Limits Section */}
                   <tr className="bg-gray-100/60 font-bold text-gray-900 text-xs">
                     <td colSpan="5" className="py-2.5 px-6 uppercase tracking-wider text-[11px]">Core Capacities & Limits</td>
                   </tr>
                   <tr>
-                    <td className="py-3.5 px-6 font-semibold text-gray-900">Restaurants / Locations</td>
-                    <td className="py-3.5 px-4 text-center">1</td>
-                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">1</td>
-                    <td className="py-3.5 px-4 text-center font-bold">Up to 3</td>
-                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Up to 5</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3.5 px-6 font-semibold text-gray-900">Tables Capacity</td>
-                    <td className="py-3.5 px-4 text-center">10</td>
-                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">30</td>
-                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Total Tables (Active registered)</td>
+                    <td className="py-3.5 px-4 text-center font-bold">5</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold text-emerald-700">20</td>
+                    <td className="py-3.5 px-4 text-center font-bold">40</td>
                     <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
                   </tr>
                   <tr>
-                    <td className="py-3.5 px-6 font-semibold text-gray-900">Menu Items</td>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Menu Items (Active)</td>
                     <td className="py-3.5 px-4 text-center">50</td>
                     <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">200</td>
                     <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
                     <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
                   </tr>
                   <tr>
-                    <td className="py-3.5 px-6 font-semibold text-gray-900">Staff Accounts (Waiters/Kitchen)</td>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Staff Accounts (Waiters / Kitchen)</td>
                     <td className="py-3.5 px-4 text-center">3</td>
                     <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">10</td>
                     <td className="py-3.5 px-4 text-center font-bold">30</td>
@@ -487,17 +526,17 @@ export default function Pricing() {
                   </tr>
                   <tr>
                     <td className="py-3.5 px-6">QR Code Ordering & Live Orders</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Included</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
                   </tr>
                   <tr>
                     <td className="py-3.5 px-6">Customer Reviews & Ratings</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Included</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
                   </tr>
                   <tr>
                     <td className="py-3.5 px-6">Sales Analytics</td>
@@ -511,7 +550,7 @@ export default function Pricing() {
                     <td className="py-3.5 px-4 text-center">Basic</td>
                     <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">Customizable</td>
                     <td className="py-3.5 px-4 text-center font-bold">Customizable</td>
-                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Advanced Custom Branding</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Advanced</td>
                   </tr>
                   <tr>
                     <td className="py-3.5 px-6">Customer CRM</td>
@@ -522,20 +561,13 @@ export default function Pricing() {
                   </tr>
                   <tr>
                     <td className="py-3.5 px-6">Reports Export (CSV / Excel)</td>
-                    <td className="py-3.5 px-4 text-center text-gray-400">No</td>
-                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-gray-400">Not included</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-gray-400">Not included</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
                   </tr>
                   <tr>
-                    <td className="py-3.5 px-6">Multi-location Dashboard</td>
-                    <td className="py-3.5 px-4 text-center text-gray-400">No</td>
-                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-gray-400">No</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
-                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3.5 px-6">Support SLA</td>
+                    <td className="py-3.5 px-6">Priority Support</td>
                     <td className="py-3.5 px-4 text-center">Standard</td>
                     <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">Priority</td>
                     <td className="py-3.5 px-4 text-center font-bold">Priority</td>

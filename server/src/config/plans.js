@@ -1,6 +1,8 @@
 /**
  * Dynease Centralized Subscription Plans Configuration
  * Canonical definition of all 4 plans, integer paise pricing, feature limits, and entitlements.
+ * Updated to match the latest official pricing & capacity matrix:
+ * Starter (₹999 / ₹9,999), Growth (₹1,999 / ₹19,999), Business (₹3,499 / ₹34,999), Custom/Enterprise
  */
 
 // Prices in integer paise (1 INR = 100 paise)
@@ -10,9 +12,9 @@ const PLANS = {
     name: 'Starter',
     tagline: 'Ideal for small cafes & bistros starting their digital journey',
     monthlyPricePaise: 99900,     // ₹999
-    yearlyPricePaise: 999000,    // ₹9,990 (Save ₹1,998 / 16.7%)
+    yearlyPricePaise: 999900,    // ₹9,999 (~16.7% cheaper than monthly for 12 months)
     monthlyDisplayPrice: 999,
-    yearlyDisplayPrice: 9990,
+    yearlyDisplayPrice: 9999,
     currency: 'INR',
     currencySymbol: '₹',
     badge: null,
@@ -20,33 +22,33 @@ const PLANS = {
     isActive: true,
     limits: {
       maxLocations: 1,
-      maxTables: 10,
-      maxMenuItems: 50,
-      maxStaffAccounts: 3,        // Staff roles (waiter, kitchen, cashier). Owner excluded.
+      maxTables: 5,               // Total tables: 5
+      maxMenuItems: 50,           // Active menu items: 50
+      maxStaffAccounts: 3,        // Staff roles: 3 (owner excluded)
       orderHistoryDays: 7         // 7 days historical order visibility
     },
     features: {
       qrOrdering: true,
       liveOrders: true,
-      customerReviews: true,
-      salesAnalytics: 'basic',          // 'basic' | 'advanced' | 'consolidated'
-      restaurantBranding: 'basic',      // 'basic' | 'customizable' | 'advanced'
-      customerCrm: 'none',              // 'none' | 'basic' | 'full' | 'loyalty'
-      reportsExport: false,
+      customerReviews: true,      // Included to help small restaurants build trust
+      salesAnalytics: 'basic',    // 'basic' | 'advanced' | 'consolidated'
+      restaurantBranding: 'basic',// Basic: restaurant name and logo
+      customerCrm: 'none',        // Not included
+      reportsExport: false,       // Not included
       multiLocationDashboard: false,
       loyaltySystem: false,
-      supportLevel: 'standard',         // 'standard' | 'priority' | 'priority_onboarding'
+      supportLevel: 'standard',   // Standard
       waiterAssignment: true
     },
     displayFeatures: [
       '1 Restaurant location',
-      'Up to 10 Tables',
-      'Up to 50 Menu items',
+      'Up to 5 Tables',
+      'Up to 50 Active menu items',
       'QR ordering & live orders',
       'Up to 3 Staff accounts',
       '7 days Order history',
       'Basic Sales analytics',
-      'Customer reviews',
+      'Customer reviews included',
       'Basic restaurant branding',
       'Standard support'
     ]
@@ -57,9 +59,9 @@ const PLANS = {
     name: 'Growth',
     tagline: 'Best for growing dine-in restaurants needing expanded capacity',
     monthlyPricePaise: 199900,    // ₹1,999
-    yearlyPricePaise: 1999000,   // ₹19,990 (Save ₹3,998 / 16.7%)
+    yearlyPricePaise: 1999900,   // ₹19,999 (~16.7% cheaper than monthly for 12 months)
     monthlyDisplayPrice: 1999,
-    yearlyDisplayPrice: 19990,
+    yearlyDisplayPrice: 19999,
     currency: 'INR',
     currencySymbol: '₹',
     badge: 'Most Popular',
@@ -67,36 +69,35 @@ const PLANS = {
     isActive: true,
     limits: {
       maxLocations: 1,
-      maxTables: 30,
-      maxMenuItems: 200,
-      maxStaffAccounts: 10,
+      maxTables: 20,              // Total tables: 20
+      maxMenuItems: 200,          // Active menu items: 200
+      maxStaffAccounts: 10,       // Staff accounts: 10
       orderHistoryDays: 30        // 30 days
     },
     features: {
       qrOrdering: true,
       liveOrders: true,
-      customerReviews: true,
-      salesAnalytics: 'advanced',
-      restaurantBranding: 'customizable',
-      customerCrm: 'basic',
-      reportsExport: true,
+      customerReviews: true,      // Included
+      salesAnalytics: 'advanced', // Advanced trends and breakdowns
+      restaurantBranding: 'customizable', // Customizable colors & layouts
+      customerCrm: 'basic',       // Basic customer profiles and visit history
+      reportsExport: false,       // Not included
       multiLocationDashboard: false,
       loyaltySystem: false,
-      supportLevel: 'priority',
+      supportLevel: 'priority',   // Priority
       waiterAssignment: true
     },
     displayFeatures: [
       '1 Restaurant location',
-      'Up to 30 Tables',
-      'Up to 200 Menu items',
+      'Up to 20 Tables',
+      'Up to 200 Active menu items',
       'QR ordering & live orders',
       'Up to 10 Staff accounts',
       '30 days Order history',
       'Advanced Sales analytics',
-      'Customer reviews',
-      'Customizable branding',
+      'Customer reviews & ratings',
+      'Customizable restaurant branding',
       'Basic Customer CRM',
-      'Reports export (CSV/Excel)',
       'Priority support'
     ]
   },
@@ -106,9 +107,9 @@ const PLANS = {
     name: 'Business',
     tagline: 'Perfect for established multi-table and multi-outlet food businesses',
     monthlyPricePaise: 349900,    // ₹3,499
-    yearlyPricePaise: 3499000,   // ₹34,990 (Save ₹6,998 / 16.7%)
+    yearlyPricePaise: 3499900,   // ₹34,999 (~16.7% cheaper than monthly for 12 months)
     monthlyDisplayPrice: 3499,
-    yearlyDisplayPrice: 34990,
+    yearlyDisplayPrice: 34999,
     currency: 'INR',
     currencySymbol: '₹',
     badge: 'Best for Multi-Location',
@@ -116,27 +117,27 @@ const PLANS = {
     isActive: true,
     limits: {
       maxLocations: 3,            // Up to 3 locations
-      maxTables: null,            // Unlimited
-      maxMenuItems: null,         // Unlimited
-      maxStaffAccounts: 30,
+      maxTables: 40,              // Total tables: 40
+      maxMenuItems: null,         // Unlimited active menu items
+      maxStaffAccounts: 30,       // Staff accounts: 30
       orderHistoryDays: 365       // 1 year
     },
     features: {
       qrOrdering: true,
       liveOrders: true,
-      customerReviews: true,
-      salesAnalytics: 'advanced',
-      restaurantBranding: 'customizable',
-      customerCrm: 'full',
-      reportsExport: true,
+      customerReviews: true,      // Included
+      salesAnalytics: 'advanced', // Advanced
+      restaurantBranding: 'customizable', // Customizable
+      customerCrm: 'full',        // Full CRM
+      reportsExport: true,        // Included (CSV / Excel)
       multiLocationDashboard: true,
       loyaltySystem: false,
-      supportLevel: 'priority',
+      supportLevel: 'priority',   // Priority
       waiterAssignment: true
     },
     displayFeatures: [
       'Up to 3 Restaurant locations',
-      'Unlimited Tables',
+      'Up to 40 Tables',
       'Unlimited Menu items',
       'QR ordering & live orders',
       'Up to 30 Staff accounts',
@@ -145,47 +146,48 @@ const PLANS = {
       'Customer reviews',
       'Customizable branding',
       'Full Customer CRM',
-      'Reports export',
+      'Reports export (CSV/Excel)',
       'Multi-location dashboard',
       'Priority support'
     ]
   },
 
-  PRO: {
-    planId: 'PRO',
-    name: 'Pro',
-    tagline: 'Enterprise-grade platform for restaurant chains and franchises',
-    monthlyPricePaise: 599900,    // ₹5,999
-    yearlyPricePaise: 5999000,   // ₹59,990 (Save ₹11,998 / 16.7%)
-    monthlyDisplayPrice: 5999,
-    yearlyDisplayPrice: 59990,
+  CUSTOM: {
+    planId: 'CUSTOM',
+    name: 'Custom',
+    tagline: 'Enterprise-grade platform tailored for restaurant chains and franchises',
+    monthlyPricePaise: null,      // Custom pricing
+    yearlyPricePaise: null,       // Custom pricing
+    monthlyDisplayPrice: 'Custom',
+    yearlyDisplayPrice: 'Custom',
     currency: 'INR',
     currencySymbol: '₹',
     badge: 'Enterprise & Chains',
     isPopular: false,
     isActive: true,
+    isCustom: true,
     limits: {
-      maxLocations: 5,            // Up to 5 locations
-      maxTables: null,            // Unlimited
-      maxMenuItems: null,         // Unlimited
-      maxStaffAccounts: null,     // Unlimited
-      orderHistoryDays: null      // Unlimited
+      maxLocations: null,         // Unlimited locations
+      maxTables: null,            // Unlimited tables
+      maxMenuItems: null,         // Unlimited menu items
+      maxStaffAccounts: null,     // Unlimited staff accounts
+      orderHistoryDays: null      // Unlimited order history
     },
     features: {
       qrOrdering: true,
       liveOrders: true,
       customerReviews: true,
-      salesAnalytics: 'consolidated',
-      restaurantBranding: 'advanced',
-      customerCrm: 'loyalty',
-      reportsExport: true,
+      salesAnalytics: 'consolidated',     // Advanced + consolidated multi-outlet
+      restaurantBranding: 'advanced',     // Advanced custom branding
+      customerCrm: 'loyalty',             // Full CRM + loyalty program
+      reportsExport: true,                // Included
       multiLocationDashboard: true,
       loyaltySystem: true,
-      supportLevel: 'priority_onboarding',
+      supportLevel: 'priority_onboarding',// Priority + onboarding
       waiterAssignment: true
     },
     displayFeatures: [
-      'Up to 5 Restaurant locations',
+      'Unlimited Restaurant locations',
       'Unlimited Tables',
       'Unlimited Menu items',
       'QR ordering & live orders',
@@ -195,12 +197,15 @@ const PLANS = {
       'Customer reviews',
       'Advanced restaurant branding',
       'Full CRM + Loyalty rewards',
-      'Reports export',
+      'Reports export (CSV/Excel)',
       'Multi-location dashboard',
       'Priority support + dedicated onboarding'
     ]
   }
 };
+
+// Backwards compatibility alias
+PLANS.PRO = PLANS.CUSTOM;
 
 /**
  * Calculates yearly savings and discount percentage.
@@ -209,6 +214,14 @@ const PLANS = {
  * discountPercent = (savings / (monthlyPrice * 12)) * 100
  */
 function getSavingsInfo(plan) {
+  if (!plan.monthlyPricePaise || !plan.yearlyPricePaise) {
+    return {
+      savingsPaise: 0,
+      savingsRupees: 0,
+      discountPercent: 16.7
+    };
+  }
+
   const annualMonthlyPaise = plan.monthlyPricePaise * 12;
   const yearlyPaise = plan.yearlyPricePaise;
   const savingsPaise = annualMonthlyPaise - yearlyPaise;
@@ -224,12 +237,13 @@ function getSavingsInfo(plan) {
 
 /**
  * Resolves a plan by its ID (case-insensitive).
- * Maps legacy 'FREE' plan to 'STARTER'.
+ * Maps legacy 'FREE' plan to 'STARTER', and 'PRO' to 'CUSTOM'.
  */
 function getPlan(planId) {
   if (!planId) return null;
   const upper = String(planId).toUpperCase().trim();
   if (upper === 'FREE') return PLANS.STARTER;
+  if (upper === 'PRO') return PLANS.CUSTOM;
   return PLANS[upper] || null;
 }
 
@@ -237,8 +251,10 @@ function getPlan(planId) {
  * Returns public array of active plans with savings calculations.
  */
 function getPublicPlans() {
-  return Object.values(PLANS)
-    .filter(p => p.isActive)
+  const planOrder = ['STARTER', 'GROWTH', 'BUSINESS', 'CUSTOM'];
+  return planOrder
+    .map(key => PLANS[key])
+    .filter(p => p && p.isActive)
     .map(p => {
       const savings = getSavingsInfo(p);
       return {
