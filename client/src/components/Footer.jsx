@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail,HeartOff, Utensils } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Footer({ className = "" }) {
@@ -25,21 +25,29 @@ export default function Footer({ className = "" }) {
           <Link to="/pricing" className="hover:text-[#34d399] transition-colors">Pricing</Link>
         </div>
 
-        <div className="flex gap-4">
-          
-    <a
-    href="mailto:contact@dynease.in"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all w-full max-w-sm backdrop-blur-sm border border-white/10 shadow-sm"
-  >
-    <Mail className="w-5 h-5 text-blue-400" />
-    <div className="text-left">
-      <span className="text-xs text-gray-400 uppercase tracking-wider font-medium block mb-0.5">Email</span>
-      <span className="text-sm font-semibold">contact@dynease.in</span>
-    </div>
-  </a>
-    </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <a
+            href="mailto:contact@dynease.in"
+            className="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all backdrop-blur-sm border border-white/10 shadow-sm"
+          >
+            <Mail className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="text-left">
+              <span className="text-[11px] text-gray-400 uppercase tracking-wider font-medium block">Email</span>
+              <span className="text-sm font-semibold">contact@dynease.in</span>
+            </div>
+          </a>
+
+          <a
+            href="tel:+918897536435"
+            className="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all backdrop-blur-sm border border-white/10 shadow-sm"
+          >
+            <Phone className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="text-left">
+              <span className="text-[11px] text-gray-400 uppercase tracking-wider font-medium block">Phone</span>
+              <span className="text-sm font-semibold">+91 88975 36435</span>
+            </div>
+          </a>
+        </div>
       </div>
       
       <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-[#094825] flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-400">
