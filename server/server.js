@@ -31,6 +31,11 @@ const { initAssignmentTimeoutJobs } = require('./src/jobs/assignmentTimeoutJobs'
 const { initRosterCron } = require('./src/jobs/rosterJobs');
 const { pool } = require('./src/db/client');
 
+// Start HTTP server immediately to satisfy Hostinger's 3-second healthcheck requirement
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
 // Initialize Supabase PostgreSQL & CRON jobs
 pool.query('SELECT current_database(), now()')
   .then(() => {
@@ -41,20 +46,13 @@ pool.query('SELECT current_database(), now()')
     console.error('[PostgreSQL] Supabase connection error:', err.message);
   });
 
-// Database connection
+// Database connection & jobs
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/dynease')
   .then(() => {
     console.log('Connected to MongoDB');
-    
-    // Initialize CRON jobs
     initSubscriptionJobs();
     initAssignmentTimeoutJobs();
-
-    server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
   })
   .catch((err) => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
+    console.error('MongoDB connection error:', err.message);
   });
