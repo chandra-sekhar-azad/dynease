@@ -14,6 +14,7 @@ export default function HomePage({ forcedSlug }) {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [search, setSearch] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeDiet, setActiveDiet] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -24,6 +25,7 @@ export default function HomePage({ forcedSlug }) {
   const [banners, setBanners] = useState([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const categoryRefs = useRef({});
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     const fetchBanners = async () => {
@@ -219,62 +221,103 @@ export default function HomePage({ forcedSlug }) {
     <div className="min-h-screen bg-[var(--color-background)] max-w-md mx-auto relative shadow-2xl pb-28">
       {/* ── Header ── */}
       <header className="bg-white px-3 sm:px-4 py-3 sticky top-0 z-20 border-b border-[var(--color-border)] shadow-xs">
-        <div className="flex justify-between items-center gap-2">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            {selectedCategory ? (
-              <button 
-                onClick={() => setSelectedCategory(null)} 
-                className="p-1.5 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors shrink-0"
-              >
-                <ArrowLeft size={20} className="text-[var(--color-text)]" />
-              </button>
-            ) : (
-              <button 
-                onClick={() => setIsSidebarOpen(true)} 
-                className="p-1.5 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors shrink-0"
-              >
-                <MenuIcon size={20} className="text-[var(--color-text)]" />
-              </button>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-col">
-                <h1 className="text-sm sm:text-base font-serif font-bold text-[var(--color-text)] leading-tight tracking-wide truncate">
-                  {selectedCategory || restaurant?.name || 'Menu'}
-                </h1>
-                {!selectedCategory && restaurant?.subtitle && (
-                  <span className="text-[10px] text-[var(--color-text-muted)] font-medium uppercase tracking-widest truncate mt-0.5">
-                    {restaurant.subtitle}
-                  </span>
+        <div className="flex justify-between items-center gap-2 min-h-[36px]">
+          {isSearchOpen ? (
+            <div className="flex items-center gap-2 w-full animate-in fade-in duration-150">
+              <div className="relative flex-1">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') {
+                      setIsSearchOpen(false);
+                      setSearch('');
+                    }
+                  }}
+                  placeholder="Search dishes, drinks..."
+                  className="w-full bg-gray-50 focus:bg-white border border-gray-200 focus:border-green-600 rounded-full pl-9 pr-8 py-1.5 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-green-600 transition-all font-medium"
+                />
+                {search && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setSearch('');
+                      searchInputRef.current?.focus();
+                    }} 
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X size={14} />
+                  </button>
                 )}
               </div>
-              {tableLabel && !selectedCategory && (
-                <span className="text-[9px] bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] font-semibold px-1.5 py-0.5 mt-0.5 inline-block uppercase tracking-wider rounded-xs">
-                  {tableLabel}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Search bar on the right side of restaurant name */}
-          <div className="relative w-36 sm:w-44 shrink-0">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search dishes..."
-              className="w-full bg-gray-50 hover:bg-gray-100/70 focus:bg-white border border-gray-200 rounded-full pl-7 pr-6 py-1 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600 transition-all font-light"
-            />
-            {search && (
-              <button 
-                onClick={() => setSearch('')} 
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
-                title="Clear search"
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSearchOpen(false);
+                  setSearch('');
+                }}
+                className="px-2.5 py-1 text-xs font-semibold text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors shrink-0 cursor-pointer"
               >
-                <X size={12} />
+                Cancel
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                {selectedCategory ? (
+                  <button 
+                    onClick={() => setSelectedCategory(null)} 
+                    className="p-1.5 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors shrink-0 cursor-pointer"
+                  >
+                    <ArrowLeft size={20} className="text-[var(--color-text)]" />
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => setIsSidebarOpen(true)} 
+                    className="p-1.5 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors shrink-0 cursor-pointer"
+                  >
+                    <MenuIcon size={20} className="text-[var(--color-text)]" />
+                  </button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col">
+                    <h1 className="text-sm sm:text-base font-serif font-bold text-[var(--color-text)] leading-tight tracking-wide truncate">
+                      {selectedCategory || restaurant?.name || 'Menu'}
+                    </h1>
+                    {!selectedCategory && restaurant?.subtitle && (
+                      <span className="text-[10px] text-[var(--color-text-muted)] font-medium uppercase tracking-widest truncate mt-0.5">
+                        {restaurant.subtitle}
+                      </span>
+                    )}
+                  </div>
+                  {tableLabel && !selectedCategory && (
+                    <span className="text-[9px] bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] font-semibold px-1.5 py-0.5 mt-0.5 inline-block uppercase tracking-wider rounded-xs">
+                      {tableLabel}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Initially show search icon button */}
+              <button
+                type="button"
+                id="search-toggle-btn"
+                onClick={() => {
+                  setIsSearchOpen(true);
+                  setTimeout(() => searchInputRef.current?.focus(), 50);
+                }}
+                className="p-2 text-gray-600 hover:text-green-700 hover:bg-gray-100 rounded-full transition-colors shrink-0 cursor-pointer"
+                title="Search dishes"
+                aria-label="Search dishes"
+              >
+                <Search size={18} />
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -450,7 +493,7 @@ export default function HomePage({ forcedSlug }) {
                           <div className="text-[11px] text-gray-500 font-medium truncate mb-1">
                             {item.categoryName}
                           </div>
-                          <p className="text-xs font-bold text-[var(--color-text)]">${item.price}</p>
+                          <p className="text-xs font-bold text-[var(--color-text)]">₹{item.price}</p>
                         </div>
                         <div className="shrink-0">
                           {qty === 0 ? (
@@ -583,7 +626,7 @@ export default function HomePage({ forcedSlug }) {
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-serif font-bold text-[var(--color-text)] text-sm leading-snug tracking-wide">{item.name}</h3>
                         </div>
-                        <p className="text-[var(--color-text)] font-medium text-sm mb-2">${item.price}</p>
+                        <p className="text-[var(--color-text)] font-medium text-sm mb-2">₹{item.price}</p>
                         {item.description && (
                           <p className="text-xs text-[var(--color-text-muted)] line-clamp-2 leading-relaxed font-light">{item.description}</p>
                         )}

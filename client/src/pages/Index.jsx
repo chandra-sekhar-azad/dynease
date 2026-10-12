@@ -134,7 +134,7 @@ export default function LandingPage() {
               <button
                 type="button"
                 onClick={() => setBillingCycle('monthly')}
-                className={`px-5 py-2 rounded-xl font-bold text-sm transition-all duration-200 ${
+                className={`px-5 py-2 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
                   billingCycle === 'monthly'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
@@ -145,7 +145,7 @@ export default function LandingPage() {
               <button
                 type="button"
                 onClick={() => setBillingCycle('yearly')}
-                className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-sm transition-all duration-200 ${
+                className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
                   billingCycle === 'yearly'
                     ? 'bg-[var(--color-primary)] text-white shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
@@ -157,70 +157,146 @@ export default function LandingPage() {
                     ? 'bg-white/20 text-white'
                     : 'bg-green-100 text-green-700'
                 }`}>
-                  Save up to 33%
+                  Save ~16.7% (2 Months Free)
                 </span>
               </button>
             </div>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
-            {/* Growth Tier */}
-            <div className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[var(--color-primary)] flex flex-col relative transform md:-translate-y-2">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--color-primary)] text-white text-xs font-bold uppercase tracking-wide py-1 px-4 rounded-full">Most Popular</div>
-              <h3 className="text-xl font-bold mb-2">Growth</h3>
-              <div className="mb-2">
-                <span className="text-4xl font-bold">
-                  {billingCycle === 'monthly' ? '₹1,499' : '₹11,999'}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
+            {/* Starter Tier */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-200 hover:shadow-lg transition-all flex flex-col">
+              <h3 className="text-xl font-bold mb-1 text-gray-900">Starter</h3>
+              <p className="text-xs text-gray-500 mb-4 min-h-[32px]">Ideal for small cafes & bistros starting digital ordering.</p>
+              <div className="mb-1">
+                <span className="text-3xl font-extrabold text-gray-900">
+                  {billingCycle === 'monthly' ? '₹999' : '₹9,999'}
                 </span>
-                <span className="text-gray-500">
-                  {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                <span className="text-xs text-gray-500 font-semibold">
+                  {billingCycle === 'monthly' ? ' / mo' : ' / yr'}
                 </span>
               </div>
-              <p className="text-xs text-green-600 font-bold mb-6">
-                {billingCycle === 'yearly' ? '₹1,000/mo billed annually (Save 33%)' : 'Standard monthly billing'}
+              <p className="text-[11px] text-emerald-600 font-bold mb-5 min-h-[20px]">
+                {billingCycle === 'yearly' ? 'Save ₹1,989/yr (~16.7%)' : 'Billed monthly, cancel anytime'}
               </p>
-              <ul className="space-y-4 mb-8 flex-1 text-sm text-gray-600">
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Unlimited tables</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Unlimited menu items</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Real-time / live orders</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Kitchen Display System</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Restaurant dashboard</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Staff accounts</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Offers & coupons</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Customer reviews</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Advanced analytics</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Remove platform branding</li>
+              <ul className="space-y-3 mb-6 flex-1 text-xs text-gray-700 font-medium">
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>5</strong> Active tables</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>50</strong> Menu items</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>3</strong> Staff accounts</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>7 days</strong> Order history</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> QR ordering & live orders</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Basic sales totals</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Customer reviews</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Basic branding</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Standard support</li>
               </ul>
-              <Link to={`/register?plan=GROWTH&cycle=${billingCycle}`} className="w-full py-3 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-light)] font-medium text-center transition-colors">Get Started</Link>
+              <Link to={`/register?plan=STARTER&cycle=${billingCycle}`} className="w-full py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-bold text-center transition-colors">
+                Get Started
+              </Link>
             </div>
 
-            {/* Pro Tier */}
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col">
-              <h3 className="text-xl font-bold mb-2">Pro</h3>
-              <div className="mb-2">
-                <span className="text-4xl font-bold">
-                  {billingCycle === 'monthly' ? '₹2,499' : '₹23,999'}
+            {/* Growth Tier (Most Popular) */}
+            <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-emerald-500 flex flex-col relative transform md:-translate-y-2">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider py-1 px-3.5 rounded-full shadow-md">
+                Most Popular
+              </div>
+              <h3 className="text-xl font-bold mb-1 text-gray-900">Growth</h3>
+              <p className="text-xs text-gray-500 mb-4 min-h-[32px]">Best for busy dine-in restaurants expanding table turnover.</p>
+              <div className="mb-1">
+                <span className="text-3xl font-extrabold text-gray-900">
+                  {billingCycle === 'monthly' ? '₹1,999' : '₹19,999'}
                 </span>
-                <span className="text-gray-500">
-                  {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                <span className="text-xs text-gray-500 font-semibold">
+                  {billingCycle === 'monthly' ? ' / mo' : ' / yr'}
                 </span>
               </div>
-              <p className="text-xs text-green-600 font-bold mb-6">
-                {billingCycle === 'yearly' ? '₹2,000/mo billed annually (Save 20%)' : 'For growing restaurants'}
+              <p className="text-[11px] text-emerald-600 font-bold mb-5 min-h-[20px]">
+                {billingCycle === 'yearly' ? 'Save ₹3,989/yr (~16.7%)' : 'Billed monthly, cancel anytime'}
               </p>
-              <ul className="space-y-4 mb-8 flex-1 text-sm text-gray-600">
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> All Growth features</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Multiple branches</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Multiple kitchen stations</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Advanced reports</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Customer database / CRM</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Loyalty system</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Priority support</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Custom branding</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Custom domain</li>
+              <ul className="space-y-3 mb-6 flex-1 text-xs text-gray-700 font-medium">
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>20</strong> Active tables</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>200</strong> Menu items</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>10</strong> Staff accounts</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>30 days</strong> Order history</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> QR ordering & live orders</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Advanced sales trends</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Customer reviews</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Customizable branding</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Basic customer CRM</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Priority support</li>
               </ul>
-              <Link to={`/register?plan=PRO&cycle=${billingCycle}`} className="w-full py-3 rounded-full border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[#f0fdf4] font-medium text-center transition-colors">Choose Pro</Link>
+              <Link to={`/register?plan=GROWTH&cycle=${billingCycle}`} className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold text-center transition-colors shadow-md shadow-emerald-600/20">
+                Choose Growth
+              </Link>
             </div>
+
+            {/* Business Tier */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-200 hover:shadow-lg transition-all flex flex-col">
+              <h3 className="text-xl font-bold mb-1 text-gray-900">Business</h3>
+              <p className="text-xs text-gray-500 mb-4 min-h-[32px]">For established restaurants, multi-kitchens, and outlets.</p>
+              <div className="mb-1">
+                <span className="text-3xl font-extrabold text-gray-900">
+                  {billingCycle === 'monthly' ? '₹3,499' : '₹34,999'}
+                </span>
+                <span className="text-xs text-gray-500 font-semibold">
+                  {billingCycle === 'monthly' ? ' / mo' : ' / yr'}
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-600 font-bold mb-5 min-h-[20px]">
+                {billingCycle === 'yearly' ? 'Save ₹6,989/yr (~16.7%)' : 'Billed monthly, cancel anytime'}
+              </p>
+              <ul className="space-y-3 mb-6 flex-1 text-xs text-gray-700 font-medium">
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>40</strong> Active tables</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>Unlimited</strong> Menu items</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>30</strong> Staff accounts</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> <strong>1 year</strong> Order history</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Advanced analytics</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Full customer CRM</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Reports export (CSV / Excel)</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Customizable branding</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Multi-outlet ready</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-emerald-600 shrink-0"/> Priority support</li>
+              </ul>
+              <Link to={`/register?plan=BUSINESS&cycle=${billingCycle}`} className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold text-center transition-colors">
+                Choose Business
+              </Link>
+            </div>
+
+            {/* Custom Tier */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-amber-300 hover:shadow-lg transition-all flex flex-col">
+              <h3 className="text-xl font-bold mb-1 text-gray-900">Custom</h3>
+              <p className="text-xs text-gray-500 mb-4 min-h-[32px]">Enterprise chains, food courts, and large franchises.</p>
+              <div className="mb-1">
+                <span className="text-2xl font-extrabold text-gray-900">
+                  Custom pricing
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 font-medium mb-5 min-h-[20px]">
+                Negotiate based on scale & requirements
+              </p>
+              <ul className="space-y-3 mb-6 flex-1 text-xs text-gray-700 font-medium">
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> <strong>Unlimited</strong> Tables</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> <strong>Unlimited</strong> Menu items</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> <strong>Unlimited</strong> Staff accounts</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> <strong>Unlimited</strong> Order history</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> Consolidated analytics</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> Advanced custom branding</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> Full CRM + Loyalty rewards</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> Reports export (CSV / Excel)</li>
+                <li className="flex gap-2.5 items-center"><Check size={15} className="text-amber-500 shrink-0"/> Priority support + Onboarding</li>
+              </ul>
+              <a href="mailto:contact@dynease.in?subject=Custom%20Plan%20Inquiry%20-%20Dynease" className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold text-center transition-all shadow-md shadow-orange-500/20">
+                Talk to Sales
+              </a>
+            </div>
+          </div>
+
+          {/* Detailed comparison redirect */}
+          <div className="text-center mt-10">
+            <Link to="/pricing" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline">
+              <span>View full feature comparison & plan details</span>
+              <ArrowRight size={16} />
+            </Link>
           </div>
         </div>
       </section>
