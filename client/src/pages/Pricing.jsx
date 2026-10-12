@@ -1,57 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Check, Sparkles, Zap, Crown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
 export default function Pricing() {
+  const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
+
   const tiers = [
     {
-      name: 'FREE',
-      price: '₹0',
-      icon: <Check className="text-gray-400" size={24} />,
-      description: 'FOR GETTING STARTED',
-      features: [
-        '1 Restaurant',
-        'Up to 3 Tables',
-        'Up to 20 Menu Items',
-        'QR Menu',
-        'Basic Ordering',
-        'Basic Dashboard',
-        'Basic Analytics',
-        'Platform Branding'
-      ],
-      buttonText: 'Start 14-Day Free Trial',
-      cardStyle: 'bg-white text-gray-900 border border-gray-200',
-      buttonStyle: 'bg-gray-100 hover:bg-gray-200 text-gray-900',
-      checkColor: 'text-gray-400',
-      featureText: 'text-gray-600'
-    },
-    {
       name: 'GROWTH',
-      price: '₹999',
+      monthlyPrice: '₹1499',
+      yearlyPrice: '₹11999',
+      period: billingCycle === 'monthly' ? '/mo' : '/yr',
+      subtext: billingCycle === 'yearly' ? '₹1,000/mo billed annually (Save 33%)' : 'Billed monthly',
       popular: true,
       icon: <Zap className="text-orange-100" size={24} />,
       description: 'MOST POPULAR',
       features: [
+        '1 Restaurant',
         'Unlimited Tables',
         'Unlimited Menu Items',
         'Live Orders',
-        'Kitchen Display',
         'Staff Accounts',
-        'Offers & Coupons',
         'Advanced Analytics',
         'Customer Reviews',
-        'No Platform Branding'
+        'Platform Branding'
       ],
       buttonText: 'Choose Growth',
-      cardStyle: 'bg-gradient-to-b from-orange-500 to-red-600 text-white shadow-2xl shadow-orange-500/40 transform md:-translate-y-4 border-none scale-105',
+      cardStyle: 'bg-gradient-to-b from-orange-500 to-red-600 text-white shadow-2xl shadow-orange-500/40 transform md:-translate-y-2 border-none scale-100 md:scale-105',
       buttonStyle: 'bg-white text-orange-600 hover:bg-gray-50',
       checkColor: 'text-orange-200',
       featureText: 'text-white/90'
     },
     {
       name: 'PRO',
-      price: '₹1,999',
+      monthlyPrice: '₹2499',
+      yearlyPrice: '₹23999',
+      period: billingCycle === 'monthly' ? '/mo' : '/yr',
+      subtext: billingCycle === 'yearly' ? '₹2,000/mo billed annually (Save 20%)' : 'Billed monthly',
       icon: <Crown className="text-yellow-500" size={24} />,
       description: 'FOR GROWING RESTAURANTS',
       features: [
@@ -83,21 +69,54 @@ export default function Pricing() {
       <Navbar />
       
       {/* Header Section */}
-      <div className="pt-32 pb-12 px-4 sm:px-6 lg:px-8 text-center max-w-7xl mx-auto relative z-10">
+      <div className="pt-32 pb-8 px-4 sm:px-6 lg:px-8 text-center max-w-7xl mx-auto relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-100 text-orange-700 font-medium text-sm mb-6">
           <Sparkles size={16} /> Transparent Pricing, No Hidden Fees
         </div>
         <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl lg:text-6xl tracking-tight mb-6">
           Choose Your Plan
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto font-medium">
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto font-medium mb-8">
           Whether you're just starting out or managing multiple locations, we have the right tools to digitize your restaurant.
         </p>
+
+        {/* Monthly / Yearly Toggle */}
+        <div className="inline-flex items-center bg-gray-100 p-1.5 rounded-2xl border border-gray-200 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setBillingCycle('monthly')}
+            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${
+              billingCycle === 'monthly'
+                ? 'bg-white text-gray-900 shadow-md'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingCycle('yearly')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${
+              billingCycle === 'yearly'
+                ? 'bg-[var(--color-primary)] text-white shadow-md'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <span>Yearly</span>
+            <span className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full ${
+              billingCycle === 'yearly'
+                ? 'bg-white/20 text-white'
+                : 'bg-green-100 text-green-700'
+            }`}>
+              Save up to 33%
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Pricing Cards */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch pt-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-8">
           {tiers.map((tier) => (
             <div 
               key={tier.name}
@@ -121,12 +140,21 @@ export default function Pricing() {
                   {tier.description}
                 </p>
                 
-                <div className="flex items-baseline mb-8">
-                  <span className="text-5xl font-extrabold tracking-tight">{tier.price}</span>
-                  <span className={`ml-2 font-medium ${tier.popular ? 'text-white/80' : 'text-gray-500'}`}>/mo</span>
+                <div className="flex items-baseline mb-2">
+                  <span className="text-5xl font-extrabold tracking-tight">
+                    {billingCycle === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice}
+                  </span>
+                  <span className={`ml-2 font-medium ${tier.popular ? 'text-white/80' : 'text-gray-500'}`}>
+                    {tier.period}
+                  </span>
+                </div>
+                <div className="mb-8 min-h-[20px]">
+                  <span className={`text-xs font-medium ${tier.popular ? 'text-white/80' : 'text-gray-500'}`}>
+                    {tier.subtext}
+                  </span>
                 </div>
                 
-                <Link to="/register" className={`w-full text-center py-3.5 px-4 rounded-xl font-bold transition-all duration-200 flex items-center justify-center gap-2 ${tier.buttonStyle}`}>
+                <Link to={`/register?plan=${tier.name}&cycle=${billingCycle}`} className={`w-full text-center py-3.5 px-4 rounded-xl font-bold transition-all duration-200 flex items-center justify-center gap-2 ${tier.buttonStyle}`}>
                   {tier.buttonText}
                   <span className="text-lg leading-none">→</span>
                 </Link>

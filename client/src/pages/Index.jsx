@@ -29,6 +29,7 @@ import seafood3Img from '../assets/seafood/seafood3.png';
 import iconImg from '../assets/icon.png';
 
 export default function LandingPage() {
+  const [billingCycle, setBillingCycle] = useState('monthly');
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <div className="bg-gradient-to-br from-[#eafaf0] via-[#f7fdf9] to-white">
@@ -124,30 +125,60 @@ export default function LandingPage() {
       {/* Pricing */}
       <section className="py-8 px-4 sm:px-6 lg:px-8 bg-[#f4faf6]">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <p className="text-[var(--color-primary)] font-bold text-xs tracking-widest uppercase mb-2">SIMPLE & TRANSPARENT PRICING</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Choose the Plan That Fits Your Restaurant</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Choose the Plan That Fits Your Restaurant</h2>
+            
+            {/* Monthly / Yearly Toggle */}
+            <div className="inline-flex items-center bg-gray-200/80 p-1.5 rounded-2xl border border-gray-300/60 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-5 py-2 rounded-xl font-bold text-sm transition-all duration-200 ${
+                  billingCycle === 'monthly'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('yearly')}
+                className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-sm transition-all duration-200 ${
+                  billingCycle === 'yearly'
+                    ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <span>Yearly</span>
+                <span className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full ${
+                  billingCycle === 'yearly'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-green-100 text-green-700'
+                }`}>
+                  Save up to 33%
+                </span>
+              </button>
+            </div>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Free Tier */}
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col">
-              <h3 className="text-xl font-bold mb-2">Free Trial</h3>
-              <div className="mb-6"><span className="text-4xl font-bold">₹0</span><span className="text-gray-500"> / 14 days</span></div>
-              <ul className="space-y-4 mb-8 flex-1 text-sm text-gray-600">
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Up to 5 tables</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Basic menu items</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Order management</li>
-                <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Standard support</li>
-              </ul>
-              <Link to="/register" className="w-full py-3 rounded-full border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[#f0fdf4] font-medium text-center transition-colors">Start Free Trial</Link>
-            </div>
-            
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
             {/* Growth Tier */}
-            <div className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[var(--color-primary)] flex flex-col relative transform md:-translate-y-4">
+            <div className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[var(--color-primary)] flex flex-col relative transform md:-translate-y-2">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--color-primary)] text-white text-xs font-bold uppercase tracking-wide py-1 px-4 rounded-full">Most Popular</div>
               <h3 className="text-xl font-bold mb-2">Growth</h3>
-              <div className="mb-6"><span className="text-4xl font-bold">₹999</span><span className="text-gray-500"> / month</span></div>
+              <div className="mb-2">
+                <span className="text-4xl font-bold">
+                  {billingCycle === 'monthly' ? '₹1,499' : '₹11,999'}
+                </span>
+                <span className="text-gray-500">
+                  {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                </span>
+              </div>
+              <p className="text-xs text-green-600 font-bold mb-6">
+                {billingCycle === 'yearly' ? '₹1,000/mo billed annually (Save 33%)' : 'Standard monthly billing'}
+              </p>
               <ul className="space-y-4 mb-8 flex-1 text-sm text-gray-600">
                 <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Unlimited tables</li>
                 <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Unlimited menu items</li>
@@ -160,14 +191,23 @@ export default function LandingPage() {
                 <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Advanced analytics</li>
                 <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Remove platform branding</li>
               </ul>
-              <Link to="/register" className="w-full py-3 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-light)] font-medium text-center transition-colors">Get Started</Link>
+              <Link to={`/register?plan=GROWTH&cycle=${billingCycle}`} className="w-full py-3 rounded-full bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-light)] font-medium text-center transition-colors">Get Started</Link>
             </div>
 
             {/* Pro Tier */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col">
               <h3 className="text-xl font-bold mb-2">Pro</h3>
-              <div className="mb-6"><span className="text-4xl font-bold">₹1,999</span><span className="text-gray-500"> / month</span></div>
-              <p className="text-sm text-gray-500 mb-4">For growing restaurants</p>
+              <div className="mb-2">
+                <span className="text-4xl font-bold">
+                  {billingCycle === 'monthly' ? '₹2,499' : '₹23,999'}
+                </span>
+                <span className="text-gray-500">
+                  {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                </span>
+              </div>
+              <p className="text-xs text-green-600 font-bold mb-6">
+                {billingCycle === 'yearly' ? '₹2,000/mo billed annually (Save 20%)' : 'For growing restaurants'}
+              </p>
               <ul className="space-y-4 mb-8 flex-1 text-sm text-gray-600">
                 <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> All Growth features</li>
                 <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Multiple branches</li>
@@ -179,7 +219,7 @@ export default function LandingPage() {
                 <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Custom branding</li>
                 <li className="flex gap-3 items-center"><Check size={16} className="text-[var(--color-primary)]"/> Custom domain</li>
               </ul>
-              <Link to="/register" className="w-full py-3 rounded-full border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[#f0fdf4] font-medium text-center transition-colors">Contact Sales</Link>
+              <Link to={`/register?plan=PRO&cycle=${billingCycle}`} className="w-full py-3 rounded-full border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[#f0fdf4] font-medium text-center transition-colors">Choose Pro</Link>
             </div>
           </div>
         </div>

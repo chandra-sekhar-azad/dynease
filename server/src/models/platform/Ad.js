@@ -6,6 +6,22 @@ const adSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  subtitle: {
+    type: String,
+    default: ''
+  },
+  badge: {
+    type: String,
+    default: "CHEF'S SPECIAL"
+  },
+  buttonText: {
+    type: String,
+    default: ''
+  },
+  rightBadge: {
+    type: String,
+    default: ''
+  },
   imageUrl: {
     type: String,
     required: true
@@ -18,6 +34,11 @@ const adSchema = new mongoose.Schema({
   targetUrl: {
     type: String,
     default: ''
+  },
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Restaurant',
+    default: null
   },
   clicks: {
     type: Number,

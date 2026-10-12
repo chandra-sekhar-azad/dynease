@@ -7,6 +7,7 @@ const plans = [
   {
     name: 'FREE',
     price: 0,
+    yearlyPrice: 0,
     description: 'For Getting Started',
     features: [
       '1 Restaurant',
@@ -22,7 +23,8 @@ const plans = [
   },
   {
     name: 'GROWTH',
-    price: 999,
+    price: 1499,
+    yearlyPrice: 11999,
     description: 'Most Popular',
     features: [
       'Unlimited Tables',
@@ -39,7 +41,8 @@ const plans = [
   },
   {
     name: 'PRO',
-    price: 1999,
+    price: 2499,
+    yearlyPrice: 23999,
     description: 'For Growing Restaurants',
     features: [
       'Everything in Growth',

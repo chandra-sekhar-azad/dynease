@@ -47,6 +47,7 @@ exports.createCategory = async (req, res) => {
       name: name.trim(),
       description: description?.trim() || '',
       displayOrder: displayOrder || 0,
+      type: (req.body.type || 'all').toLowerCase(),
       image
     });
     res.status(201).json({ success: true, data: { category } });
@@ -60,9 +61,12 @@ exports.updateCategory = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const { name, description, displayOrder, isActive } = req.body;
+    const { name, description, displayOrder, isActive, type } = req.body;
     
     let updateData = { name: name?.trim(), description: description?.trim(), displayOrder, isActive };
+    if (type !== undefined) {
+      updateData.type = String(type).toLowerCase();
+    }
 
     if (req.file) {
       try {

@@ -22,6 +22,11 @@ const categorySchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  type: {
+    type: String,
+    enum: ['all', 'veg', 'non-veg', 'vegan', 'non-vegan'],
+    default: 'all'
+  },
   image: {
     public_id: String,
     secure_url: String

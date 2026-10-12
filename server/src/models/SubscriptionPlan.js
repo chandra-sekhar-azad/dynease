@@ -10,6 +10,9 @@ const subscriptionPlanSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  yearlyPrice: {
+    type: Number
+  },
   description: {
     type: String
   },

@@ -78,7 +78,7 @@ export default function RegisterRestaurant() {
             <p className="text-sm text-gray-500 mb-8">
               You will receive a WhatsApp notification with your login details once your restaurant is approved.
             </p>
-            <Link to="/" className="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-8 rounded-lg transition-colors">
+            <Link to="/" className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition-colors">
               Return to Home
             </Link>
           </div>
@@ -92,7 +92,7 @@ export default function RegisterRestaurant() {
       <Navbar />
       <div className="min-h-screen bg-gradient-to-br from-[#eafaf0] via-[#f7fdf9] to-white flex flex-col pt-32 pb-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto w-full mb-8">
-          <Link to="/" className="inline-flex items-center text-green-600 hover:text-orange-700 font-medium">
+          <Link to="/" className="inline-flex items-center text-green-600 hover:text-green-700 font-medium">
             <ArrowLeft size={16} className="mr-2" /> Back to Home
           </Link>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
@@ -193,7 +193,7 @@ export default function RegisterRestaurant() {
                 <input type="radio" name="selectedPlan" value="FREE" checked={formData.selectedPlan === 'FREE'} onChange={handleChange} className="sr-only" />
                 <span className="text-lg font-bold text-gray-900">FREE</span>
                 <span className="text-xl font-extrabold text-gray-900 mt-2">₹0<span className="text-sm text-gray-500 font-medium">/month</span></span>
-                <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-orange-100/50 px-2 py-1 rounded">
+                <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-green-100/50 px-2 py-1 rounded">
                   <Sparkles size={12} /> 14-Day Free Trial
                 </div>
               </label>
@@ -205,20 +205,22 @@ export default function RegisterRestaurant() {
                   Most Popular
                 </div>
                 <span className="text-lg font-bold text-gray-900 mt-2">GROWTH</span>
-                <span className="text-xl font-extrabold text-gray-900 mt-2">₹999<span className="text-sm text-gray-500 font-medium">/month</span></span>
+                <span className="text-xl font-extrabold text-gray-900 mt-2">₹1,499<span className="text-sm text-gray-500 font-medium">/month</span></span>
+                <span className="text-xs text-green-600 font-semibold mt-1">or ₹11,999/year (Save 33%)</span>
               </label>
 
               {/* Pro Plan */}
               <label className={`relative flex flex-col p-5 cursor-pointer rounded-xl border-2 transition-all ${formData.selectedPlan === 'PRO' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}`}>
                 <input type="radio" name="selectedPlan" value="PRO" checked={formData.selectedPlan === 'PRO'} onChange={handleChange} className="sr-only" />
                 <span className="text-lg font-bold text-gray-900">PRO</span>
-                <span className="text-xl font-extrabold text-gray-900 mt-2">₹1,999<span className="text-sm text-gray-500 font-medium">/month</span></span>
+                <span className="text-xl font-extrabold text-gray-900 mt-2">₹2,499<span className="text-sm text-gray-500 font-medium">/month</span></span>
+                <span className="text-xs text-green-600 font-semibold mt-1">or ₹23,999/year (Save 20%)</span>
               </label>
             </div>
           </div>
 
           <div>
-            <button type="submit" disabled={loading} className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-lg font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={loading} className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-lg font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors">
               {loading ? 'Submitting Registration...' : 'Submit Registration'}
             </button>
           </div>

@@ -31,4 +31,7 @@ router.get('/orders/:orderId', publicController.getOrder);
 // Customer Service Requests (Call waiter, water, bill, cutlery)
 router.post('/service-requests', checkSubscription, publicController.createServiceRequest);
 
+// Public active banners
+router.get('/banners', publicController.getBanners);
+
 module.exports = router;

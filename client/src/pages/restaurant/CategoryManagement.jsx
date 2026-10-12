@@ -8,6 +8,7 @@ export default function CategoryManagement() {
   const [editingCategory, setEditingCategory] = useState(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDesc, setNewCategoryDesc] = useState('');
+  const [categoryType, setCategoryType] = useState('all');
   const [categoryImage, setCategoryImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [savingCategory, setSavingCategory] = useState(false);
@@ -72,6 +73,7 @@ export default function CategoryManagement() {
     setEditingCategory(null);
     setNewCategoryName('');
     setNewCategoryDesc('');
+    setCategoryType('all');
     setCategoryImage(null);
     setPreviewImage(null);
     setShowModal(true);
@@ -81,6 +83,7 @@ export default function CategoryManagement() {
     setEditingCategory(cat);
     setNewCategoryName(cat.name);
     setNewCategoryDesc(cat.description || '');
+    setCategoryType(cat.type || 'all');
     setCategoryImage(null);
     setPreviewImage(cat.image?.secure_url || null);
     setShowModal(true);
@@ -94,6 +97,7 @@ export default function CategoryManagement() {
       const formData = new FormData();
       formData.append('name', newCategoryName.trim());
       formData.append('description', newCategoryDesc.trim());
+      formData.append('type', categoryType);
       if (categoryImage) {
         formData.append('image', categoryImage);
       }
@@ -223,7 +227,23 @@ export default function CategoryManagement() {
                           <Tag size={20} className="text-gray-400" />
                         )}
                       </div>
-                      <h3 className="font-bold text-lg text-gray-800">{cat.name}</h3>
+                      <div>
+                        <h3 className="font-bold text-lg text-gray-800 leading-snug">{cat.name}</h3>
+                        {cat.type && cat.type !== 'all' ? (
+                          <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md mt-1 uppercase tracking-wider ${
+                            cat.type === 'veg' ? 'bg-green-100 text-green-800 border border-green-200' :
+                            cat.type === 'non-veg' ? 'bg-red-100 text-red-800 border border-red-200' :
+                            cat.type === 'vegan' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                            'bg-orange-100 text-orange-800 border border-orange-200'
+                          }`}>
+                            {cat.type}
+                          </span>
+                        ) : (
+                          <span className="inline-block text-[10px] font-medium text-gray-400 mt-1 uppercase tracking-wider">
+                            All types
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex flex-col items-end gap-3">
                       <div className="flex gap-1">
@@ -289,6 +309,34 @@ export default function CategoryManagement() {
                   className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" 
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Category Type (Dietary Filter)</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'all', label: 'All' },
+                    { id: 'veg', label: 'Veg' },
+                    { id: 'non-veg', label: 'Non-Veg' },
+                    { id: 'vegan', label: 'Vegan' },
+                    { id: 'non-vegan', label: 'Non-Vegan' }
+                  ].map(t => (
+                    <button
+                      type="button"
+                      key={t.id}
+                      onClick={() => setCategoryType(t.id)}
+                      className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center ${
+                        categoryType === t.id
+                          ? 'ring-2 ring-green-500 bg-green-50 border-green-500 text-green-800 shadow-sm'
+                          : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Helps customers filter categories on their digital menu.</p>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description (Optional)</label>
                 <textarea 

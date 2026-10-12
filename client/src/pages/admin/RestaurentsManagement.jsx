@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit, Search, X, Send, CheckCircle, Loader, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Edit, Search, X, Send, CheckCircle, Loader, Eye, EyeOff, AlertTriangle, Clock, CreditCard } from 'lucide-react';
 
 export default function RestaurantsManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -15,6 +15,8 @@ export default function RestaurantsManagement() {
   const [editFormData, setEditFormData] = useState({
     name: '',
     subscriptionPlan: 'FREE',
+    subscriptionStatus: 'ACTIVE',
+    billingDaysRemaining: 0,
     isActive: true,
     ownerName: '',
     ownerEmail: '',
@@ -112,6 +114,8 @@ export default function RestaurantsManagement() {
       name: restaurant.name,
       subdomain: restaurant.subdomain || restaurant.slug || '',
       subscriptionPlan: restaurant.selectedPlan || restaurant.subscriptionPlan || 'FREE',
+      subscriptionStatus: restaurant.subscriptionStatus || 'ACTIVE',
+      billingDaysRemaining: restaurant.daysRemaining !== undefined ? restaurant.daysRemaining : 0,
       isActive: restaurant.status === 'ACTIVE' || restaurant.isActive === true,
       ownerName: restaurant.ownerName || restaurant.ownerId?.name || '',
       ownerEmail: restaurant.ownerEmail || restaurant.ownerId?.email || '',
@@ -295,15 +299,31 @@ export default function RestaurantsManagement() {
                       <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${res.selectedPlan === 'PRO' ? 'bg-purple-100 text-purple-700' : res.selectedPlan === 'GROWTH' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                         {res.selectedPlan || 'FREE'}
                       </span>
-                      {res.subscriptionStatus && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          res.subscriptionStatus === 'EXPIRED' ? 'bg-red-100 text-red-700' :
-                          res.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
-                          res.subscriptionStatus === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {res.subscriptionStatus}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1">
+                        {res.subscriptionStatus && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            res.subscriptionStatus === 'EXPIRED' ? 'bg-red-100 text-red-700' :
+                            res.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
+                            res.subscriptionStatus === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {res.subscriptionStatus}
+                          </span>
+                        )}
+                        {res.daysRemaining !== undefined && (
+                          <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5 ${
+                            res.daysRemaining === 0 || res.subscriptionStatus === 'EXPIRED'
+                              ? 'bg-rose-100 text-rose-700'
+                              : res.daysRemaining <= 3
+                              ? 'bg-red-100 text-red-800 animate-pulse'
+                              : res.daysRemaining <= 7
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-50 text-emerald-700'
+                          }`}>
+                            <Clock size={10} />
+                            <span>{res.daysRemaining}d</span>
+                          </span>
+                        )}
+                      </div>
                       {res.renewalRequest?.status === 'PENDING' && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 flex items-center gap-1">
                           <AlertTriangle size={10} /> Request: {res.renewalRequest.plan}
@@ -349,6 +369,7 @@ export default function RestaurantsManagement() {
                       >
                         {credStatus === 'sent' ? <><CheckCircle size={14} /> Sent!</> : credStatus === 'sending' ? <><Loader size={14} className="animate-spin" /> Sending...</> : <><Send size={14} /> Send Creds</>}
                       </button>
+                      <button onClick={() => openEditModal(res)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Edit Billing & Days Remaining"><CreditCard size={18} /></button>
                       <button onClick={() => openEditModal(res)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit"><Edit size={18} /></button>
                       <button onClick={() => handleDelete(res._id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 size={18} /></button>
                     </div>
@@ -465,19 +486,57 @@ export default function RestaurantsManagement() {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Google Review Link <span className="text-gray-400 font-normal">(Optional)</span></label>
                 <input type="url" name="googleReviewLink" value={editFormData.googleReviewLink} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="https://g.page/r/..." />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Subscription Plan</label>
-                <select name="subscriptionPlan" value={editFormData.subscriptionPlan} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 text-gray-900 bg-white">
-                  {plans.length > 0 ? plans.map(plan => (
-                    <option key={plan._id} value={plan.name}>{plan.name} — Rs.{plan.price}/mo</option>
-                  )) : (
-                    <>
-                      <option value="FREE">FREE — Rs.0/mo</option>
-                      <option value="GROWTH">GROWTH — Rs.999/mo</option>
-                      <option value="PRO">PRO — Rs.1999/mo</option>
-                    </>
-                  )}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Subscription Plan</label>
+                  <select name="subscriptionPlan" value={editFormData.subscriptionPlan} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 text-gray-900 bg-white">
+                    {plans.length > 0 ? plans.map(plan => (
+                      <option key={plan._id} value={plan.name}>{plan.name} — Rs.{plan.price}/mo</option>
+                    )) : (
+                      <>
+                        <option value="FREE">FREE — Rs.0/mo</option>
+                        <option value="GROWTH">GROWTH — Rs.1499/mo</option>
+                        <option value="PRO">PRO — Rs.2499/mo</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Subscription Status</label>
+                  <select name="subscriptionStatus" value={editFormData.subscriptionStatus} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 text-gray-900 bg-white">
+                    <option value="ACTIVE">ACTIVE (Paid)</option>
+                    <option value="TRIAL">TRIAL (Free)</option>
+                    <option value="EXPIRED">EXPIRED (Blocked)</option>
+                    <option value="SUSPENDED">SUSPENDED</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Billing Days Remaining field */}
+              <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-bold text-gray-800">Billing Days Remaining</label>
+                  <span className="text-xs font-extrabold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                    {editFormData.billingDaysRemaining} days
+                  </span>
+                </div>
+                <input 
+                  type="number" 
+                  name="billingDaysRemaining" 
+                  min="0"
+                  max="1000"
+                  value={editFormData.billingDaysRemaining} 
+                  onChange={handleEditChange} 
+                  className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 text-gray-900 bg-white font-bold" 
+                  placeholder="e.g. 30"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: (parseInt(editFormData.billingDaysRemaining, 10) || 0) + 7 })} className="px-2 py-1 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-100">+7d</button>
+                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: (parseInt(editFormData.billingDaysRemaining, 10) || 0) + 14 })} className="px-2 py-1 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-100">+14d</button>
+                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: (parseInt(editFormData.billingDaysRemaining, 10) || 0) + 30 })} className="px-2 py-1 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-100">+30d</button>
+                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: (parseInt(editFormData.billingDaysRemaining, 10) || 0) + 60 })} className="px-2 py-1 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-100">+60d</button>
+                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: 0, subscriptionStatus: 'EXPIRED' })} className="px-2 py-1 text-xs font-semibold rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100">0d (Expire)</button>
+                </div>
               </div>
 
               <div className="pt-4 flex gap-3">

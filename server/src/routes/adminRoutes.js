@@ -12,6 +12,7 @@ const router = express.Router();
 router.post('/restaurants', adminController.createRestaurant);
 router.get('/restaurants', adminController.getAllRestaurants);
 router.put('/restaurants/:id', adminController.updateRestaurant);
+router.put('/restaurants/:id/billing', adminController.updateRestaurantBilling);
 router.delete('/restaurants/:id', adminController.deleteRestaurant);
 
 router.get('/requests', adminController.getPendingRequests);

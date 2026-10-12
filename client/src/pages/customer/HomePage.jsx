@@ -21,7 +21,32 @@ export default function HomePage({ forcedSlug }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [errorCode, setErrorCode] = useState('');
+  const [banners, setBanners] = useState([]);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const categoryRefs = useRef({});
+
+  useEffect(() => {
+    const fetchBanners = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/public/banners`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data?.banners) && json.data.banners.length > 0) {
+          setBanners(json.data.banners);
+        }
+      } catch (err) {
+        console.error('Failed to fetch banners', err);
+      }
+    };
+    fetchBanners();
+  }, []);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [banners.length]);
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -86,14 +111,74 @@ export default function HomePage({ forcedSlug }) {
     dietaryPreference: item.dietaryPreference
   });
 
+  const isCategoryMatchingDiet = (cat, diet) => {
+    if (!diet || diet === 'ALL') return true;
+    const cType = (cat.type || '').toLowerCase();
+    const cName = (cat.name || '').toLowerCase();
+
+    if (diet === 'VEG') {
+      if (cType === 'veg') return true;
+      if (cType === 'non-veg' || cType === 'non-vegan') return false;
+      if (cType === 'vegan') return true;
+      if (cName.includes('non-veg') || cName.includes('non veg') || cName.includes('nonveg')) return false;
+      if (cName.includes('veg')) return true;
+      return (cat.items || []).some(i => i.dietaryPreference === 'VEG' || i.dietaryPreference === 'VEGAN') &&
+             !(cat.items || []).some(i => i.dietaryPreference === 'NON_VEG');
+    }
+
+    if (diet === 'NON_VEG') {
+      if (cType === 'non-veg') return true;
+      if (cType === 'veg' || cType === 'vegan') return false;
+      if (cName.includes('non-veg') || cName.includes('non veg') || cName.includes('nonveg')) return true;
+      return (cat.items || []).some(i => i.dietaryPreference === 'NON_VEG');
+    }
+
+    if (diet === 'VEGAN') {
+      if (cType === 'vegan') return true;
+      if (cType === 'non-veg' || cType === 'non-vegan') return false;
+      if (cName.includes('vegan')) return true;
+      return (cat.items || []).some(i => i.dietaryPreference === 'VEGAN');
+    }
+
+    if (diet === 'NON_VEGAN') {
+      if (cType === 'non-vegan') return true;
+      if (cType === 'vegan') return false;
+      if (cName.includes('non-vegan') || cName.includes('non vegan')) return true;
+      return (cat.items || []).some(i => i.dietaryPreference !== 'VEGAN');
+    }
+
+    return true;
+  };
+
+  const itemMatchesDiet = (pref, diet) => {
+    if (!diet || diet === 'ALL') return true;
+    if (diet === 'VEG') return pref === 'VEG' || pref === 'VEGAN';
+    if (diet === 'NON_VEG') return pref === 'NON_VEG';
+    if (diet === 'VEGAN') return pref === 'VEGAN';
+    if (diet === 'NON_VEGAN') return pref !== 'VEGAN';
+    return true;
+  };
+
   const filteredCategories = categories.map(cat => ({
     ...cat,
     items: cat.items.filter(item => {
-      const matchesSearch = !search || item.name.toLowerCase().includes(search.toLowerCase()) || (item.description || '').toLowerCase().includes(search.toLowerCase());
-      const matchesDiet = activeDiet === 'ALL' || item.dietaryPreference === activeDiet;
+      const matchesSearch = !search || 
+        item.name.toLowerCase().includes(search.toLowerCase()) || 
+        (item.description || '').toLowerCase().includes(search.toLowerCase());
+      const matchesDiet = itemMatchesDiet(item.dietaryPreference, activeDiet);
       return matchesSearch && matchesDiet;
     })
   })).filter(cat => cat.items.length > 0);
+
+  const matchingSearchItems = search.trim() ? categories.flatMap(cat => 
+    (cat.items || []).filter(item => {
+      const matchesSearch = 
+        item.name.toLowerCase().includes(search.toLowerCase()) || 
+        (item.description || '').toLowerCase().includes(search.toLowerCase());
+      const matchesDiet = itemMatchesDiet(item.dietaryPreference, activeDiet);
+      return matchesSearch && matchesDiet;
+    }).map(item => ({ ...item, categoryName: cat.name }))
+  ) : [];
 
   const scrollToCategory = (name) => {
     setActiveCategory(name);
@@ -133,104 +218,343 @@ export default function HomePage({ forcedSlug }) {
   return (
     <div className="min-h-screen bg-[var(--color-background)] max-w-md mx-auto relative shadow-2xl pb-28">
       {/* ── Header ── */}
-      <header className="bg-white px-4 pt-5 pb-4 sticky top-0 z-20 border-b border-[var(--color-border)]">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
+      <header className="bg-white px-3 sm:px-4 py-3 sticky top-0 z-20 border-b border-[var(--color-border)] shadow-xs">
+        <div className="flex justify-between items-center gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {selectedCategory ? (
-              <button onClick={() => setSelectedCategory(null)} className="p-1 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors">
-                <ArrowLeft size={22} className="text-[var(--color-text)]" />
+              <button 
+                onClick={() => setSelectedCategory(null)} 
+                className="p-1.5 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors shrink-0"
+              >
+                <ArrowLeft size={20} className="text-[var(--color-text)]" />
               </button>
             ) : (
-              <button onClick={() => setIsSidebarOpen(true)} className="p-1 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors">
-                <MenuIcon size={22} className="text-[var(--color-text)]" />
+              <button 
+                onClick={() => setIsSidebarOpen(true)} 
+                className="p-1.5 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors shrink-0"
+              >
+                <MenuIcon size={20} className="text-[var(--color-text)]" />
               </button>
             )}
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex flex-col">
-                <h1 className="text-xl font-serif font-bold text-[var(--color-text)] leading-tight tracking-wide">
+                <h1 className="text-sm sm:text-base font-serif font-bold text-[var(--color-text)] leading-tight tracking-wide truncate">
                   {selectedCategory || restaurant?.name || 'Menu'}
                 </h1>
                 {!selectedCategory && restaurant?.subtitle && (
-                  <span className="text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-widest mt-1">{restaurant.subtitle}</span>
+                  <span className="text-[10px] text-[var(--color-text-muted)] font-medium uppercase tracking-widest truncate mt-0.5">
+                    {restaurant.subtitle}
+                  </span>
                 )}
               </div>
               {tableLabel && !selectedCategory && (
-                <span className="text-[10px] bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] font-semibold px-2 py-0.5 mt-2 inline-block uppercase tracking-wider">
+                <span className="text-[9px] bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] font-semibold px-1.5 py-0.5 mt-0.5 inline-block uppercase tracking-wider rounded-xs">
                   {tableLabel}
                 </span>
               )}
             </div>
+          </div>
+
+          {/* Search bar on the right side of restaurant name */}
+          <div className="relative w-36 sm:w-44 shrink-0">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search dishes..."
+              className="w-full bg-gray-50 hover:bg-gray-100/70 focus:bg-white border border-gray-200 rounded-full pl-7 pr-6 py-1 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600 transition-all font-light"
+            />
+            {search && (
+              <button 
+                onClick={() => setSearch('')} 
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {!selectedCategory ? (
         <div className="bg-[var(--color-background)] pb-6">
-          {/* Subtle Notice Banner */}
-          <div className="border-b border-[var(--color-border)] bg-white px-4 py-4 text-center">
-            <h2 className="font-serif text-lg mb-1 text-[var(--color-primary)]">Chef's Recommendations</h2>
-            <p className="font-light text-[var(--color-text-muted)] text-sm">Discover our carefully curated seasonal offerings.</p>
+          {/* Two-Part Promotional Banner (Left & Right) */}
+          {(() => {
+            const activeBanner = banners.length > 0 ? banners[currentBannerIndex] : {
+              title: "Chef's Signature Specials",
+              subtitle: "Handcrafted delicacies prepared fresh daily with authentic ingredients.",
+              badge: "CHEF'S SPECIAL",
+              buttonText: "Explore Now",
+              rightBadge: "FRESH TODAY",
+              imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80",
+              targetUrl: ""
+            };
+
+            const handleBannerClick = () => {
+              if (activeBanner.targetUrl) {
+                if (activeBanner.targetUrl.startsWith('http')) {
+                  window.open(activeBanner.targetUrl, '_blank');
+                } else if (categories.some(c => c.name.toLowerCase() === activeBanner.targetUrl.toLowerCase())) {
+                  setSelectedCategory(activeBanner.targetUrl);
+                }
+              }
+            };
+
+            return (
+              <div className="px-4 pt-3 pb-1">
+                <div 
+                  onClick={handleBannerClick}
+                  className={`relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-green-950 text-white shadow-md border border-emerald-700/50 transition-all ${activeBanner.targetUrl ? 'cursor-pointer hover:shadow-lg' : ''}`}
+                >
+                  <div className="grid grid-cols-12 items-stretch min-h-[135px]">
+                    
+                    {/* Left Part */}
+                    <div className="col-span-7 sm:col-span-8 p-4 sm:p-5 flex flex-col justify-between">
+                      <div>
+                        {activeBanner.badge && (
+                          <span className="inline-block text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-amber-400 text-amber-950 px-2 py-0.5 rounded-full mb-1.5 shadow-sm">
+                            {activeBanner.badge}
+                          </span>
+                        )}
+                        <h2 className="font-serif font-bold text-sm sm:text-lg text-white leading-tight line-clamp-2">
+                          {activeBanner.title}
+                        </h2>
+                        {activeBanner.subtitle && (
+                          <p className="text-[11px] sm:text-xs text-emerald-100/90 mt-1 line-clamp-2 font-light leading-snug">
+                            {activeBanner.subtitle}
+                          </p>
+                        )}
+                      </div>
+
+                      {activeBanner.buttonText && (
+                        <div className="mt-2.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold bg-white/95 hover:bg-white text-emerald-950 px-2.5 py-1 rounded-md shadow-sm transition-transform active:scale-95">
+                            {activeBanner.buttonText} →
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right Part */}
+                    <div className="col-span-5 sm:col-span-4 relative overflow-hidden flex items-center justify-center p-2.5">
+                      <div className="w-full h-full min-h-[110px] rounded-xl overflow-hidden relative shadow-inner bg-black/25">
+                        <img 
+                          src={activeBanner.imageUrl} 
+                          alt={activeBanner.title}
+                          className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            e.target.src = 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
+                          }}
+                        />
+                        {activeBanner.rightBadge && (
+                          <span className="absolute top-1.5 right-1.5 bg-rose-600 text-white font-extrabold text-[9px] px-1.5 py-0.5 rounded shadow uppercase tracking-wider">
+                            {activeBanner.rightBadge}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Dot Indicators if multiple banners */}
+                  {banners.length > 1 && (
+                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-xs">
+                      {banners.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentBannerIndex(idx);
+                          }}
+                          className={`h-1.5 rounded-full transition-all ${
+                            idx === currentBannerIndex ? 'bg-amber-400 w-3.5' : 'bg-white/50 w-1.5 hover:bg-white'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Dietary Buttons between Ads Banner and Categories List */}
+          <div className="px-4 pt-3 pb-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
+              {[
+                { id: 'ALL', label: 'All' },
+                { id: 'VEG', label: 'Veg', dot: 'bg-green-600' },
+                { id: 'NON_VEG', label: 'Non-Veg', dot: 'bg-red-600' },
+                { id: 'VEGAN', label: 'Vegan', dot: 'bg-emerald-600' },
+                { id: 'NON_VEGAN', label: 'Non-Vegan', dot: 'bg-orange-600' }
+              ].map(dietBtn => {
+                const isActive = activeDiet === dietBtn.id;
+                return (
+                  <button
+                    key={dietBtn.id}
+                    onClick={() => setActiveDiet(dietBtn.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+                      isActive
+                        ? 'bg-emerald-800 text-white border-emerald-800 shadow-sm'
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    {dietBtn.dot && (
+                      <span className={`w-2 h-2 rounded-full ${dietBtn.dot} shrink-0`} />
+                    )}
+                    <span>{dietBtn.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Categories Grid */}
-          <div className="p-4 grid grid-cols-2 gap-4 mt-2">
-            {categories.map(cat => {
-              const catImage = cat.image || cat.items.find(i => i.imageUrl)?.imageUrl;
-              return (
-                <div 
-                  key={cat.name} 
-                  onClick={() => setSelectedCategory(cat.name)}
-                  className="bg-white rounded-[var(--radius-sm)] border border-[var(--color-border)] p-2 flex flex-col items-center text-center cursor-pointer hover:border-[var(--color-primary-light)] transition-colors"
+          {/* If search query is present on Home, show matching food items */}
+          {search.trim() ? (
+            <div className="px-4 pt-3 pb-6">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-serif font-bold text-sm text-[var(--color-text)]">
+                  Dishes matching "{search}" ({matchingSearchItems.length})
+                </h3>
+                <button 
+                  onClick={() => setSearch('')} 
+                  className="text-xs font-semibold text-emerald-700 hover:underline"
                 >
-                  <div className="w-full aspect-[4/3] bg-[var(--color-background)] rounded-[var(--radius-sm)] mb-3 overflow-hidden border border-[var(--color-border)]">
-                    {catImage ? (
-                      <img src={catImage} alt={cat.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)]">
-                        <span className="font-serif text-2xl opacity-50">{cat.name[0]}</span>
+                  Clear search
+                </button>
+              </div>
+
+              {matchingSearchItems.length > 0 ? (
+                <div className="space-y-3">
+                  {matchingSearchItems.map(item => {
+                    const qty = getItemQty(item.id);
+                    return (
+                      <div key={item.id} className="bg-white border border-[var(--color-border)] rounded-xl flex gap-3 p-3 items-center shadow-xs">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-gray-50 border border-gray-100">
+                          <img
+                            src={item.imageUrl || `https://placehold.co/96x96/f5f5f4/1c1917?text=${encodeURIComponent(item.name[0])}`}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <h4 className="font-serif font-bold text-sm text-[var(--color-text)] truncate">{item.name}</h4>
+                            {item.dietaryPreference && (
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${item.dietaryPreference === 'VEG' || item.dietaryPreference === 'VEGAN' ? 'bg-green-600' : 'bg-red-600'}`} />
+                            )}
+                          </div>
+                          <div className="text-[11px] text-gray-500 font-medium truncate mb-1">
+                            {item.categoryName}
+                          </div>
+                          <p className="text-xs font-bold text-[var(--color-text)]">${item.price}</p>
+                        </div>
+                        <div className="shrink-0">
+                          {qty === 0 ? (
+                            <button
+                              onClick={() => handleAdd(item)}
+                              className="flex items-center gap-1 bg-white border border-emerald-700 text-emerald-800 font-bold px-3 py-1 rounded-lg text-xs hover:bg-emerald-700 hover:text-white transition-colors shadow-xs"
+                            >
+                              <Plus size={12} /> Add
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-2 border border-emerald-700 bg-emerald-50/50 rounded-lg text-emerald-800 px-1 py-0.5">
+                              <button
+                                onClick={() => updateQuantity(String(item.id), qty - 1)}
+                                className="p-1 hover:bg-emerald-100 rounded transition-colors"
+                              >
+                                <Minus size={11} />
+                              </button>
+                              <span className="font-bold text-xs w-3 text-center">{qty}</span>
+                              <button
+                                onClick={() => updateQuantity(String(item.id), qty + 1)}
+                                className="p-1 hover:bg-emerald-100 rounded transition-colors"
+                              >
+                                <Plus size={11} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 p-6">
+                  <Search size={28} className="mx-auto text-gray-300 mb-2" />
+                  <p className="font-serif font-bold text-sm text-gray-700">No dishes match "{search}"</p>
+                  <p className="text-xs text-gray-400 mt-1">Try another keyword or browse categories below</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Categories Grid (Filtered by activeDiet) */
+            <div className="p-4 grid grid-cols-2 gap-4 mt-1">
+              {categories.filter(cat => isCategoryMatchingDiet(cat, activeDiet)).map(cat => {
+                const catImage = cat.image || cat.items.find(i => i.imageUrl)?.imageUrl;
+                return (
+                  <div 
+                    key={cat.name} 
+                    onClick={() => setSelectedCategory(cat.name)}
+                    className="bg-white rounded-[var(--radius-sm)] border border-[var(--color-border)] p-2 flex flex-col items-center text-center cursor-pointer hover:border-[var(--color-primary-light)] transition-colors group shadow-xs hover:shadow-sm"
+                  >
+                    <div className="w-full aspect-[4/3] bg-[var(--color-background)] rounded-[var(--radius-sm)] mb-3 overflow-hidden border border-[var(--color-border)]">
+                      {catImage ? (
+                        <img src={catImage} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)]">
+                          <span className="font-serif text-2xl opacity-50">{cat.name[0]}</span>
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-serif font-semibold text-[var(--color-text)] text-sm leading-tight mb-1 pb-1 tracking-wide">{cat.name}</h3>
+                    {cat.type && cat.type !== 'all' && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider mb-1 ${
+                        cat.type === 'veg' ? 'bg-green-50 text-green-700' :
+                        cat.type === 'non-veg' ? 'bg-red-50 text-red-700' :
+                        cat.type === 'vegan' ? 'bg-emerald-50 text-emerald-700' :
+                        'bg-orange-50 text-orange-700'
+                      }`}>
+                        {cat.type}
+                      </span>
                     )}
                   </div>
-                  <h3 className="font-serif font-semibold text-[var(--color-text)] text-sm leading-tight mb-2 pb-1 tracking-wide">{cat.name}</h3>
+                );
+              })}
+              {categories.filter(cat => isCategoryMatchingDiet(cat, activeDiet)).length === 0 && (
+                <div className="col-span-2 text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 p-6">
+                  <p className="font-serif font-bold text-sm text-gray-700">No categories found</p>
+                  <p className="text-xs text-gray-400 mt-1">No categories match the selected filter</p>
+                  <button onClick={() => setActiveDiet('ALL')} className="mt-3 text-xs text-emerald-700 font-bold hover:underline">
+                    Show all categories
+                  </button>
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-[var(--color-background)] pb-6">
-          {/* Search & Filters */}
-          <div className="bg-white px-4 py-4 sticky top-[73px] z-10 border-b border-[var(--color-border)] space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" size={16} />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search..."
-                className="w-full bg-[var(--color-background)] border border-[var(--color-border)] pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-[var(--color-primary)] transition-colors font-light"
-              />
-              {search && (
-                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-            
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+          {/* Filters in category view */}
+          <div className="bg-white px-4 py-3 sticky top-[57px] z-10 border-b border-[var(--color-border)]">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide py-0.5">
               {[
                 { value: 'ALL', label: 'All' },
-                { value: 'VEG', label: 'Vegetarian' },
-                { value: 'NON_VEG', label: 'Non-Vegetarian' },
-                { value: 'VEGAN', label: 'Vegan' }
+                { value: 'VEG', label: 'Veg' },
+                { value: 'NON_VEG', label: 'Non-Veg' },
+                { value: 'VEGAN', label: 'Vegan' },
+                { value: 'NON_VEGAN', label: 'Non-Vegan' }
               ].map(type => (
                 <button
                   key={type.value}
                   onClick={() => setActiveDiet(type.value)}
-                  className={`whitespace-nowrap px-4 py-1.5 text-xs font-medium tracking-wide uppercase transition-colors flex-shrink-0 border ${
+                  className={`whitespace-nowrap px-3 py-1 text-xs font-semibold rounded-full transition-colors flex-shrink-0 border ${
                     activeDiet === type.value
-                      ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                      : 'bg-white text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-background)] hover:text-[var(--color-text)]'
+                      ? 'bg-emerald-800 text-white border-emerald-800'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   {type.label}

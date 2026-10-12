@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, Users, DollarSign, Settings, LogOut, Megaphone, MessageSquare, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Store, Users, DollarSign, Settings, LogOut, Megaphone, MessageSquare, Menu, X, CreditCard } from 'lucide-react';
 
 export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
@@ -15,8 +15,9 @@ export default function AdminLayout() {
   const links = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
     { name: 'Restaurant Management', path: '/admin/restaurants', icon: <Store size={18} /> },
+    { name: 'Subscription & Billing', path: '/admin/billing', icon: <CreditCard size={18} /> },
     { name: 'Registration Requests', path: '/admin/requests', icon: <Store size={18} /> },
-    { name: 'Ads Management', path: '/admin/ads', icon: <Megaphone size={18} /> },
+    { name: 'Banner Management', path: '/admin/ads', icon: <Megaphone size={18} /> },
     { name: 'Custom Message', path: '/admin/messages', icon: <MessageSquare size={18} /> },
     { name: 'Users', path: '/admin/users', icon: <Users size={18} /> },
     { name: 'Revenue', path: '/admin/analytics', icon: <DollarSign size={18} /> },

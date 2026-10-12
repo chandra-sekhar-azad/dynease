@@ -10,6 +10,15 @@ const requireTenantDb = (req, res) => {
   return { tenantDb: req.tenantDb, registry: req.tenantRegistry };
 };
 
+const inferCategoryType = (name, explicitType) => {
+  if (explicitType && explicitType !== 'all') return explicitType.toLowerCase();
+  const lower = (name || '').toLowerCase();
+  if (lower.includes('non-veg') || lower.includes('non veg') || lower.includes('nonveg')) return 'non-veg';
+  if (lower.includes('vegan')) return 'vegan';
+  if (lower.includes('veg')) return 'veg';
+  return explicitType || 'all';
+};
+
 /**
  * GET /api/public/qr/:token
  * Resolves a QR token → restaurant + table info
@@ -151,6 +160,7 @@ exports.getMenu = async (req, res, next) => {
     // Create base categories list
     const categories = categoryDocs.map(c => ({
       name: c.name,
+      type: inferCategoryType(c.name, c.type),
       image: c.image?.secure_url || null,
       items: []
     }));
@@ -159,7 +169,7 @@ exports.getMenu = async (req, res, next) => {
     for (const item of menuItems) {
       let targetCat = categories.find(c => c.name === item.category);
       if (!targetCat) {
-        targetCat = { name: item.category, items: [] };
+        targetCat = { name: item.category, type: inferCategoryType(item.category, 'all'), items: [] };
         categories.push(targetCat);
       }
       targetCat.items.push({
@@ -230,6 +240,7 @@ exports.getRestaurantMenu = async (req, res, next) => {
     // Create base categories list
     const categories = categoryDocs.map(c => ({
       name: c.name,
+      type: inferCategoryType(c.name, c.type),
       image: c.image?.secure_url || null,
       items: []
     }));
@@ -238,7 +249,7 @@ exports.getRestaurantMenu = async (req, res, next) => {
     for (const item of menuItems) {
       let targetCat = categories.find(c => c.name === item.category);
       if (!targetCat) {
-        targetCat = { name: item.category, items: [] };
+        targetCat = { name: item.category, type: inferCategoryType(item.category, 'all'), items: [] };
         categories.push(targetCat);
       }
       targetCat.items.push({
@@ -535,6 +546,17 @@ exports.createServiceRequest = async (req, res, next) => {
       message: 'Service request created successfully',
       data: { serviceRequest }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const Ad = require('../models/platform/Ad');
+
+exports.getBanners = async (req, res, next) => {
+  try {
+    const banners = await Ad.find({ status: 'Active' }).sort('-createdAt');
+    res.status(200).json({ success: true, data: { banners } });
   } catch (error) {
     next(error);
   }

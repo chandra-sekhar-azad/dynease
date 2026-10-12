@@ -207,7 +207,6 @@ export default function RestaurantDashboard() {
               <div className="bg-slate-50 rounded-xl p-6">
                 <div className="flex justify-between items-end mb-2">
                   <span className="font-bold text-gray-700 text-lg">{subscription.remainingDays} Days Remaining</span>
-                  <span className="text-sm text-gray-500">out of {totalDays}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
                   <div 
@@ -254,7 +253,7 @@ export default function RestaurantDashboard() {
                   <span className="font-bold text-lg text-gray-800">GROWTH Plan</span>
                   {selectedPlan === 'GROWTH' && <CheckCircle className="text-green-500" size={20} />}
                 </div>
-                <p className="text-green-600 font-bold mb-2">₹999 / month</p>
+                <p className="text-green-600 font-bold mb-1">₹1,499 / month <span className="text-xs text-gray-500 font-normal">(or ₹11,999 / year)</span></p>
                 <p className="text-sm text-gray-500">Perfect for growing restaurants.</p>
               </div>
 
@@ -266,7 +265,7 @@ export default function RestaurantDashboard() {
                   <span className="font-bold text-lg text-gray-800">PRO Plan</span>
                   {selectedPlan === 'PRO' && <CheckCircle className="text-green-500" size={20} />}
                 </div>
-                <p className="text-green-600 font-bold mb-2">₹1999 / month</p>
+                <p className="text-green-600 font-bold mb-1">₹2,499 / month <span className="text-xs text-gray-500 font-normal">(or ₹23,999 / year)</span></p>
                 <p className="text-sm text-gray-500">Advanced features for power users.</p>
               </div>
 

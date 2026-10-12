@@ -21,6 +21,7 @@ import TablesManagement from './pages/restaurant/TablesManagement';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdsManagement from './pages/admin/Adsmanagement';
 import RestaurantsManagement from './pages/admin/RestaurentsManagement';
+import SubscriptionBillingManagement from './pages/admin/SubscriptionBillingManagement';
 import RequestsManagement from './pages/admin/RequestsManagement';
 import CustomMessage from './pages/admin/CustomMessage';
 import UsersManagement from './pages/admin/UsersManagement';
@@ -40,6 +41,7 @@ import StaffManagement from './pages/restaurant/StaffManagement';
 import Orders from './pages/restaurant/Orders';
 import RestaurantSettings from './pages/restaurant/Settings';
 import WaiterAssignment from './pages/restaurant/WaiterAssignment';
+import ClickSpark from './components/ui/ClickSpark';
 import { Loader2 } from 'lucide-react';
 
 function SubdomainWrapper({ subdomain, children }) {
@@ -84,66 +86,132 @@ function App() {
     subdomain = hostname.split('.')[0];
   }
 
-  // If a valid restaurant subdomain is detected, isolate the routing to just that restaurant
-  if (subdomain && subdomain !== 'admin' && subdomain !== 'www') {
-    return (
-      <SubdomainWrapper subdomain={subdomain}>
+  const renderRoutes = () => {
+    // If a valid restaurant subdomain is detected, isolate the routing to just that restaurant
+    if (subdomain && subdomain !== 'admin' && subdomain !== 'www') {
+      return (
+        <SubdomainWrapper subdomain={subdomain}>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<CustomerRoot forcedSlug={subdomain} />} />
+              {/* QR Entry - resolves token and sets session */}
+              <Route path="/t/:qrToken" element={<QRMenuLoader />} />
+              <Route path="/menu/:qrToken" element={<QRMenuLoader />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<RegisterRestaurant />} />
+              <Route path="/item/:id" element={<ItemDescription />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/order/:orderId" element={<OrderConfirmation />} />
+              <Route path="/feedback" element={<FeedbackForm />} />
+              <Route path="/google-review" element={<GoogleReview />} />
+              <Route path="/admin" element={<Navigate to="/restaurant" replace />} />
+              <Route path="/restaurant" element={<RestaurantLayout />}>
+                <Route index element={<RestaurantDashboard />} />
+                <Route path="menu" element={<MenuManagement />} />
+                <Route path="categories" element={<CategoryManagement />} />
+                <Route path="tables" element={<TablesManagement />} />
+                <Route path="staff" element={<StaffManagement />} />
+                <Route path="orders" element={<Orders />} />
+                <Route path="assignment" element={<WaiterAssignment />} />
+                <Route path="settings" element={<RestaurantSettings />} />
+              </Route>
+              <Route path="/waiter" element={<WaiterLayout />}>
+                <Route index element={<LiveOrders />} />
+                <Route path="past-orders" element={<PastOrders />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
+              <Route path="*" element={<div className="min-h-screen flex flex-col items-center justify-center p-10 text-center font-bold text-gray-400"><h1 className="text-4xl text-gray-800 mb-2">404</h1>Page not found on this restaurant</div>} />
+            </Routes>
+          </BrowserRouter>
+        </SubdomainWrapper>
+      );
+    }
+
+    // Handle admin subdomain
+    if (subdomain === 'admin') {
+      return (
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<CustomerRoot forcedSlug={subdomain} />} />
-            {/* QR Entry - resolves token and sets session */}
-            <Route path="/t/:qrToken" element={<QRMenuLoader />} />
-            <Route path="/menu/:qrToken" element={<QRMenuLoader />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<RegisterRestaurant />} />
-            <Route path="/item/:id" element={<ItemDescription />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/order/:orderId" element={<OrderConfirmation />} />
-            <Route path="/feedback" element={<FeedbackForm />} />
-            <Route path="/google-review" element={<GoogleReview />} />
-            <Route path="/admin" element={<Navigate to="/restaurant" replace />} />
-            <Route path="/restaurant" element={<RestaurantLayout />}>
-            <Route index element={<RestaurantDashboard />} />
-              <Route path="menu" element={<MenuManagement />} />
-              <Route path="categories" element={<CategoryManagement />} />
-              <Route path="tables" element={<TablesManagement />} />
-              <Route path="staff" element={<StaffManagement />} />
-              <Route path="orders" element={<Orders />} />
-              <Route path="assignment" element={<WaiterAssignment />} />
-              <Route path="settings" element={<RestaurantSettings />} />
+            <Route path="/" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="restaurants" element={<RestaurantsManagement />} />
+              <Route path="billing" element={<SubscriptionBillingManagement />} />
+              <Route path="requests" element={<RequestsManagement />} />
+              <Route path="ads" element={<AdsManagement />} />
+              <Route path="messages" element={<CustomMessage />} />
+              <Route path="users" element={<UsersManagement />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
-            <Route path="/waiter" element={<WaiterLayout />}>
-              <Route index element={<LiveOrders />} />
-              <Route path="past-orders" element={<PastOrders />} />
-              <Route path="profile" element={<Profile />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="restaurants" element={<RestaurantsManagement />} />
+              <Route path="billing" element={<SubscriptionBillingManagement />} />
+              <Route path="requests" element={<RequestsManagement />} />
+              <Route path="ads" element={<AdsManagement />} />
+              <Route path="messages" element={<CustomMessage />} />
+              <Route path="users" element={<UsersManagement />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
-            <Route path="*" element={<div className="min-h-screen flex flex-col items-center justify-center p-10 text-center font-bold text-gray-400"><h1 className="text-4xl text-gray-800 mb-2">404</h1>Page not found on this restaurant</div>} />
+            <Route path="*" element={<div className="min-h-screen flex items-center justify-center font-bold text-gray-400">404 Admin Page Not Found</div>} />
           </Routes>
         </BrowserRouter>
-      </SubdomainWrapper>
-    );
-  }
+      );
+    }
 
-  // Handle admin subdomain
-  if (subdomain === 'admin') {
     return (
       <BrowserRouter>
         <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Index />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/features" element={<Features />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="restaurants" element={<RestaurantsManagement />} />
-            <Route path="requests" element={<RequestsManagement />} />
-            <Route path="ads" element={<AdsManagement />} />
-            <Route path="messages" element={<CustomMessage />} />
-            <Route path="users" element={<UsersManagement />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="settings" element={<Settings />} />
+          <Route path="/register" element={<RegisterRestaurant />} />
+          
+          {/* Customer Routes (Fallback for local dev like /r/test) */}
+          <Route path="/r/:slug" element={<CustomerRoot />} />
+          <Route path="/item/:id" element={<ItemDescription />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/order/:orderId" element={<OrderConfirmation />} />
+          <Route path="/feedback" element={<FeedbackForm />} />
+          <Route path="/google-review" element={<GoogleReview />} />
+          <Route path="/t/:qrToken" element={<QRMenuLoader />} />
+          <Route path="/menu/:qrToken" element={<QRMenuLoader />} />
+          
+          {/* Kitchen Routes */}
+          <Route path="/kitchen/orders" element={<KitchenOrders />} />
+          
+          {/* Restaurant Routes */}
+          <Route path="/restaurant" element={<RestaurantLayout />}>
+            <Route index element={<RestaurantDashboard />} />
+            <Route path="menu" element={<MenuManagement />} />
+            <Route path="categories" element={<CategoryManagement />} />
+            <Route path="tables" element={<TablesManagement />} />
+            <Route path="staff" element={<StaffManagement />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="assignment" element={<WaiterAssignment />} />
+            <Route path="settings" element={<RestaurantSettings />} />
           </Route>
+          
+          {/* Waiter Routes */}
+          <Route path="/waiter" element={<WaiterLayout />}>
+            <Route index element={<LiveOrders />} />
+            <Route path="past-orders" element={<PastOrders />} />
+            <Route path="profile" element={<Profile />} />
+          </Route>
+          
+          {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="restaurants" element={<RestaurantsManagement />} />
+            <Route path="billing" element={<SubscriptionBillingManagement />} />
             <Route path="requests" element={<RequestsManagement />} />
             <Route path="ads" element={<AdsManagement />} />
             <Route path="messages" element={<CustomMessage />} />
@@ -151,70 +219,23 @@ function App() {
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<Settings />} />
           </Route>
-          <Route path="*" element={<div className="min-h-screen flex items-center justify-center font-bold text-gray-400">404 Admin Page Not Found</div>} />
         </Routes>
       </BrowserRouter>
     );
-  }
+  };
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Index />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
-        <Route path="/features" element={<Features />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<RegisterRestaurant />} />
-        
-        {/* Customer Routes (Fallback for local dev like /r/test) */}
-        <Route path="/r/:slug" element={<CustomerRoot />} />
-        <Route path="/item/:id" element={<ItemDescription />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/order/:orderId" element={<OrderConfirmation />} />
-        <Route path="/feedback" element={<FeedbackForm />} />
-        <Route path="/google-review" element={<GoogleReview />} />
-        <Route path="/t/:qrToken" element={<QRMenuLoader />} />
-        <Route path="/menu/:qrToken" element={<QRMenuLoader />} />
-        
-        {/* Kitchen Routes */}
-        <Route path="/kitchen/orders" element={<KitchenOrders />} />
-        
-        {/* Restaurant Routes */}
-        <Route path="/restaurant" element={<RestaurantLayout />}>
-          <Route index element={<RestaurantDashboard />} />
-          <Route path="menu" element={<MenuManagement />} />
-          <Route path="categories" element={<CategoryManagement />} />
-          <Route path="tables" element={<TablesManagement />} />
-          <Route path="staff" element={<StaffManagement />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="assignment" element={<WaiterAssignment />} />
-          <Route path="settings" element={<RestaurantSettings />} />
-        </Route>
-        
-        {/* Waiter Routes */}
-        <Route path="/waiter" element={<WaiterLayout />}>
-          <Route index element={<LiveOrders />} />
-          <Route path="past-orders" element={<PastOrders />} />
-          <Route path="profile" element={<Profile />} />
-        </Route>
-        
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="restaurants" element={<RestaurantsManagement />} />
-          <Route path="requests" element={<RequestsManagement />} />
-          <Route path="ads" element={<AdsManagement />} />
-          <Route path="messages" element={<CustomMessage />} />
-          <Route path="users" element={<UsersManagement />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ClickSpark
+      sparkColor="#108a4a"
+      sparkSize={10}
+      sparkRadius={16}
+      sparkCount={8}
+      duration={400}
+      isGlobal={true}
+      desktopOnly={true}
+    >
+      {renderRoutes()}
+    </ClickSpark>
   );
 }
 

@@ -64,23 +64,41 @@ exports.createRestaurant = async (req, res, next) => {
 
 exports.getAllRestaurants = async (req, res, next) => {
   try {
-    const restaurants = await RestaurantRegistry.find();
-    // Map to expected format to not break the frontend
-    const mapped = restaurants.map(r => ({
-      _id: r.restaurantId,
-      name: r.restaurantName,
-      slug: r.slug,
-      subdomain: r.subdomain,
-      status: r.status,
-      selectedPlan: r.selectedPlan,
-      subscriptionStatus: r.subscriptionStatus,
-      renewalRequest: r.renewalRequest,
-      ownerId: {
-        name: r.ownerName || 'Owner', 
-        email: r.ownerEmail,
-        phone: r.ownerPhone
+    const restaurants = await RestaurantRegistry.find().sort({ createdAt: -1 });
+    const now = new Date();
+    // Map to expected format to not break the frontend and include billing details
+    const mapped = restaurants.map(r => {
+      let daysRemaining = 0;
+      if (r.subscriptionEndDate) {
+        const diff = new Date(r.subscriptionEndDate) - now;
+        daysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
       }
-    }));
+
+      return {
+        _id: r.restaurantId,
+        name: r.restaurantName,
+        slug: r.slug,
+        subdomain: r.subdomain,
+        databaseName: r.databaseName,
+        status: r.status,
+        selectedPlan: r.selectedPlan,
+        subscriptionStatus: r.subscriptionStatus,
+        subscriptionStartDate: r.subscriptionStartDate,
+        subscriptionEndDate: r.subscriptionEndDate,
+        daysRemaining,
+        lastPaymentAt: r.lastPaymentAt,
+        paymentStatus: r.paymentStatus,
+        renewalHistory: r.renewalHistory || [],
+        renewalRequest: r.renewalRequest,
+        googleReviewLink: r.googleReviewLink || '',
+        createdAt: r.createdAt,
+        ownerId: {
+          name: r.ownerName || 'Owner', 
+          email: r.ownerEmail,
+          phone: r.ownerPhone
+        }
+      };
+    });
     res.status(200).json({
       success: true,
       data: { restaurants: mapped }
@@ -260,15 +278,32 @@ exports.getAnalytics = async (req, res, next) => {
 exports.updateRestaurant = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, subscriptionPlan, isActive, ownerEmail, ownerName, ownerPhone, subdomain, googleReviewLink } = req.body;
+    const { 
+      name, 
+      subscriptionPlan, 
+      isActive, 
+      ownerEmail, 
+      ownerName, 
+      ownerPhone, 
+      subdomain, 
+      googleReviewLink,
+      billingDaysRemaining,
+      daysRemaining,
+      subscriptionEndDate,
+      subscriptionStartDate,
+      subscriptionStatus
+    } = req.body;
     
     const existingRestaurant = await RestaurantRegistry.findOne({ restaurantId: id });
     if (!existingRestaurant) {
       return res.status(404).json({ success: false, message: 'Restaurant not found' });
     }
 
-    const status = isActive ? 'ACTIVE' : 'SUSPENDED';
-    const updateData = { restaurantName: name, selectedPlan: subscriptionPlan, status };
+    const status = isActive !== undefined ? (isActive ? 'ACTIVE' : 'SUSPENDED') : existingRestaurant.status;
+    const updateData = {};
+    if (name) updateData.restaurantName = name;
+    if (subscriptionPlan) updateData.selectedPlan = subscriptionPlan;
+    if (status) updateData.status = status;
     if (googleReviewLink !== undefined) updateData.googleReviewLink = googleReviewLink;
     
     // Reset subscription dates and status if the admin changes the plan OR approves a renewal request
@@ -299,7 +334,7 @@ exports.updateRestaurant = async (req, res, next) => {
       
       const newHistoryItem = {
         plan: targetPlan,
-        amount: targetPlan === 'GROWTH' ? 1999 : targetPlan === 'PRO' ? 3999 : 0,
+        amount: targetPlan === 'GROWTH' ? 1499 : targetPlan === 'PRO' ? 2499 : 0,
         date: now,
         transactionId: hasPendingRenewal ? 'RENEWAL_APPROVED' : 'ADMIN_MANUAL_UPDATE'
       };
@@ -310,6 +345,46 @@ exports.updateRestaurant = async (req, res, next) => {
       existingRestaurant.renewalHistory.push(newHistoryItem);
       updateData.renewalHistory = existingRestaurant.renewalHistory;
       updateData.$unset = { renewalRequest: 1 };
+    }
+
+    // Handle manual billing days remaining override
+    const effectiveDays = billingDaysRemaining !== undefined ? billingDaysRemaining : daysRemaining;
+    if (effectiveDays !== undefined && effectiveDays !== null && effectiveDays !== '') {
+      const days = parseInt(effectiveDays, 10);
+      if (!isNaN(days)) {
+        const newEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+        updateData.subscriptionEndDate = newEnd;
+        if (!updateData.subscriptionStartDate && !existingRestaurant.subscriptionStartDate) {
+          updateData.subscriptionStartDate = new Date();
+        }
+        if (days > 0) {
+          if (!subscriptionStatus && (existingRestaurant.subscriptionStatus === 'EXPIRED' || existingRestaurant.subscriptionStatus === 'PENDING')) {
+            updateData.subscriptionStatus = (updateData.selectedPlan || existingRestaurant.selectedPlan) === 'FREE' ? 'TRIAL' : 'ACTIVE';
+          }
+        } else {
+          if (!subscriptionStatus) {
+            updateData.subscriptionStatus = 'EXPIRED';
+          }
+        }
+        updateData.remindersSent = { sevenDay: false, threeDay: false, oneDay: false, expired: false };
+      }
+    } else if (subscriptionEndDate) {
+      const parsedEnd = new Date(subscriptionEndDate);
+      if (!isNaN(parsedEnd.getTime())) {
+        updateData.subscriptionEndDate = parsedEnd;
+        updateData.remindersSent = { sevenDay: false, threeDay: false, oneDay: false, expired: false };
+      }
+    }
+
+    if (subscriptionStatus && ['PENDING', 'TRIAL', 'ACTIVE', 'EXPIRED', 'SUSPENDED', 'CANCELLED'].includes(subscriptionStatus)) {
+      updateData.subscriptionStatus = subscriptionStatus;
+    }
+
+    if (subscriptionStartDate) {
+      const parsedStart = new Date(subscriptionStartDate);
+      if (!isNaN(parsedStart.getTime())) {
+        updateData.subscriptionStartDate = parsedStart;
+      }
     }
 
     if (ownerEmail) updateData.ownerEmail = ownerEmail;
@@ -335,10 +410,14 @@ exports.updateRestaurant = async (req, res, next) => {
     try {
       const tenantDb = await TenantDatabaseManager.getConnection(restaurant.databaseName);
       const RestaurantProfile = tenantDb.model('RestaurantProfile');
-      const profileUpdateData = { name, isActive };
+      const profileUpdateData = {};
+      if (name) profileUpdateData.name = name;
+      if (isActive !== undefined) profileUpdateData.isActive = isActive;
       if (subdomain) profileUpdateData.slug = subdomain;
       if (googleReviewLink !== undefined) profileUpdateData.googleReviewLink = googleReviewLink;
-      await RestaurantProfile.findOneAndUpdate({ restaurantId: id }, profileUpdateData);
+      if (Object.keys(profileUpdateData).length > 0) {
+        await RestaurantProfile.findOneAndUpdate({ restaurantId: id }, profileUpdateData);
+      }
 
       if (ownerEmail || ownerName || ownerPhone) {
         const TenantUser = tenantDb.model('User');
@@ -346,16 +425,126 @@ exports.updateRestaurant = async (req, res, next) => {
         if (ownerEmail) userUpdateData.email = ownerEmail;
         if (ownerName) userUpdateData.name = ownerName;
         if (ownerPhone) userUpdateData.phone = ownerPhone;
-        
-        // Use findOneAndUpdate matching the old email to avoid losing the user record if only email changed.
-        // Wait, if email changed, we have to find by old email. We can find by role: 'RESTAURANT_OWNER'
         await TenantUser.findOneAndUpdate({ role: 'RESTAURANT_OWNER' }, userUpdateData);
       }
     } catch (e) {
       console.error('Failed to update tenant DB profile:', e);
     }
     
-    res.status(200).json({ success: true, message: 'Restaurant updated successfully', data: { restaurant } });
+    let calculatedDaysRemaining = 0;
+    if (restaurant.subscriptionEndDate) {
+      const diff = new Date(restaurant.subscriptionEndDate) - new Date();
+      calculatedDaysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Restaurant updated successfully', 
+      data: { 
+        restaurant: {
+          ...restaurant.toObject(),
+          daysRemaining: calculatedDaysRemaining
+        }
+      } 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateRestaurantBilling = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { daysRemaining, subscriptionEndDate, subscriptionStatus, selectedPlan, note, amount } = req.body;
+    
+    const registry = await RestaurantRegistry.findOne({ restaurantId: id });
+    if (!registry) {
+      return res.status(404).json({ success: false, message: 'Restaurant not found' });
+    }
+
+    const now = new Date();
+    const updateData = {};
+
+    if (selectedPlan && ['FREE', 'GROWTH', 'PRO'].includes(selectedPlan)) {
+      updateData.selectedPlan = selectedPlan;
+    }
+
+    if (daysRemaining !== undefined && daysRemaining !== null && daysRemaining !== '') {
+      const days = parseInt(daysRemaining, 10);
+      if (!isNaN(days)) {
+        const newEndDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+        updateData.subscriptionEndDate = newEndDate;
+        if (!registry.subscriptionStartDate) {
+          updateData.subscriptionStartDate = now;
+        }
+        if (days > 0) {
+          if (!subscriptionStatus && (registry.subscriptionStatus === 'EXPIRED' || registry.subscriptionStatus === 'PENDING')) {
+            updateData.subscriptionStatus = (updateData.selectedPlan || registry.selectedPlan) === 'FREE' ? 'TRIAL' : 'ACTIVE';
+          }
+        } else {
+          if (!subscriptionStatus) {
+            updateData.subscriptionStatus = 'EXPIRED';
+          }
+        }
+      }
+    } else if (subscriptionEndDate) {
+      const parsedEnd = new Date(subscriptionEndDate);
+      if (!isNaN(parsedEnd.getTime())) {
+        updateData.subscriptionEndDate = parsedEnd;
+        if (parsedEnd > now && (registry.subscriptionStatus === 'EXPIRED' || registry.subscriptionStatus === 'PENDING')) {
+          if (!subscriptionStatus) {
+            updateData.subscriptionStatus = (updateData.selectedPlan || registry.selectedPlan) === 'FREE' ? 'TRIAL' : 'ACTIVE';
+          }
+        }
+      }
+    }
+
+    if (subscriptionStatus && ['PENDING', 'TRIAL', 'ACTIVE', 'EXPIRED', 'SUSPENDED', 'CANCELLED'].includes(subscriptionStatus)) {
+      updateData.subscriptionStatus = subscriptionStatus;
+    }
+
+    updateData.remindersSent = {
+      sevenDay: false,
+      threeDay: false,
+      oneDay: false,
+      expired: false
+    };
+
+    // Record in renewalHistory
+    const historyItem = {
+      plan: updateData.selectedPlan || registry.selectedPlan,
+      amount: amount || (updateData.selectedPlan === 'GROWTH' ? 1499 : updateData.selectedPlan === 'PRO' ? 2499 : 0),
+      date: now,
+      transactionId: note || `ADMIN_BILLING_ADJUSTMENT_${daysRemaining !== undefined ? daysRemaining + 'D' : 'DATE'}`
+    };
+
+    if (!registry.renewalHistory) registry.renewalHistory = [];
+    registry.renewalHistory.push(historyItem);
+    updateData.renewalHistory = registry.renewalHistory;
+    updateData.$unset = { renewalRequest: 1 };
+
+    const updated = await RestaurantRegistry.findOneAndUpdate(
+      { restaurantId: id },
+      updateData,
+      { new: true }
+    );
+
+    let calculatedDaysRemaining = 0;
+    if (updated.subscriptionEndDate) {
+      const diff = new Date(updated.subscriptionEndDate) - new Date();
+      calculatedDaysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Subscription & billing updated successfully',
+      data: {
+        restaurant: {
+          ...updated.toObject(),
+          daysRemaining: calculatedDaysRemaining
+        }
+      }
+    });
   } catch (error) {
     next(error);
   }
@@ -457,9 +646,9 @@ exports.getAds = async (req, res, next) => {
 
 exports.createAd = async (req, res, next) => {
   try {
-    const { title, imageUrl, targetUrl, status } = req.body;
-    const ad = await Ad.create({ title, imageUrl, targetUrl, status });
-    res.status(201).json({ success: true, message: 'Ad created successfully', data: { ad } });
+    const { title, subtitle, badge, buttonText, rightBadge, imageUrl, targetUrl, status, restaurantId } = req.body;
+    const ad = await Ad.create({ title, subtitle, badge, buttonText, rightBadge, imageUrl, targetUrl, status, restaurantId });
+    res.status(201).json({ success: true, message: 'Banner created successfully', data: { ad } });
   } catch (error) {
     next(error);
   }
