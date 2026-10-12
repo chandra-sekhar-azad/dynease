@@ -30,6 +30,18 @@ app.set('io', io);
 
 const { initSubscriptionJobs } = require('./src/jobs/subscriptionJobs');
 const { initAssignmentTimeoutJobs } = require('./src/jobs/assignmentTimeoutJobs');
+const { initRosterCron } = require('./src/jobs/rosterJobs');
+const { pool } = require('./src/db/client');
+
+// Initialize Supabase PostgreSQL & CRON jobs
+pool.query('SELECT current_database(), now()')
+  .then(() => {
+    console.log('[PostgreSQL] Connected to Supabase PostgreSQL successfully via Drizzle client');
+    initRosterCron();
+  })
+  .catch((err) => {
+    console.error('[PostgreSQL] Supabase connection error:', err.message);
+  });
 
 // Database connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/dynease')

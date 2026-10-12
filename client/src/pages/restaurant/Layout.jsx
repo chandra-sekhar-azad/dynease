@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Utensils, Grid, LogOut, Users, FolderOpen, Menu, X, ClipboardList, Settings } from 'lucide-react';
+import { LayoutDashboard, Utensils, Grid, LogOut, Users, FolderOpen, Menu, X, ClipboardList, Settings, CreditCard } from 'lucide-react';
 
 export default function RestaurantLayout() {
   const location = useLocation();
