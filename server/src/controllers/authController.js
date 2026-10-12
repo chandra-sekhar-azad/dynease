@@ -28,6 +28,11 @@ exports.registerRestaurantOwner = async (req, res, next) => {
       }
     }
 
+    // Validate selected plan from canonical config
+    const { getPlan } = require('../config/plans');
+    const billingCycle = req.body.billingCycle === 'yearly' ? 'yearly' : 'monthly';
+    const requestedPlan = getPlan(selectedPlan) || getPlan('STARTER');
+
     // Generate a temporary password since they don't set it during registration
     const tempPassword = 'Welcome' + Math.floor(1000 + Math.random() * 9000) + '!';
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
@@ -40,7 +45,8 @@ exports.registerRestaurantOwner = async (req, res, next) => {
       ownerPhone: ownerPhone,
       ownerEmail: userEmail,
       ownerPassword: hashedPassword,
-      selectedPlan: selectedPlan || 'FREE',
+      selectedPlan: requestedPlan.planId,
+      billingCycle: billingCycle,
       status: 'PENDING_APPROVAL'
     });
 

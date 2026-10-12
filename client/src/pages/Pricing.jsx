@@ -1,217 +1,550 @@
-import React, { useState } from 'react';
-import { Check, Sparkles, Zap, Crown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Check, X, Sparkles, Zap, Crown, Building2, Utensils, 
+  HelpCircle, ArrowRight, ShieldCheck, ChevronDown, ChevronUp 
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
+  const [plans, setPlans] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  const [showComparison, setShowComparison] = useState(true);
 
-  const tiers = [
+  // Fallback canonical plans matching the exact backend configuration
+  const fallbackPlans = [
     {
-      name: 'GROWTH',
-      monthlyPrice: '₹1499',
-      yearlyPrice: '₹11999',
-      period: billingCycle === 'monthly' ? '/mo' : '/yr',
-      subtext: billingCycle === 'yearly' ? '₹1,000/mo billed annually (Save 33%)' : 'Billed monthly',
-      popular: true,
-      icon: <Zap className="text-orange-100" size={24} />,
-      description: 'MOST POPULAR',
-      features: [
-        '1 Restaurant',
-        'Unlimited Tables',
-        'Unlimited Menu Items',
-        'Live Orders',
-        'Staff Accounts',
-        'Advanced Analytics',
-        'Customer Reviews',
-        'Platform Branding'
-      ],
-      buttonText: 'Choose Growth',
-      cardStyle: 'bg-gradient-to-b from-orange-500 to-red-600 text-white shadow-2xl shadow-orange-500/40 transform md:-translate-y-2 border-none scale-100 md:scale-105',
-      buttonStyle: 'bg-white text-orange-600 hover:bg-gray-50',
-      checkColor: 'text-orange-200',
-      featureText: 'text-white/90'
+      planId: 'STARTER',
+      name: 'Starter',
+      tagline: 'Ideal for small cafes & bistros starting their digital journey',
+      monthlyDisplayPrice: 999,
+      yearlyDisplayPrice: 9990,
+      savingsRupees: 1998,
+      discountPercent: 16.7,
+      badge: null,
+      isPopular: false,
+      limits: {
+        maxLocations: 1,
+        maxTables: 10,
+        maxMenuItems: 50,
+        maxStaffAccounts: 3,
+        orderHistoryDays: 7
+      },
+      features: {
+        qrOrdering: true,
+        liveOrders: true,
+        salesAnalytics: 'basic',
+        customerReviews: true,
+        restaurantBranding: 'basic',
+        customerCrm: 'none',
+        reportsExport: false,
+        multiLocationDashboard: false,
+        loyaltySystem: false,
+        supportLevel: 'standard'
+      },
+      displayFeatures: [
+        '1 Restaurant location',
+        'Up to 10 Tables',
+        'Up to 50 Menu items',
+        'QR ordering & live orders',
+        '3 Staff accounts',
+        '7 days Order history',
+        'Basic Sales analytics',
+        'Customer reviews',
+        'Basic restaurant branding',
+        'Standard support'
+      ]
     },
     {
-      name: 'PRO',
-      monthlyPrice: '₹2499',
-      yearlyPrice: '₹23999',
-      period: billingCycle === 'monthly' ? '/mo' : '/yr',
-      subtext: billingCycle === 'yearly' ? '₹2,000/mo billed annually (Save 20%)' : 'Billed monthly',
-      icon: <Crown className="text-yellow-500" size={24} />,
-      description: 'FOR GROWING RESTAURANTS',
-      features: [
-        'Everything in Growth',
-        'Multiple Branches',
-        'Multiple Kitchens',
-        'Customer CRM',
-        'Loyalty System',
-        'Advanced Reports',
-        'Custom Branding',
-        'Custom Domain',
-        'Priority Support'
-      ],
-      buttonText: 'GO PRO',
-      cardStyle: 'bg-slate-900 text-white border border-slate-700 shadow-xl shadow-slate-900/20',
-      buttonStyle: 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700',
-      checkColor: 'text-yellow-500',
-      featureText: 'text-slate-300'
+      planId: 'GROWTH',
+      name: 'Growth',
+      tagline: 'Best for growing dine-in restaurants needing expanded capacity',
+      monthlyDisplayPrice: 1999,
+      yearlyDisplayPrice: 19990,
+      savingsRupees: 3998,
+      discountPercent: 16.7,
+      badge: 'Most Popular',
+      isPopular: true,
+      limits: {
+        maxLocations: 1,
+        maxTables: 30,
+        maxMenuItems: 200,
+        maxStaffAccounts: 10,
+        orderHistoryDays: 30
+      },
+      features: {
+        qrOrdering: true,
+        liveOrders: true,
+        salesAnalytics: 'advanced',
+        customerReviews: true,
+        restaurantBranding: 'customizable',
+        customerCrm: 'basic',
+        reportsExport: true,
+        multiLocationDashboard: false,
+        loyaltySystem: false,
+        supportLevel: 'priority'
+      },
+      displayFeatures: [
+        '1 Restaurant location',
+        'Up to 30 Tables',
+        'Up to 200 Menu items',
+        'QR ordering & live orders',
+        '10 Staff accounts',
+        '30 days Order history',
+        'Advanced Sales analytics',
+        'Customer reviews',
+        'Customizable branding',
+        'Basic Customer CRM',
+        'Reports export (CSV/Excel)',
+        'Priority support'
+      ]
+    },
+    {
+      planId: 'BUSINESS',
+      name: 'Business',
+      tagline: 'Perfect for established multi-table and multi-outlet food businesses',
+      monthlyDisplayPrice: 3499,
+      yearlyDisplayPrice: 34990,
+      savingsRupees: 6998,
+      discountPercent: 16.7,
+      badge: 'Best for Multi-Location',
+      isPopular: false,
+      limits: {
+        maxLocations: 3,
+        maxTables: null,
+        maxMenuItems: null,
+        maxStaffAccounts: 30,
+        orderHistoryDays: 365
+      },
+      features: {
+        qrOrdering: true,
+        liveOrders: true,
+        salesAnalytics: 'advanced',
+        customerReviews: true,
+        restaurantBranding: 'customizable',
+        customerCrm: 'full',
+        reportsExport: true,
+        multiLocationDashboard: true,
+        loyaltySystem: false,
+        supportLevel: 'priority'
+      },
+      displayFeatures: [
+        'Up to 3 Restaurant locations',
+        'Unlimited Tables',
+        'Unlimited Menu items',
+        'QR ordering & live orders',
+        '30 Staff accounts',
+        '1 year Order history',
+        'Advanced Sales analytics',
+        'Customer reviews',
+        'Customizable branding',
+        'Full Customer CRM',
+        'Reports export',
+        'Multi-location dashboard',
+        'Priority support'
+      ]
+    },
+    {
+      planId: 'PRO',
+      name: 'Pro',
+      tagline: 'Enterprise-grade platform for restaurant chains and franchises',
+      monthlyDisplayPrice: 5999,
+      yearlyDisplayPrice: 59990,
+      savingsRupees: 11998,
+      discountPercent: 16.7,
+      badge: 'Enterprise & Chains',
+      isPopular: false,
+      limits: {
+        maxLocations: 5,
+        maxTables: null,
+        maxMenuItems: null,
+        maxStaffAccounts: null,
+        orderHistoryDays: null
+      },
+      features: {
+        qrOrdering: true,
+        liveOrders: true,
+        salesAnalytics: 'consolidated',
+        restaurantBranding: 'advanced',
+        customerCrm: 'loyalty',
+        reportsExport: true,
+        multiLocationDashboard: true,
+        loyaltySystem: true,
+        supportLevel: 'priority_onboarding'
+      },
+      displayFeatures: [
+        'Up to 5 Restaurant locations',
+        'Unlimited Tables',
+        'Unlimited Menu items',
+        'QR ordering & live orders',
+        'Unlimited Staff accounts',
+        'Unlimited Order history',
+        'Advanced + Consolidated analytics',
+        'Customer reviews',
+        'Advanced restaurant branding',
+        'Full CRM + Loyalty rewards',
+        'Reports export',
+        'Multi-location dashboard',
+        'Priority support + onboarding'
+      ]
     }
   ];
 
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/public/plans`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data?.plans) && data.data.plans.length > 0) {
+        setPlans(data.data.plans);
+      } else {
+        setPlans(fallbackPlans);
+      }
+    } catch {
+      // In case server is offline or proxying, safely render fallback plans
+      setPlans(fallbackPlans);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getPlanVisuals = (planId) => {
+    switch (planId) {
+      case 'STARTER':
+        return {
+          icon: <Utensils className="text-emerald-600" size={24} />,
+          borderStyle: 'border-gray-200 hover:border-emerald-300',
+          btnStyle: 'bg-gray-900 hover:bg-black text-white',
+          checkColor: 'text-emerald-500'
+        };
+      case 'GROWTH':
+        return {
+          icon: <Zap className="text-white" size={24} />,
+          borderStyle: 'border-emerald-500 shadow-xl shadow-emerald-500/10 ring-2 ring-emerald-500',
+          btnStyle: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/30',
+          checkColor: 'text-emerald-600'
+        };
+      case 'BUSINESS':
+        return {
+          icon: <Building2 className="text-indigo-600" size={24} />,
+          borderStyle: 'border-gray-200 hover:border-indigo-300',
+          btnStyle: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+          checkColor: 'text-indigo-600'
+        };
+      case 'PRO':
+        return {
+          icon: <Crown className="text-amber-500" size={24} />,
+          borderStyle: 'border-amber-300 hover:border-amber-400 shadow-lg shadow-amber-500/5',
+          btnStyle: 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold shadow-md shadow-orange-500/20',
+          checkColor: 'text-amber-500'
+        };
+      default:
+        return {
+          icon: <Sparkles className="text-gray-600" size={24} />,
+          borderStyle: 'border-gray-200',
+          btnStyle: 'bg-gray-900 text-white',
+          checkColor: 'text-emerald-500'
+        };
+    }
+  };
+
+  const formatLimit = (val) => (val === null ? 'Unlimited' : val);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#eafaf0] via-[#f7fdf9] to-white font-sans relative overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-orange-100/50 to-transparent -z-10 pointer-events-none"></div>
-      <div className="absolute top-40 right-[-10%] w-96 h-96 bg-orange-300/20 rounded-full blur-3xl -z-10 pointer-events-none"></div>
-      <div className="absolute top-80 left-[-10%] w-72 h-72 bg-red-300/20 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+    <div className="min-h-screen bg-gradient-to-br from-[#f0fdf4] via-[#f8fafc] to-white font-sans relative overflow-hidden">
+      {/* Background Ambience */}
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-100/40 via-transparent to-transparent -z-10 pointer-events-none" />
+      <div className="absolute top-20 right-[-10%] w-[500px] h-[500px] bg-emerald-200/30 rounded-full blur-3xl -z-10 pointer-events-none" />
+      <div className="absolute top-96 left-[-10%] w-[450px] h-[450px] bg-indigo-200/20 rounded-full blur-3xl -z-10 pointer-events-none" />
 
       <Navbar />
-      
-      {/* Header Section */}
-      <div className="pt-32 pb-8 px-4 sm:px-6 lg:px-8 text-center max-w-7xl mx-auto relative z-10">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-100 text-orange-700 font-medium text-sm mb-6">
-          <Sparkles size={16} /> Transparent Pricing, No Hidden Fees
+
+      {/* Hero Header */}
+      <div className="pt-32 pb-10 px-4 sm:px-6 lg:px-8 text-center max-w-7xl mx-auto relative z-10">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100/80 border border-emerald-200 text-emerald-800 font-semibold text-xs sm:text-sm mb-6 shadow-xs">
+          <Sparkles size={16} className="text-emerald-600" />
+          <span>Simple, Scalable & Transparent Pricing</span>
         </div>
-        <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl lg:text-6xl tracking-tight mb-6">
-          Choose Your Plan
+
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight font-serif mb-6">
+          Plans built for every stage of your restaurant
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto font-medium mb-8">
-          Whether you're just starting out or managing multiple locations, we have the right tools to digitize your restaurant.
+
+        <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto font-medium leading-relaxed mb-10">
+          From neighborhood cafes to high-volume multi-location chains. Choose the right plan to digitize ordering, accelerate service, and boost dining revenue.
         </p>
 
-        {/* Monthly / Yearly Toggle */}
-        <div className="inline-flex items-center bg-gray-100 p-1.5 rounded-2xl border border-gray-200 shadow-inner">
+        {/* Monthly / Yearly Billing Toggle */}
+        <div className="inline-flex items-center bg-gray-100/90 p-1.5 rounded-2xl border border-gray-200 shadow-inner">
           <button
             type="button"
+            id="billing-toggle-monthly"
             onClick={() => setBillingCycle('monthly')}
-            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${
+            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
               billingCycle === 'monthly'
-                ? 'bg-white text-gray-900 shadow-md'
+                ? 'bg-white text-gray-900 shadow-md ring-1 ring-black/5'
                 : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            Monthly
+            Monthly Billing
           </button>
           <button
             type="button"
+            id="billing-toggle-yearly"
             onClick={() => setBillingCycle('yearly')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
               billingCycle === 'yearly'
-                ? 'bg-[var(--color-primary)] text-white shadow-md'
+                ? 'bg-emerald-600 text-white shadow-md'
                 : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            <span>Yearly</span>
+            <span>Annual Billing</span>
             <span className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full ${
               billingCycle === 'yearly'
                 ? 'bg-white/20 text-white'
-                : 'bg-green-100 text-green-700'
+                : 'bg-emerald-100 text-emerald-800 font-extrabold'
             }`}>
-              Save up to 33%
+              Save 16.7% (2 Months Free)
             </span>
           </button>
         </div>
       </div>
 
-      {/* Pricing Cards */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-8">
-          {tiers.map((tier) => (
-            <div 
-              key={tier.name}
-              className={`rounded-3xl flex flex-col relative transition-all duration-300 hover:shadow-2xl ${tier.cardStyle}`}
-            >
-              {tier.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold uppercase tracking-widest py-1.5 px-5 rounded-full shadow-lg">
-                    Most Popular
-                  </span>
-                </div>
-              )}
-              
-              <div className="p-8 flex-1 flex flex-col">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-2xl font-bold tracking-tight">{tier.name}</h3>
-                  {tier.icon}
-                </div>
-                
-                <p className={`text-xs font-bold uppercase tracking-wider mb-6 h-4 ${tier.popular ? 'text-white/80' : 'text-gray-400'}`}>
-                  {tier.description}
-                </p>
-                
-                <div className="flex items-baseline mb-2">
-                  <span className="text-5xl font-extrabold tracking-tight">
-                    {billingCycle === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice}
-                  </span>
-                  <span className={`ml-2 font-medium ${tier.popular ? 'text-white/80' : 'text-gray-500'}`}>
-                    {tier.period}
-                  </span>
-                </div>
-                <div className="mb-8 min-h-[20px]">
-                  <span className={`text-xs font-medium ${tier.popular ? 'text-white/80' : 'text-gray-500'}`}>
-                    {tier.subtext}
-                  </span>
-                </div>
-                
-                <Link to={`/register?plan=${tier.name}&cycle=${billingCycle}`} className={`w-full text-center py-3.5 px-4 rounded-xl font-bold transition-all duration-200 flex items-center justify-center gap-2 ${tier.buttonStyle}`}>
-                  {tier.buttonText}
-                  <span className="text-lg leading-none">→</span>
-                </Link>
+      {/* Pricing Cards Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch pt-4">
+          {plans.map((tier) => {
+            const visual = getPlanVisuals(tier.planId);
+            const price = billingCycle === 'monthly' ? tier.monthlyDisplayPrice : tier.yearlyDisplayPrice;
+            const period = billingCycle === 'monthly' ? '/month' : '/year';
 
-                <div className={`mt-8 pt-8 border-t ${tier.popular ? 'border-white/20' : 'border-gray-100'} flex-1`}>
-                  <ul className="space-y-4">
-                    {tier.features.map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <Check className={`h-5 w-5 ${tier.checkColor}`} />
-                        </div>
-                        <p className={`ml-3 text-base font-medium ${tier.featureText}`}>{feature}</p>
-                      </li>
-                    ))}
-                  </ul>
+            return (
+              <div
+                key={tier.planId}
+                id={`pricing-card-${tier.planId.toLowerCase()}`}
+                className={`rounded-3xl flex flex-col relative transition-all duration-300 hover:shadow-2xl border bg-white ${
+                  visual.borderStyle
+                } ${tier.isPopular ? 'scale-[1.02] md:scale-105 z-20' : ''}`}
+              >
+                {/* Popular Badge */}
+                {tier.isPopular && (
+                  <div className="absolute -top-3.5 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-emerald-600 text-white text-[11px] font-extrabold uppercase tracking-widest py-1 px-4 rounded-full shadow-lg shadow-emerald-600/30">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+
+                <div className="p-6 sm:p-7 flex-1 flex flex-col text-gray-900">
+                  {/* Title & Icon Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xl font-bold tracking-tight text-gray-900">{tier.name}</h3>
+                    <div className="p-2 rounded-xl bg-gray-50 border border-gray-100">
+                      {visual.icon}
+                    </div>
+                  </div>
+
+                  <p className="text-xs mb-6 min-h-[36px] text-gray-500">
+                    {tier.tagline}
+                  </p>
+
+                  {/* Price */}
+                  <div className="flex items-baseline mb-1">
+                    <span className="text-3xl sm:text-4xl font-extrabold tracking-tight font-serif text-gray-900">
+                      ₹{price.toLocaleString('en-IN')}
+                    </span>
+                    <span className="ml-1.5 text-xs font-semibold text-gray-500">
+                      {period}
+                    </span>
+                  </div>
+
+                  {/* Savings / Billing Subtext */}
+                  <div className="min-h-[24px] mb-6">
+                    {billingCycle === 'yearly' ? (
+                      <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                        Save ₹{tier.savingsRupees.toLocaleString('en-IN')}/year ({tier.discountPercent}%)
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-gray-400">
+                        Billed monthly, cancel anytime
+                      </span>
+                    )}
+                  </div>
+
+                  {/* CTA Button */}
+                  <Link
+                    to={`/register?plan=${tier.planId}&cycle=${billingCycle}`}
+                    className={`w-full text-center py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${visual.btnStyle}`}
+                  >
+                    <span>{tier.isPopular ? 'Choose Growth' : `Get Started with ${tier.name}`}</span>
+                    <ArrowRight size={16} />
+                  </Link>
+
+                  {/* Features List */}
+                  <div className="mt-6 pt-6 border-t border-gray-100 flex-1">
+                    <p className="text-[11px] font-bold uppercase tracking-wider mb-4 text-gray-400">
+                      Plan Highlights
+                    </p>
+                    <ul className="space-y-3">
+                      {tier.displayFeatures.map((feat, idx) => (
+                        <li key={idx} className="flex items-start text-xs font-medium">
+                          <Check className={`h-4 w-4 shrink-0 mr-2.5 mt-0.5 ${visual.checkColor}`} />
+                          <span className="text-gray-700 font-medium">{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* Trial Banner */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 relative z-10">
-        <div className="bg-gradient-to-br from-[var(--color-primary)] to-[#156d3c] rounded-3xl p-8 md:p-12 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl overflow-hidden relative">
-          
-          {/* Subtle bg decor */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-          
-          <div className="flex-1 relative z-10 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 text-white font-bold mb-4 bg-white/20 px-4 py-1.5 rounded-full text-sm">
-              <Sparkles size={18} />
-              <span>14-DAY FREE TRIAL</span>
+      {/* Plan Feature Comparison Table */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 relative z-10">
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+          <div 
+            onClick={() => setShowComparison(!showComparison)}
+            className="p-6 md:p-8 flex items-center justify-between cursor-pointer border-b border-gray-100 hover:bg-gray-50/50 transition-colors"
+          >
+            <div>
+              <h2 className="text-2xl font-bold font-serif text-gray-900">
+                Detailed Plan Comparison
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Compare limits, analytics, CRM, and multi-location features side-by-side.
+              </p>
             </div>
-            <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
-              Experience the platform free. <br className="hidden md:block" /> No credit card required.
-            </h3>
-            
-            <div className="flex flex-col md:flex-row items-center justify-center lg:justify-start gap-3 text-sm text-green-100 mt-6 font-medium bg-black/10 p-4 rounded-xl inline-flex w-full md:w-auto">
-              <span>Start your restaurant</span>
-              <span className="hidden md:block text-white/40">→</span>
-              <span>Add your menu</span>
-              <span className="hidden md:block text-white/40">→</span>
-              <span>Get QR codes</span>
-              <span className="hidden md:block text-white/40">→</span>
-              <span className="text-white">Receive orders</span>
+            <button className="p-2 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+              {showComparison ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </button>
+          </div>
+
+          {showComparison && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-600 font-bold uppercase tracking-wider text-[11px]">
+                    <th className="py-4 px-6 w-1/3">Feature</th>
+                    <th className="py-4 px-4 text-center">Starter</th>
+                    <th className="py-4 px-4 text-center bg-emerald-50/50 text-emerald-900">Growth</th>
+                    <th className="py-4 px-4 text-center">Business</th>
+                    <th className="py-4 px-4 text-center">Pro</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                  {/* Limits Section */}
+                  <tr className="bg-gray-100/60 font-bold text-gray-900 text-xs">
+                    <td colSpan="5" className="py-2.5 px-6 uppercase tracking-wider text-[11px]">Core Capacities & Limits</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Restaurants / Locations</td>
+                    <td className="py-3.5 px-4 text-center">1</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">1</td>
+                    <td className="py-3.5 px-4 text-center font-bold">Up to 3</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Up to 5</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Tables Capacity</td>
+                    <td className="py-3.5 px-4 text-center">10</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">30</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Menu Items</td>
+                    <td className="py-3.5 px-4 text-center">50</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">200</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Staff Accounts (Waiters/Kitchen)</td>
+                    <td className="py-3.5 px-4 text-center">3</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">10</td>
+                    <td className="py-3.5 px-4 text-center font-bold">30</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6 font-semibold text-gray-900">Order History Retention</td>
+                    <td className="py-3.5 px-4 text-center">7 days</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">30 days</td>
+                    <td className="py-3.5 px-4 text-center font-bold">1 year</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Unlimited</td>
+                  </tr>
+
+                  {/* Capabilities Section */}
+                  <tr className="bg-gray-100/60 font-bold text-gray-900 text-xs">
+                    <td colSpan="5" className="py-2.5 px-6 uppercase tracking-wider text-[11px]">Ordering & Service Features</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">QR Code Ordering & Live Orders</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">Customer Reviews & Ratings</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">Sales Analytics</td>
+                    <td className="py-3.5 px-4 text-center">Basic</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">Advanced</td>
+                    <td className="py-3.5 px-4 text-center font-bold">Advanced</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Advanced + Consolidated</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">Restaurant Branding</td>
+                    <td className="py-3.5 px-4 text-center">Basic</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">Customizable</td>
+                    <td className="py-3.5 px-4 text-center font-bold">Customizable</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Advanced Custom Branding</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">Customer CRM</td>
+                    <td className="py-3.5 px-4 text-center text-gray-400">Not included</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">Basic</td>
+                    <td className="py-3.5 px-4 text-center font-bold">Full CRM</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Full CRM + Loyalty</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">Reports Export (CSV / Excel)</td>
+                    <td className="py-3.5 px-4 text-center text-gray-400">No</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">Multi-location Dashboard</td>
+                    <td className="py-3.5 px-4 text-center text-gray-400">No</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-gray-400">No</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Yes</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">Support SLA</td>
+                    <td className="py-3.5 px-4 text-center">Standard</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">Priority</td>
+                    <td className="py-3.5 px-4 text-center font-bold">Priority</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">Priority + Onboarding</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </div>
-          
-          <div className="relative z-10 shrink-0 w-full lg:w-auto text-center">
-            <Link to="/register" className="inline-block w-full lg:w-auto bg-white hover:bg-gray-50 text-[var(--color-primary)] font-bold text-lg py-4 px-10 rounded-full shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all transform hover:-translate-y-1">
-              Start Your Trial
-            </Link>
-            <p className="text-sm text-green-200 mt-4 italic">
-              * Choose Growth or Pro after 14 days.
-            </p>
-          </div>
+          )}
         </div>
       </div>
     </div>

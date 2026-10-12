@@ -5,7 +5,9 @@ import Navbar from '../components/Navbar';
 
 export default function RegisterRestaurant() {
   const [searchParams] = useSearchParams();
-  const defaultPlan = searchParams.get('plan') || 'GROWTH';
+  const urlPlan = (searchParams.get('plan') || 'GROWTH').toUpperCase();
+  const urlCycle = searchParams.get('cycle') || 'monthly';
+  const defaultPlan = ['STARTER', 'GROWTH', 'BUSINESS', 'PRO'].includes(urlPlan) ? urlPlan : 'GROWTH';
 
   const [formData, setFormData] = useState({
     name: '',
@@ -16,7 +18,8 @@ export default function RegisterRestaurant() {
     ownerName: '',
     ownerPhone: '',
     
-    selectedPlan: defaultPlan
+    selectedPlan: defaultPlan,
+    billingCycle: urlCycle === 'yearly' ? 'yearly' : 'monthly'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,7 +37,8 @@ export default function RegisterRestaurant() {
       phone: formData.ownerPhone,
       ownerName: formData.ownerName,
       ownerPhone: formData.ownerPhone,
-      selectedPlan: formData.selectedPlan
+      selectedPlan: formData.selectedPlan,
+      billingCycle: formData.billingCycle
     };
 
     try {
@@ -140,7 +144,7 @@ export default function RegisterRestaurant() {
                         className="absolute inset-0 outline-none bg-transparent text-gray-900 p-0 border-none focus:ring-0 w-full font-sans text-base" 
                       />
                     </div>
-                    <span className="text-gray-400 font-medium select-none ml-0.5">.dynease.in</span>
+                    <span className="text-gray-700 font-medium select-none ml-0.5">.dynease.in</span>
                   </div>
                 </div>
               </div>
@@ -180,41 +184,87 @@ export default function RegisterRestaurant() {
 
           {/* SECTION 3: Plan Selection */}
           <div className="bg-white py-8 px-8 shadow-xl shadow-gray-200/40 sm:rounded-2xl border border-gray-100">
-            <div className="flex justify-between items-end border-b pb-4 mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Choose Your Plan</h3>
-              <Link to="/pricing" target="_blank" className="text-sm font-medium text-[var(--color-primary)] hover:text-[#156d3c] flex items-center gap-1">
-                View all plan details <ExternalLink size={14} />
-              </Link>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end border-b pb-4 mb-6 gap-3">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Choose Your Subscription Plan</h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="inline-flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, billingCycle: 'monthly' })}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      formData.billingCycle === 'monthly' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, billingCycle: 'yearly' })}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      formData.billingCycle === 'yearly' ? 'bg-emerald-600 text-white shadow-xs' : 'text-gray-500'
+                    }`}
+                  >
+                    Yearly (Save 16.7%)
+                  </button>
+                </div>
+                <Link to="/pricing" target="_blank" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                  View all details <ExternalLink size={12} />
+                </Link>
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Free Plan */}
-              <label className={`relative flex flex-col p-5 cursor-pointer rounded-xl border-2 transition-all ${formData.selectedPlan === 'FREE' ? 'border-[var(--color-primary)] bg-[#f4faf6]' : 'border-gray-200 hover:border-[#a7f3d0]'}`}>
-                <input type="radio" name="selectedPlan" value="FREE" checked={formData.selectedPlan === 'FREE'} onChange={handleChange} className="sr-only" />
-                <span className="text-lg font-bold text-gray-900">FREE</span>
-                <span className="text-xl font-extrabold text-gray-900 mt-2">₹0<span className="text-sm text-gray-500 font-medium">/month</span></span>
-                <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-green-100/50 px-2 py-1 rounded">
-                  <Sparkles size={12} /> 14-Day Free Trial
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Starter Plan */}
+              <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                formData.selectedPlan === 'STARTER' ? 'border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500' : 'border-gray-200 hover:border-emerald-200'
+              }`}>
+                <input type="radio" name="selectedPlan" value="STARTER" checked={formData.selectedPlan === 'STARTER'} onChange={handleChange} className="sr-only" />
+                <span className="text-base font-bold text-gray-900">Starter</span>
+                <span className="text-lg font-extrabold text-gray-900 mt-1">
+                  {formData.billingCycle === 'yearly' ? '₹9,990/yr' : '₹999/mo'}
+                </span>
+                <span className="text-[11px] text-gray-500 mt-2">10 Tables • 50 Items • 3 Staff</span>
               </label>
 
               {/* Growth Plan */}
-              <label className={`relative flex flex-col p-5 cursor-pointer rounded-xl border-2 transition-all ${formData.selectedPlan === 'GROWTH' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}`}>
+              <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                formData.selectedPlan === 'GROWTH' ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500' : 'border-gray-200 hover:border-emerald-200'
+              }`}>
                 <input type="radio" name="selectedPlan" value="GROWTH" checked={formData.selectedPlan === 'GROWTH'} onChange={handleChange} className="sr-only" />
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-green-500 text-white text-[10px] font-bold uppercase tracking-wider py-1 px-3 rounded-full">
-                  Most Popular
+                <div className="absolute -top-2.5 left-1/2 transform -translate-x-1/2 bg-emerald-600 text-white text-[9px] font-bold uppercase tracking-wider py-0.5 px-2.5 rounded-full">
+                  Popular
                 </div>
-                <span className="text-lg font-bold text-gray-900 mt-2">GROWTH</span>
-                <span className="text-xl font-extrabold text-gray-900 mt-2">₹1,499<span className="text-sm text-gray-500 font-medium">/month</span></span>
-                <span className="text-xs text-green-600 font-semibold mt-1">or ₹11,999/year (Save 33%)</span>
+                <span className="text-base font-bold text-gray-900 mt-1">Growth</span>
+                <span className="text-lg font-extrabold text-emerald-700 mt-1">
+                  {formData.billingCycle === 'yearly' ? '₹19,990/yr' : '₹1,999/mo'}
+                </span>
+                <span className="text-[11px] text-gray-600 mt-2">30 Tables • 200 Items • Reports</span>
+              </label>
+
+              {/* Business Plan */}
+              <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                formData.selectedPlan === 'BUSINESS' ? 'border-indigo-500 bg-indigo-50/40 ring-1 ring-indigo-500' : 'border-gray-200 hover:border-indigo-200'
+              }`}>
+                <input type="radio" name="selectedPlan" value="BUSINESS" checked={formData.selectedPlan === 'BUSINESS'} onChange={handleChange} className="sr-only" />
+                <span className="text-base font-bold text-gray-900">Business</span>
+                <span className="text-lg font-extrabold text-indigo-700 mt-1">
+                  {formData.billingCycle === 'yearly' ? '₹34,990/yr' : '₹3,499/mo'}
+                </span>
+                <span className="text-[11px] text-gray-600 mt-2">3 Locations • Unlimited Tables</span>
               </label>
 
               {/* Pro Plan */}
-              <label className={`relative flex flex-col p-5 cursor-pointer rounded-xl border-2 transition-all ${formData.selectedPlan === 'PRO' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}`}>
+              <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                formData.selectedPlan === 'PRO' ? 'border-amber-500 bg-amber-50/40 ring-1 ring-amber-500' : 'border-gray-200 hover:border-amber-200'
+              }`}>
                 <input type="radio" name="selectedPlan" value="PRO" checked={formData.selectedPlan === 'PRO'} onChange={handleChange} className="sr-only" />
-                <span className="text-lg font-bold text-gray-900">PRO</span>
-                <span className="text-xl font-extrabold text-gray-900 mt-2">₹2,499<span className="text-sm text-gray-500 font-medium">/month</span></span>
-                <span className="text-xs text-green-600 font-semibold mt-1">or ₹23,999/year (Save 20%)</span>
+                <span className="text-base font-bold text-gray-900">Pro</span>
+                <span className="text-lg font-extrabold text-amber-700 mt-1">
+                  {formData.billingCycle === 'yearly' ? '₹59,990/yr' : '₹5,999/mo'}
+                </span>
+                <span className="text-[11px] text-gray-600 mt-2">5 Locations • Full CRM & Loyalty</span>
               </label>
             </div>
           </div>

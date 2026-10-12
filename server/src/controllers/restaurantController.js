@@ -156,6 +156,10 @@ exports.createMenuItem = async (req, res) => {
       }
     }
 
+    // Enforce subscription plan menu item limit
+    const SubscriptionService = require('../services/SubscriptionService');
+    await SubscriptionService.checkResourceLimit(req.tenantDb, req.tenantRegistry, 'menuItems', 1);
+
     const MenuItem = req.tenantDb.model('MenuItem');
     const menuItem = await MenuItem.create({
       restaurantId,
@@ -312,6 +316,14 @@ exports.getOrders = async (req, res) => {
         { assignedWaiterId: null },
         { assignmentStatus: 'UNASSIGNED' }
       ];
+    }
+
+    // Apply safe historical order visibility retention rule based on subscription plan
+    // (Preserves financial/audit records in DB, while respecting plan visibility entitlement)
+    const { getOrderRetentionFilter } = require('../middlewares/entitlementMiddleware');
+    const retentionCutoff = getOrderRetentionFilter(req.tenantRegistry?.selectedPlan);
+    if (retentionCutoff) {
+      query.createdAt = { ...(query.createdAt || {}), $gte: retentionCutoff };
     }
     
     const orders = await Order.find(query)
@@ -785,6 +797,18 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Profile not found' });
     }
 
+    if (subtitle !== undefined && subtitle.trim() !== '') {
+      const { hasEntitlement } = require('../config/plans');
+      const isAllowed = hasEntitlement(req.tenantRegistry?.selectedPlan, 'restaurantBranding', 'customizable');
+      if (!isAllowed) {
+        return res.status(403).json({
+          success: false,
+          code: 'FEATURE_NOT_INCLUDED',
+          message: 'Customizable branding is available on Growth, Business, and Pro plans.'
+        });
+      }
+    }
+
     if (name) profile.name = name.trim();
     if (subtitle !== undefined) profile.subtitle = subtitle.trim();
     if (googleReviewLink !== undefined) profile.googleReviewLink = googleReviewLink.trim();
@@ -855,6 +879,8 @@ exports.getStats = async (req, res) => {
 // ──────────────────────────────────────────
 
 const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
+const SubscriptionService = require('../services/SubscriptionService');
+const { getPlan, getPublicPlans } = require('../config/plans');
 
 exports.getSubscription = async (req, res) => {
   try {
@@ -867,17 +893,29 @@ exports.getSubscription = async (req, res) => {
       remainingDays = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
     }
 
+    const canonicalPlan = getPlan(registry.selectedPlan) || getPlan('STARTER');
+    const usageAndLimits = await SubscriptionService.getUsageAndLimits(req.tenantDb, registry);
+    const platformSub = await SubscriptionService.getSubscriptionForRestaurant(registry.restaurantId, registry.subdomain);
+
     res.status(200).json({ 
       success: true, 
       data: {
-        plan: registry.selectedPlan,
+        plan: canonicalPlan.planId,
+        planName: canonicalPlan.name,
+        billingCycle: registry.billingCycle || 'monthly',
         status: registry.subscriptionStatus,
         startDate: registry.subscriptionStartDate,
         endDate: registry.subscriptionEndDate,
         remainingDays,
         lastPaymentAt: registry.lastPaymentAt,
         renewalHistory: registry.renewalHistory,
-        renewalRequest: registry.renewalRequest
+        renewalRequest: registry.renewalRequest,
+        limits: canonicalPlan.limits,
+        features: canonicalPlan.features,
+        displayFeatures: canonicalPlan.displayFeatures,
+        usage: usageAndLimits.usage,
+        capacityRemaining: usageAndLimits.capacityRemaining,
+        scheduledChange: platformSub?.scheduledChange || null
       } 
     });
   } catch (error) {
@@ -888,23 +926,49 @@ exports.getSubscription = async (req, res) => {
 
 exports.renewSubscription = async (req, res) => {
   try {
-    const { plan } = req.body;
+    const { plan, billingCycle = 'monthly' } = req.body;
     
     const registry = req.tenantRegistry;
     if (!registry) return res.status(404).json({ success: false, message: 'Registry not found' });
 
-    // Validate plan
-    if (!['GROWTH', 'PRO'].includes(plan)) {
-      return res.status(400).json({ success: false, message: 'Invalid plan selected' });
+    // Validate plan against canonical plans
+    const targetPlan = getPlan(plan);
+    if (!targetPlan) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid plan selected. Choose from Starter, Growth, Business, or Pro.' 
+      });
     }
 
     if (registry.renewalRequest && registry.renewalRequest.status === 'PENDING') {
-      return res.status(400).json({ success: false, message: 'A renewal request is already pending.' });
+      return res.status(400).json({ success: false, message: 'A renewal or plan change request is already pending review.' });
+    }
+
+    // Downgrade check: check if current usage exceeds target plan limits
+    const { usage } = await SubscriptionService.getUsageAndLimits(req.tenantDb, registry);
+    const violations = [];
+    if (targetPlan.limits.maxTables !== null && usage.tables > targetPlan.limits.maxTables) {
+      violations.push(`Tables: current ${usage.tables} exceeds plan limit ${targetPlan.limits.maxTables}`);
+    }
+    if (targetPlan.limits.maxMenuItems !== null && usage.menuItems > targetPlan.limits.maxMenuItems) {
+      violations.push(`Menu items: current ${usage.menuItems} exceeds plan limit ${targetPlan.limits.maxMenuItems}`);
+    }
+    if (targetPlan.limits.maxStaffAccounts !== null && usage.staffAccounts > targetPlan.limits.maxStaffAccounts) {
+      violations.push(`Staff accounts: current ${usage.staffAccounts} exceeds plan limit ${targetPlan.limits.maxStaffAccounts}`);
+    }
+
+    if (violations.length > 0) {
+      return res.status(400).json({
+        success: false,
+        code: 'DOWNGRADE_LIMIT_EXCEEDED',
+        message: `Cannot switch to ${targetPlan.name} plan because current usage exceeds limits: ${violations.join(', ')}. Please adjust resources before downgrading.`,
+        violations
+      });
     }
 
     const now = new Date();
     registry.renewalRequest = {
-      plan,
+      plan: targetPlan.planId,
       status: 'PENDING',
       requestedAt: now
     };
@@ -913,8 +977,8 @@ exports.renewSubscription = async (req, res) => {
 
     res.status(200).json({ 
       success: true, 
-      message: 'Renewal request sent successfully. Pending admin approval.', 
-      data: { renewalRequest: registry.renewalRequest }
+      message: `Request for ${targetPlan.name} plan (${billingCycle}) sent successfully. Pending review/activation.`, 
+      data: { renewalRequest: registry.renewalRequest, plan: targetPlan }
     });
   } catch (error) {
     console.error(error);

@@ -260,6 +260,23 @@ exports.getAnalytics = async (req, res, next) => {
       }
     }
 
+    // Calculate recorded subscription revenue from invoices and renewal histories
+    const PlatformInvoice = require('../models/platform/PlatformInvoice');
+    const invoices = await PlatformInvoice.find({ status: 'PAID' });
+    const invoiceRevenue = invoices.reduce((sum, inv) => sum + (inv.amountRupees || 0), 0);
+
+    // Also include history records from registries as fallback
+    let historyRevenue = 0;
+    const allRegistries = await RestaurantRegistry.find();
+    allRegistries.forEach(r => {
+      (r.renewalHistory || []).forEach(h => {
+        if (h.amount && typeof h.amount === 'number') {
+          historyRevenue += h.amount;
+        }
+      });
+    });
+    const subscriptionRevenue = Math.max(invoiceRevenue, historyRevenue);
+
     res.status(200).json({
       success: true,
       data: {
@@ -267,7 +284,9 @@ exports.getAnalytics = async (req, res, next) => {
         activeRestaurants,
         totalUsers,
         totalRevenue,
-        totalOrders
+        totalOrders,
+        subscriptionRevenue,
+        monthlyRecurringRevenue: activeRestaurants * 1999 // Estimated run-rate
       }
     });
   } catch (error) {
@@ -465,8 +484,12 @@ exports.updateRestaurantBilling = async (req, res, next) => {
     const now = new Date();
     const updateData = {};
 
-    if (selectedPlan && ['FREE', 'GROWTH', 'PRO'].includes(selectedPlan)) {
-      updateData.selectedPlan = selectedPlan;
+    if (selectedPlan) {
+      const { getPlan } = require('../config/plans');
+      const resolved = getPlan(selectedPlan);
+      if (resolved) {
+        updateData.selectedPlan = resolved.planId;
+      }
     }
 
     if (daysRemaining !== undefined && daysRemaining !== null && daysRemaining !== '') {
@@ -616,7 +639,8 @@ exports.sendCredentials = async (req, res, next) => {
 
 exports.getPlans = async (req, res, next) => {
   try {
-    const plans = await SubscriptionPlan.find({ isActive: true });
+    const { getPublicPlans } = require('../config/plans');
+    const plans = getPublicPlans();
     res.status(200).json({ success: true, data: { plans } });
   } catch (error) {
     next(error);

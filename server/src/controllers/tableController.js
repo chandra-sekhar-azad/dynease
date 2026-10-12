@@ -37,6 +37,10 @@ exports.createTable = async (req, res, next) => {
       return res.status(409).json({ success: false, message: 'Table number already exists in your restaurant' });
     }
 
+    // Enforce subscription plan table limit
+    const SubscriptionService = require('../services/SubscriptionService');
+    await SubscriptionService.checkResourceLimit(req.tenantDb, req.tenantRegistry, 'tables', 1);
+
     const qrToken = crypto.randomBytes(16).toString('hex');
     const domain = process.env.NODE_ENV === 'production' 
       ? `https://${req.tenantRegistry.subdomain}.dynease.in` 

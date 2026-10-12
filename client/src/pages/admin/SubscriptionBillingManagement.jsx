@@ -351,8 +351,9 @@ export default function SubscriptionBillingManagement() {
             className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-emerald-500"
           >
             <option value="ALL">All Plans</option>
-            <option value="FREE">FREE Plan</option>
+            <option value="STARTER">STARTER Plan</option>
             <option value="GROWTH">GROWTH Plan</option>
+            <option value="BUSINESS">BUSINESS Plan</option>
             <option value="PRO">PRO Plan</option>
           </select>
 
@@ -441,12 +442,14 @@ export default function SubscriptionBillingManagement() {
                         <div className="flex flex-col items-start gap-1">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold uppercase ${
                             res.selectedPlan === 'PRO'
-                              ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : res.selectedPlan === 'BUSINESS'
+                              ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                               : res.selectedPlan === 'GROWTH'
                               ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                               : 'bg-gray-100 text-gray-700 border border-gray-200'
                           }`}>
-                            {res.selectedPlan || 'FREE'}
+                            {res.selectedPlan || 'STARTER'}
                           </span>
                           {res.renewalRequest?.status === 'PENDING' && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
@@ -684,9 +687,10 @@ export default function SubscriptionBillingManagement() {
                     onChange={(e) => setEditPlan(e.target.value)}
                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="FREE">FREE — Rs.0/mo</option>
-                    <option value="GROWTH">GROWTH — Rs.1499/mo</option>
-                    <option value="PRO">PRO — Rs.2499/mo</option>
+                    <option value="STARTER">STARTER — ₹999/mo (₹9,990/yr)</option>
+                    <option value="GROWTH">GROWTH — ₹1,999/mo (₹19,990/yr)</option>
+                    <option value="BUSINESS">BUSINESS — ₹3,499/mo (₹34,990/yr)</option>
+                    <option value="PRO">PRO — ₹5,999/mo (₹59,990/yr)</option>
                   </select>
                 </div>
 

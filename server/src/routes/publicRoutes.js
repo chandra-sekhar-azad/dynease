@@ -31,7 +31,10 @@ router.get('/orders/:orderId', publicController.getOrder);
 // Customer Service Requests (Call waiter, water, bill, cutlery)
 router.post('/service-requests', checkSubscription, publicController.createServiceRequest);
 
-// Public active banners
-router.get('/banners', publicController.getBanners);
+// Public active subscription plans
+router.get('/plans', (req, res) => {
+  const { getPublicPlans } = require('../config/plans');
+  res.status(200).json({ success: true, data: { plans: getPublicPlans() } });
+});
 
 module.exports = router;

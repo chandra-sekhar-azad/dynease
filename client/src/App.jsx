@@ -40,6 +40,7 @@ import RestaurantDashboard from './pages/restaurant/Dashboard';
 import StaffManagement from './pages/restaurant/StaffManagement';
 import Orders from './pages/restaurant/Orders';
 import RestaurantSettings from './pages/restaurant/Settings';
+import RestaurantSubscription from './pages/restaurant/Subscription';
 import WaiterAssignment from './pages/restaurant/WaiterAssignment';
 import ClickSpark from './components/ui/ClickSpark';
 import { Loader2 } from 'lucide-react';
@@ -114,6 +115,7 @@ function App() {
                 <Route path="staff" element={<StaffManagement />} />
                 <Route path="orders" element={<Orders />} />
                 <Route path="assignment" element={<WaiterAssignment />} />
+                <Route path="subscription" element={<RestaurantSubscription />} />
                 <Route path="settings" element={<RestaurantSettings />} />
               </Route>
               <Route path="/waiter" element={<WaiterLayout />}>
@@ -197,6 +199,7 @@ function App() {
             <Route path="staff" element={<StaffManagement />} />
             <Route path="orders" element={<Orders />} />
             <Route path="assignment" element={<WaiterAssignment />} />
+            <Route path="subscription" element={<RestaurantSubscription />} />
             <Route path="settings" element={<RestaurantSettings />} />
           </Route>
           

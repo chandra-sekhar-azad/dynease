@@ -44,31 +44,37 @@ class RestaurantProvisioningService {
     } else {
       restaurantId = this.generateRestaurantId();
       databaseName = this.getDatabaseName(registration.subdomain);
-      const plan = registration.selectedPlan || 'FREE';
-      let subStatus = 'TRIAL';
-      const startDate = new Date();
-      const endDate = new Date();
       
-      if (plan === 'FREE') {
+      const { getPlan } = require('../config/plans');
+      const canonicalPlan = getPlan(registration.selectedPlan) || getPlan('STARTER');
+      const billingCycle = registration.billingCycle || 'monthly';
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+
+      // Default trial period: 14 days, with Starter plan default
+      let subStatus = 'TRIAL';
+      if (canonicalPlan.planId === 'STARTER') {
         subStatus = 'TRIAL';
-        endDate.setDate(endDate.getDate() + 14); // 14 days trial
+        endDate.setDate(endDate.getDate() + 14);
       } else {
-        subStatus = 'ACTIVE';
-        endDate.setDate(endDate.getDate() + 30); // 30 days paid plan
+        // For Growth, Business, Pro requested upon registration
+        subStatus = 'TRIAL';
+        endDate.setDate(endDate.getDate() + 14); // 14-day trial before first paid cycle
       }
 
       // Create Registry Record
       registry = new RestaurantRegistry({
         restaurantId,
         restaurantName: registration.restaurantName,
-        slug: registration.subdomain, // Using subdomain as slug for simplicity
+        slug: registration.subdomain,
         subdomain: registration.subdomain,
         databaseName,
         ownerEmail: registration.ownerEmail || `${registration.subdomain}@temp.com`,
         ownerName: registration.ownerName,
         ownerPhone: registration.ownerPhone,
         status: 'PROVISIONING',
-        selectedPlan: plan,
+        selectedPlan: canonicalPlan.planId,
+        billingCycle,
         subscriptionStatus: subStatus,
         subscriptionStartDate: startDate,
         subscriptionEndDate: endDate,
@@ -139,6 +145,10 @@ class RestaurantProvisioningService {
       registry.databaseProvisionedAt = new Date();
       registry.status = 'ACTIVE';
       await registry.save();
+
+      // Sync PlatformSubscription
+      const SubscriptionService = require('./SubscriptionService');
+      await SubscriptionService.getSubscriptionForRestaurant(registry.restaurantId, registry.subdomain);
 
       console.log(`[Provisioning] Successfully provisioned ${registration.restaurantName}`);
       return registry;

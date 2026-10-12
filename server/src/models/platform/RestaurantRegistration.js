@@ -13,8 +13,13 @@ const registrationSchema = new mongoose.Schema({
 
   selectedPlan: {
     type: String,
-    enum: ['FREE', 'GROWTH', 'PRO'],
-    default: 'FREE'
+    enum: ['FREE', 'STARTER', 'GROWTH', 'BUSINESS', 'PRO'],
+    default: 'STARTER'
+  },
+  billingCycle: {
+    type: String,
+    enum: ['monthly', 'yearly'],
+    default: 'monthly'
   },
   
   status: {

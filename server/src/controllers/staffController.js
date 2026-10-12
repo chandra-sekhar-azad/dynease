@@ -30,6 +30,12 @@ exports.createStaff = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Email already exists.' });
     }
 
+    // Enforce subscription plan staff account limit (only for staff roles like RESTAURANT_STAFF and KITCHEN_STAFF)
+    if (['RESTAURANT_STAFF', 'KITCHEN_STAFF'].includes(role)) {
+      const SubscriptionService = require('../services/SubscriptionService');
+      await SubscriptionService.checkResourceLimit(req.tenantDb, req.tenantRegistry, 'staff', 1);
+    }
+
     const newStaff = await User.create({
       name,
       email,
