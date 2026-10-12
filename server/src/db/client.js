@@ -1,8 +1,4 @@
-const path = require('path');
-const envFile = process.env.NODE_ENV === 'production' ? '../../.env.production' : '../../.env';
-require('dotenv').config({ path: path.resolve(__dirname, envFile) });
-// Fallback if local server .env has settings
-require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
+require('../config/env');
 
 const { Pool } = require('pg');
 const { drizzle } = require('drizzle-orm/node-postgres');
