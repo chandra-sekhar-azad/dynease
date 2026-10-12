@@ -1,9 +1,11 @@
 const path = require('path');
+const envFile = process.env.NODE_ENV === 'production' ? '../../.env.production' : '../../.env';
+require('dotenv').config({ path: path.resolve(__dirname, envFile) });
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.SUPABASE_URL || process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
