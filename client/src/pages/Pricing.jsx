@@ -398,7 +398,7 @@ export default function Pricing() {
                   {/* CTA Button */}
                   {isCustomPlan ? (
                     <a
-                      href="callto"
+                      href="tel:+918897536435"
                       className={`w-full text-center py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${visual.btnStyle}`}
                     >
                       <span>Talk to Sales</span>
