@@ -555,9 +555,44 @@ const Ad = require('../models/platform/Ad');
 
 exports.getBanners = async (req, res, next) => {
   try {
-    const banners = await Ad.find({ status: 'Active' }).sort('-createdAt');
-    res.status(200).json({ success: true, data: { banners } });
+    const banners = await Ad.find({
+      status: { $regex: /^active$/i }
+    }).sort('-createdAt');
+    res.status(200).json({ success: true, data: { banners, ads: banners } });
   } catch (error) {
     next(error);
   }
 };
+
+const AdvertisementInquiry = require('../models/platform/AdvertisementInquiry');
+
+exports.createAdInquiry = async (req, res, next) => {
+  try {
+    const { name, mobileNumber, businessName, email, city, message } = req.body;
+    if (!name || !mobileNumber || !businessName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, mobile number, and business name are required'
+      });
+    }
+
+    const inquiry = await AdvertisementInquiry.create({
+      name,
+      mobileNumber,
+      businessName,
+      email: email || '',
+      city: city || '',
+      message: message || '',
+      status: 'NEW'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Advertisement inquiry submitted successfully',
+      data: { inquiry }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

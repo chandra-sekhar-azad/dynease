@@ -30,10 +30,40 @@ export default function HomePage({ forcedSlug }) {
   useEffect(() => {
     const fetchBanners = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/public/banners`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data?.banners) && json.data.banners.length > 0) {
-          setBanners(json.data.banners);
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        let fetchedAds = [];
+
+        // 1. Fetch from /admin/ads (primary production endpoint where admin manages ads)
+        try {
+          const res = await fetch(`${apiUrl}/admin/ads`);
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data?.ads) && json.data.ads.length > 0) {
+            fetchedAds = json.data.ads;
+          }
+        } catch (e) {
+          console.warn('Could not fetch from /admin/ads, trying public endpoint', e);
+        }
+
+        // 2. Fallback to /public/banners or /public/ads
+        if (fetchedAds.length === 0) {
+          try {
+            const res = await fetch(`${apiUrl}/public/banners`);
+            const json = await res.json();
+            if (json.success) {
+              fetchedAds = json.data?.banners || json.data?.ads || [];
+            }
+          } catch (e) {
+            console.warn('Could not fetch from /public/banners', e);
+          }
+        }
+
+        // Filter active banners (case-insensitive)
+        const activeOnly = fetchedAds.filter(ad => 
+          !ad.status || String(ad.status).toLowerCase() === 'active'
+        );
+
+        if (activeOnly.length > 0) {
+          setBanners(activeOnly);
         }
       } catch (err) {
         console.error('Failed to fetch banners', err);

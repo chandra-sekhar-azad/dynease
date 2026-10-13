@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   PlayCircle, Check, ArrowRight,
   ScanLine, ListTree, ShoppingCart, Smile,
-  FileText, Columns, Zap, Users, Monitor, BarChart2
+  FileText, Columns, Zap, Users, Monitor, BarChart2,
+  CheckCircle2, Sparkles
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -360,142 +362,272 @@ function InteractivePhoneMockup() {
   ];
 
   const categories = ["Starters", "Soups", "Sea Food", "Biryani"];
-  const [showSplash, setShowSplash] = React.useState(true);
+  const [stage, setStage] = useState('splash'); // 'splash' -> 'scanning' -> 'home'
+  const [scanSuccess, setScanSuccess] = useState(false);
 
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => {
+    let t1, t2, t3;
+    if (stage === 'splash') {
+      setScanSuccess(false);
+      t1 = setTimeout(() => {
+        setStage('scanning');
+      }, 1000);
+    } else if (stage === 'scanning') {
+      // Single scan pass takes 1.1s
+      t2 = setTimeout(() => {
+        setScanSuccess(true);
+      }, 1100);
+      // Immediately redirect to home page
+      t3 = setTimeout(() => {
+        setStage('home');
+      }, 1750);
+    }
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [stage]);
 
   return (
     <div className="w-[300px] h-[600px] bg-white rounded-[2.5rem] border-[12px] border-gray-900 shadow-2xl relative overflow-hidden flex flex-col z-10 mx-auto group">
+      {/* Notch */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-900 rounded-b-2xl z-20"></div>
 
-      {showSplash ? (
-        <div className="flex-1 bg-white flex items-center justify-center h-full w-full">
+      <style>{`
+        @keyframes qrLaserScanSingle {
+          0% { top: 8px; opacity: 0; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { top: calc(100% - 16px); opacity: 0; }
+        }
+        .animate-qr-laser-single {
+          animation: qrLaserScanSingle 1.1s cubic-bezier(0.4, 0, 0.2, 1) 1 forwards;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
+      {/* 1. Splash Screen */}
+      {stage === 'splash' && (
+        <div className="flex-1 bg-white flex flex-col items-center justify-center h-full w-full relative select-none">
           <div className="text-center animate-pulse">
-            <img src={iconImg} alt="Dynease Icon" className="w-24 h-24 mx-auto mb-4 object-contain" />
-            <h1 className="text-3xl font-extrabold text-green-600 tracking-widest">Dynease</h1>
+            <img src={iconImg} alt="Dynease Icon" className="w-24 h-24 mx-auto mb-4 object-contain drop-shadow" />
+            <h1 className="text-3xl font-extrabold text-[var(--color-primary)] tracking-widest">Dynease</h1>
+            <p className="text-xs text-gray-400 font-medium mt-1">Smart Dining Experience</p>
+          </div>
+          <div className="absolute bottom-10 flex items-center gap-2 text-[11px] text-gray-400 font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span>Initializing...</span>
           </div>
         </div>
-      ) : (
-        <>
-          {activeTab === 'menu' && (
-        <>
-          <div className="relative h-40 bg-gray-100 flex-shrink-0">
-            <img src="https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=500&q=80" alt="Restaurant" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-            <div className="absolute bottom-4 left-4 text-white">
-              <h3 className="font-bold text-lg">Spice Garden</h3>
-              <p className="text-xs opacity-80">Authentic Flavors, Always</p>
+      )}
+
+      {/* 2. QR Scanning Screen with Animation */}
+      {stage === 'scanning' && (
+        <div className="flex-1 bg-gradient-to-b from-gray-950 via-slate-900 to-gray-950 text-white flex flex-col justify-between items-center p-4 pt-9 pb-6 relative overflow-hidden select-none">
+          {/* Subtle viewfinder grid dots */}
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+
+          {/* Top scanner header */}
+          <div className="w-full flex flex-col items-center z-10 text-center">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 backdrop-blur-md border border-emerald-400/30 text-[10px] text-emerald-300 font-semibold mb-1 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Camera View
+            </div>
+            <h3 className="font-bold text-sm text-white tracking-wide">Scan Table QR</h3>
+            <p className="text-[10px] text-gray-400">Point camera at the table QR code</p>
+          </div>
+
+          {/* Viewfinder Target Container */}
+          <div className="relative w-52 h-52 flex items-center justify-center my-auto">
+            {/* 4 Glowing Corner Reticles */}
+            <div className={`absolute top-0 left-0 w-7 h-7 border-t-[3px] border-l-[3px] rounded-tl-xl transition-all duration-300 ${scanSuccess ? 'border-emerald-400 shadow-[0_0_15px_#10b981]' : 'border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
+            <div className={`absolute top-0 right-0 w-7 h-7 border-t-[3px] border-r-[3px] rounded-tr-xl transition-all duration-300 ${scanSuccess ? 'border-emerald-400 shadow-[0_0_15px_#10b981]' : 'border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
+            <div className={`absolute bottom-0 left-0 w-7 h-7 border-b-[3px] border-l-[3px] rounded-bl-xl transition-all duration-300 ${scanSuccess ? 'border-emerald-400 shadow-[0_0_15px_#10b981]' : 'border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
+            <div className={`absolute bottom-0 right-0 w-7 h-7 border-b-[3px] border-r-[3px] rounded-br-xl transition-all duration-300 ${scanSuccess ? 'border-emerald-400 shadow-[0_0_15px_#10b981]' : 'border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></div>
+
+            {/* Table QR Standee Card */}
+            <div className={`w-40 bg-white rounded-2xl p-3 shadow-2xl flex flex-col items-center border transition-all duration-300 ${scanSuccess ? 'scale-105 border-emerald-400 ring-2 ring-emerald-400/50' : 'border-gray-200'}`}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <img src={iconImg} alt="Dynease" className="w-4 h-4 object-contain" />
+                <span className="text-[10px] font-extrabold text-emerald-800 tracking-wider">SPICE GARDEN</span>
+              </div>
+              <div className="p-1 bg-white rounded-lg border border-gray-100 shadow-sm">
+                <QRCodeSVG 
+                  value="https://dynease.com/r/spice-garden?table=04"
+                  size={104}
+                  level="M"
+                  fgColor="#0f3b25"
+                />
+              </div>
+              <div className="mt-2 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold tracking-wide">
+                TABLE 04
+              </div>
+            </div>
+
+            {/* Single Sweeping Laser Beam Animation (One Time Only) */}
+            {!scanSuccess && (
+              <div className="absolute inset-x-3 pointer-events-none animate-qr-laser-single z-20">
+                <div className="h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#34d399,0_0_4px_#10b981]"></div>
+                <div className="h-10 bg-gradient-to-b from-emerald-400/25 to-transparent"></div>
+              </div>
+            )}
+
+            {/* Success Modal / Feedback */}
+            {scanSuccess && (
+              <div className="absolute inset-0 bg-emerald-950/90 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center p-3 text-center z-30 border border-emerald-400/70 shadow-[0_0_25px_rgba(16,185,129,0.5)] animate-in fade-in duration-200">
+                <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center mb-2 shadow-lg ring-4 ring-emerald-400/30">
+                  <CheckCircle2 size={28} className="stroke-[2.5]" />
+                </div>
+                <span className="text-[11px] font-extrabold text-emerald-300 uppercase tracking-widest">Table 04 Verified</span>
+                <p className="text-xs font-semibold text-white mt-0.5">Opening Spice Garden...</p>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Status Indicator */}
+          <div className="w-full flex flex-col items-center gap-2 z-10">
+            <div className={`px-3.5 py-1.5 rounded-full backdrop-blur-md border text-[11px] font-medium flex items-center gap-2 transition-all ${scanSuccess ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300 scale-105' : 'bg-white/10 border-white/15 text-gray-300'}`}>
+              {scanSuccess ? (
+                <>
+                  <Sparkles size={13} className="text-emerald-300 animate-spin" />
+                  <span>Redirecting to menu...</span>
+                </>
+              ) : (
+                <>
+                  <ScanLine size={13} className="text-emerald-400 animate-pulse" />
+                  <span>Scanning QR code...</span>
+                </>
+              )}
             </div>
           </div>
+        </div>
+      )}
 
-          <div className="flex gap-2 p-4 overflow-x-auto border-b flex-shrink-0 no-scrollbar">
-            {categories.map((cat) => (
-              <span 
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-1.5 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-colors ${activeCategory === cat ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                {cat}
-              </span>
-            ))}
-          </div>
+      {/* 3. Home Page (Menu, Cart, Orders) */}
+      {stage === 'home' && (
+        <>
 
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-gray-50 pb-20 scroll-smooth no-scrollbar">
-            <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
-            {menuItems.filter(item => item.category === activeCategory).map((item, i) => (
-              <div key={i} className="bg-white p-3 rounded-xl shadow-sm flex gap-3 border border-gray-100 transform transition-transform hover:scale-[1.02] cursor-pointer">
-                <img src={item.img} className="w-20 h-20 object-cover rounded-lg" alt={item.name} />
-                <div className="flex-1 flex flex-col justify-between">
+          {activeTab === 'menu' && (
+            <>
+              <div className="relative h-40 bg-gray-100 flex-shrink-0">
+                <img src="https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=500&q=80" alt="Restaurant" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
+                <div className="absolute bottom-3 left-4 right-4 flex justify-between items-end text-white">
                   <div>
-                    <h4 className="font-bold text-sm text-gray-900">{item.name}</h4>
-                    <p className="text-[10px] text-gray-500 leading-tight mt-1 line-clamp-2">{item.desc}</p>
+                    <h3 className="font-bold text-lg leading-tight">Spice Garden</h3>
+                    <p className="text-xs text-gray-200">Authentic Flavors, Always</p>
                   </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="font-bold text-sm">{item.price}</span>
-                    <button className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-lg leading-none">+</button>
+                  <div className="flex items-center gap-1.5 bg-emerald-950/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-emerald-400/40 text-emerald-300 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className="text-[10px] font-bold tracking-wide">Table 04</span>
                   </div>
                 </div>
               </div>
-            ))}
+
+              <div className="flex gap-2 p-4 overflow-x-auto border-b flex-shrink-0 no-scrollbar">
+                {categories.map((cat) => (
+                  <span 
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-4 py-1.5 text-xs font-bold rounded-full whitespace-nowrap cursor-pointer transition-colors ${activeCategory === cat ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    {cat}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-gray-50 pb-20 scroll-smooth no-scrollbar">
+                {menuItems.filter(item => item.category === activeCategory).map((item, i) => (
+                  <div key={i} className="bg-white p-3 rounded-xl shadow-sm flex gap-3 border border-gray-100 transform transition-transform hover:scale-[1.02] cursor-pointer">
+                    <img src={item.img} className="w-20 h-20 object-cover rounded-lg" alt={item.name} />
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <h4 className="font-bold text-sm text-gray-900">{item.name}</h4>
+                        <p className="text-[10px] text-gray-500 leading-tight mt-1 line-clamp-2">{item.desc}</p>
+                      </div>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="font-bold text-sm">{item.price}</span>
+                        <button className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-lg leading-none">+</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'cart' && (
+            <div className="flex-1 bg-gray-50 flex flex-col overflow-y-auto pb-20 no-scrollbar pt-6">
+              <div className="bg-white p-4 border-b">
+                <h3 className="font-bold text-lg">Your Cart</h3>
+              </div>
+              <div className="p-4 flex flex-col gap-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                  <div>
+                    <h4 className="font-bold text-sm">Chicken Dum Biryani</h4>
+                    <p className="text-xs text-gray-500">Qty: 1</p>
+                  </div>
+                  <span className="font-bold text-sm">₹280</span>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                  <div>
+                    <h4 className="font-bold text-sm">Garlic Naan</h4>
+                    <p className="text-xs text-gray-500">Qty: 2</p>
+                  </div>
+                  <span className="font-bold text-sm">₹100</span>
+                </div>
+              </div>
+              <div className="mt-auto p-4 bg-white border-t">
+                 <div className="flex justify-between mb-2"><span className="text-sm">Subtotal</span><span className="font-bold text-sm">₹380</span></div>
+                 <button className="w-full py-3 bg-[var(--color-primary)] text-white rounded-xl font-bold mt-2">Place Order</button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'orders' && (
+            <div className="flex-1 bg-gray-50 flex flex-col overflow-y-auto pb-20 no-scrollbar pt-6">
+              <div className="bg-white p-4 border-b">
+                <h3 className="font-bold text-lg">My Orders</h3>
+              </div>
+              <div className="p-4 flex flex-col gap-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">Preparing</span>
+                    <span className="text-xs text-gray-500">10:42 AM</span>
+                  </div>
+                  <p className="font-bold text-sm mb-1">Order #4092</p>
+                  <p className="text-xs text-gray-600">1x Chicken Dum Biryani, 2x Garlic Naan</p>
+                  <div className="mt-3 pt-3 border-t flex justify-between">
+                    <span className="text-sm font-medium">Total: ₹380</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="absolute bottom-0 left-0 right-0 h-14 bg-white border-t flex items-center justify-around px-4 z-20">
+            <div 
+              onClick={() => setActiveTab('menu')}
+              className={`w-10 h-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${activeTab === 'menu' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+               <ListTree size={20} />
+            </div>
+            <div 
+              onClick={() => setActiveTab('cart')}
+              className={`w-10 h-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${activeTab === 'cart' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+               <ShoppingCart size={20} />
+            </div>
+            <div 
+              onClick={() => setActiveTab('orders')}
+              className={`w-10 h-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${activeTab === 'orders' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+               <FileText size={20} />
+            </div>
           </div>
         </>
-      )}
-
-      {activeTab === 'cart' && (
-        <div className="flex-1 bg-gray-50 flex flex-col overflow-y-auto pb-20 no-scrollbar pt-6">
-          <div className="bg-white p-4 border-b">
-            <h3 className="font-bold text-lg">Your Cart</h3>
-          </div>
-          <div className="p-4 flex flex-col gap-4">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-sm">Chicken Dum Biryani</h4>
-                <p className="text-xs text-gray-500">Qty: 1</p>
-              </div>
-              <span className="font-bold text-sm">₹280</span>
-            </div>
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-sm">Garlic Naan</h4>
-                <p className="text-xs text-gray-500">Qty: 2</p>
-              </div>
-              <span className="font-bold text-sm">₹100</span>
-            </div>
-          </div>
-          <div className="mt-auto p-4 bg-white border-t">
-             <div className="flex justify-between mb-2"><span className="text-sm">Subtotal</span><span className="font-bold text-sm">₹380</span></div>
-             <button className="w-full py-3 bg-[var(--color-primary)] text-white rounded-xl font-bold mt-2">Place Order</button>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'orders' && (
-        <div className="flex-1 bg-gray-50 flex flex-col overflow-y-auto pb-20 no-scrollbar pt-6">
-          <div className="bg-white p-4 border-b">
-            <h3 className="font-bold text-lg">My Orders</h3>
-          </div>
-          <div className="p-4 flex flex-col gap-4">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">Preparing</span>
-                <span className="text-xs text-gray-500">10:42 AM</span>
-              </div>
-              <p className="font-bold text-sm mb-1">Order #4092</p>
-              <p className="text-xs text-gray-600">1x Chicken Dum Biryani, 2x Garlic Naan</p>
-              <div className="mt-3 pt-3 border-t flex justify-between">
-                <span className="text-sm font-medium">Total: ₹380</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="absolute bottom-0 left-0 right-0 h-14 bg-white border-t flex items-center justify-around px-4 z-20">
-        <div 
-          onClick={() => setActiveTab('menu')}
-          className={`w-10 h-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${activeTab === 'menu' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-           <ListTree size={20} />
-        </div>
-        <div 
-          onClick={() => setActiveTab('cart')}
-          className={`w-10 h-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${activeTab === 'cart' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-           <ShoppingCart size={20} />
-        </div>
-        <div 
-          onClick={() => setActiveTab('orders')}
-          className={`w-10 h-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${activeTab === 'orders' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-           <FileText size={20} />
-        </div>
-      </div>
-      </>
       )}
     </div>
   );

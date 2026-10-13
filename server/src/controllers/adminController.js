@@ -703,3 +703,76 @@ exports.deleteAd = async (req, res, next) => {
     next(error);
   }
 };
+
+const AdvertisementInquiry = require('../models/platform/AdvertisementInquiry');
+
+exports.getAdInquiries = async (req, res, next) => {
+  try {
+    const inquiries = await AdvertisementInquiry.find().sort('-createdAt');
+    res.status(200).json({ success: true, data: { inquiries } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createAdInquiry = async (req, res, next) => {
+  try {
+    const { name, mobileNumber, businessName, email, city, message } = req.body;
+    if (!name || !mobileNumber || !businessName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, mobile number, and business name are required'
+      });
+    }
+
+    const inquiry = await AdvertisementInquiry.create({
+      name,
+      mobileNumber,
+      businessName,
+      email: email || '',
+      city: city || '',
+      message: message || '',
+      status: 'NEW'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Advertisement inquiry submitted successfully',
+      data: { inquiry }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateAdInquiryStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const inquiry = await AdvertisementInquiry.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true, runValidators: true }
+    );
+    if (!inquiry) {
+      return res.status(404).json({ success: false, message: 'Inquiry not found' });
+    }
+    res.status(200).json({ success: true, message: 'Status updated successfully', data: { inquiry } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteAdInquiry = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const inquiry = await AdvertisementInquiry.findByIdAndDelete(id);
+    if (!inquiry) {
+      return res.status(404).json({ success: false, message: 'Inquiry not found' });
+    }
+    res.status(200).json({ success: true, message: 'Inquiry deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+

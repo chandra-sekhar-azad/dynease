@@ -37,4 +37,11 @@ router.get('/plans', (req, res) => {
   res.status(200).json({ success: true, data: { plans: getPublicPlans() } });
 });
 
+// Advertisement Inquiry
+router.post('/advertise', publicController.createAdInquiry);
+
+// Public Menu Banners / Ads
+router.get('/banners', publicController.getBanners);
+router.get('/ads', publicController.getBanners);
+
 module.exports = router;
