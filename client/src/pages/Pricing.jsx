@@ -291,7 +291,7 @@ export default function Pricing() {
             onClick={() => setBillingCycle('monthly')}
             className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
               billingCycle === 'monthly'
-                ? 'bg-white text-gray-900 shadow-md ring-1 ring-black/5'
+                ? 'bg-emerald-600 text-white shadow-md ring-1 ring-black/5'
                 : 'text-gray-500 hover:text-gray-900'
             }`}
           >

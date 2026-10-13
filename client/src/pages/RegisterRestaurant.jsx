@@ -194,7 +194,7 @@ export default function RegisterRestaurant() {
                     type="button"
                     onClick={() => setFormData({ ...formData, billingCycle: 'monthly' })}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
-                      formData.billingCycle === 'monthly' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500'
+                      formData.billingCycle === 'monthly' ? 'bg-emerald-600 text-white  shadow-xs' : 'text-gray-500'
                     }`}
                   >
                     Monthly

@@ -138,7 +138,7 @@ export default function LandingPage() {
                 onClick={() => setBillingCycle('monthly')}
                 className={`px-5 py-2 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
                   billingCycle === 'monthly'
-                    ? 'bg-white text-gray-900 shadow-sm'
+                    ? 'bg-[var(--color-primary)] text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
