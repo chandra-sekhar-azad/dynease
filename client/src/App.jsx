@@ -34,6 +34,7 @@ import CategoryManagement from './pages/restaurant/CategoryManagement';
 import About from './pages/About';
 import Pricing from './pages/Pricing';
 import RegisterRestaurant from './pages/RegisterRestaurant';
+import AdvertisementForm from './pages/AdvertisementForm';
 import HowItWorks from './pages/HowItWorks';
 import Features from './pages/Features';
 import RestaurantDashboard from './pages/restaurant/Dashboard';
@@ -100,6 +101,7 @@ function App() {
               <Route path="/menu/:qrToken" element={<QRMenuLoader />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<RegisterRestaurant />} />
+              <Route path="/advertise" element={<AdvertisementForm />} />
               <Route path="/item/:id" element={<ItemDescription />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
@@ -175,6 +177,7 @@ function App() {
           <Route path="/features" element={<Features />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<RegisterRestaurant />} />
+          <Route path="/advertise" element={<AdvertisementForm />} />
           
           {/* Customer Routes (Fallback for local dev like /r/test) */}
           <Route path="/r/:slug" element={<CustomerRoot />} />

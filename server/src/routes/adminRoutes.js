@@ -38,4 +38,10 @@ router.post('/ads', adminController.createAd);
 router.put('/ads/:id', adminController.updateAd);
 router.delete('/ads/:id', adminController.deleteAd);
 
+// Advertisement Inquiries
+router.get('/ad-inquiries', adminController.getAdInquiries);
+router.post('/ad-inquiries', adminController.createAdInquiry);
+router.patch('/ad-inquiries/:id', adminController.updateAdInquiryStatus);
+router.delete('/ad-inquiries/:id', adminController.deleteAdInquiry);
+
 module.exports = router;
