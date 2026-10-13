@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Store, Users, DollarSign, Settings, Megaphone, MessageSquare, FileText } from 'lucide-react';
+import { Store, Users, Settings, Megaphone, FileText } from 'lucide-react';
 
 export default function AdminDashboard() {
   const shortcuts = [
@@ -26,25 +26,11 @@ export default function AdminDashboard() {
       color: 'bg-purple-500'
     },
     {
-      title: 'Custom Message',
-      description: 'Send custom WhatsApp messages to numbers',
-      path: '/admin/messages',
-      icon: <MessageSquare size={32} />,
-      color: 'bg-teal-500'
-    },
-    {
       title: 'Users',
       description: 'Manage all users across the platform',
       path: '/admin/users',
       icon: <Users size={32} />,
       color: 'bg-indigo-500'
-    },
-    {
-      title: 'Revenue Analytics',
-      description: 'View platform revenue and order statistics',
-      path: '/admin/analytics',
-      icon: <DollarSign size={32} />,
-      color: 'bg-emerald-500'
     },
     {
       title: 'Settings',

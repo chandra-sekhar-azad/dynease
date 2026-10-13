@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Utensils, Grid, LogOut, Users, FolderOpen, Menu, X, ClipboardList, Settings, CreditCard } from 'lucide-react';
 
 export default function RestaurantLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -34,7 +44,7 @@ export default function RestaurantLayout() {
         />
       )}
       
-      <aside className={`fixed md:static inset-y-0 left-0 z-50 bg-slate-900 text-white flex flex-col transition-transform duration-300 w-64 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'}`}>
+      <aside className={`fixed md:static inset-y-0 left-0 z-50 bg-slate-900 text-white flex flex-col transition-transform duration-300 w-64 md:w-64 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="w-64 flex flex-col h-full">
           <div className="p-6 flex justify-between items-center border-b border-slate-800">
             <Link to="/restaurant" className="flex items-center gap-2">
@@ -53,13 +63,18 @@ export default function RestaurantLayout() {
             </button>
           </div>
         
-        <nav className="flex-1 px-4 space-y-2 mt-4">
+        <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
           {links.map((link) => {
             const isActive = location.pathname === link.path || location.pathname.startsWith(link.path + '/');
             return (
               <Link 
                 key={link.path}
                 to={link.path}
+                onClick={() => {
+                  if (window.innerWidth < 768) {
+                    setIsSidebarOpen(false);
+                  }
+                }}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
                   isActive ? 'bg-green-600 text-white' : 'text-slate-300 hover:bg-slate-800'
                 }`}
@@ -85,7 +100,7 @@ export default function RestaurantLayout() {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
+              className="md:hidden p-2 -ml-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
             >
               <Menu size={24} />
             </button>

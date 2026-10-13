@@ -2,8 +2,7 @@ const mongoose = require('mongoose');
 const User = require('./src/models/User');
 const Restaurant = require('./src/models/Restaurant');
 const bcrypt = require('bcrypt');
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('./src/config/env');
 
 const seedTest = async () => {
   try {

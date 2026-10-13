@@ -2,13 +2,16 @@ const path = require('path');
 const fs = require('fs');
 
 /**
- * Robust multi-location environment loader
- * Supports:
- * - Hostinger hbuilds deployments (where CWD is nodejs/ or project root)
- * - Local development
- * - Production .env.production, .env, or process.env variables injected by host
+ * Robust environment loader:
+ * - Development mode: loads root .env
+ * - Production mode: loads root .env.production
  */
 function loadEnv() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const targetFiles = isProduction
+    ? ['.env.production', '.env']
+    : ['.env'];
+
   const searchDirs = [
     process.cwd(),
     path.resolve(process.cwd(), '..'),
@@ -17,19 +20,18 @@ function loadEnv() {
     path.resolve(__dirname, '../../..'),
   ];
 
-  const envFiles = [
-    process.env.NODE_ENV === 'production' ? '.env.production' : null,
-    '.env',
-    '.env.local'
-  ].filter(Boolean);
-
-  for (const dir of searchDirs) {
-    for (const file of envFiles) {
+  let loaded = false;
+  for (const file of targetFiles) {
+    for (const dir of searchDirs) {
       const fullPath = path.resolve(dir, file);
       if (fs.existsSync(fullPath)) {
-        require('dotenv').config({ path: fullPath });
+        require('dotenv').config({ path: fullPath, override: true });
+        console.log(`[Config] Loaded environment variables from: ${fullPath} (${isProduction ? 'production' : 'development'} mode)`);
+        loaded = true;
+        break;
       }
     }
+    if (loaded && (file === '.env.production' || !isProduction)) break;
   }
 
   // Ensure DATABASE_URL and SUPABASE_URL are synced if either is provided

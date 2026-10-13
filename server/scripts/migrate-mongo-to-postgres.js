@@ -4,8 +4,8 @@
  * Creates relational tables directly in PostgreSQL and migrates all data.
  */
 
+require('../src/config/env');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const { Pool } = require('pg');
 

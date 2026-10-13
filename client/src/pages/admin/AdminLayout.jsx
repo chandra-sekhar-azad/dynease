@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Store, Users, DollarSign, Settings, LogOut, Megaphone, MessageSquare, Menu, X, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Store, Users, Settings, LogOut, Megaphone, Menu, X, CreditCard } from 'lucide-react';
 
 export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -18,9 +28,7 @@ export default function AdminLayout() {
     { name: 'Subscription & Billing', path: '/admin/billing', icon: <CreditCard size={18} /> },
     { name: 'Registration Requests', path: '/admin/requests', icon: <Store size={18} /> },
     { name: 'Banner Management', path: '/admin/ads', icon: <Megaphone size={18} /> },
-    { name: 'Custom Message', path: '/admin/messages', icon: <MessageSquare size={18} /> },
     { name: 'Users', path: '/admin/users', icon: <Users size={18} /> },
-    { name: 'Revenue', path: '/admin/analytics', icon: <DollarSign size={18} /> },
     { name: 'Settings', path: '/admin/settings', icon: <Settings size={18} /> },
   ];
 
@@ -36,13 +44,13 @@ export default function AdminLayout() {
 
       {/* Sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 bg-[var(--color-primary)] text-white flex flex-col transition-all duration-300 ease-in-out lg:static lg:h-screen overflow-hidden ${
-          isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full w-0 lg:translate-x-0'
+        className={`fixed inset-y-0 left-0 z-50 bg-slate-900 text-white flex flex-col transition-transform duration-300 ease-in-out w-64 lg:static lg:h-screen lg:w-64 lg:translate-x-0 overflow-hidden ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="w-64 flex flex-col h-full">
           <div className="p-6 flex items-center justify-between border-b border-[var(--color-primary-light)]">
-            <h2 className="text-xl font-serif font-bold text-white tracking-wide whitespace-nowrap">Dynease Admin</h2>
+            <h2 className="text-xl font-serif font-bold !text-white text-white tracking-wide whitespace-nowrap" style={{ color: '#ffffff' }}>Dynease Admin</h2>
             <button className="lg:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
               <X size={20} />
             </button>
@@ -56,7 +64,11 @@ export default function AdminLayout() {
               <Link 
                 key={link.path}
                 to={link.path}
-                onClick={() => setIsSidebarOpen(false)}
+                onClick={() => {
+                  if (window.innerWidth < 1024) {
+                    setIsSidebarOpen(false);
+                  }
+                }}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-[var(--radius-sm)] text-sm font-medium transition-colors ${
                   isActive ? 'bg-[var(--color-primary-light)] text-white' : 'text-gray-300 hover:bg-[var(--color-primary-light)] hover:text-white'
                 }`}
@@ -84,7 +96,7 @@ export default function AdminLayout() {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 -ml-2 text-[var(--color-text-muted)] hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors"
+              className="lg:hidden p-2 -ml-2 text-[var(--color-text-muted)] hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors"
             >
               <Menu size={20} />
             </button>

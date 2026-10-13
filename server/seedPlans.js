@@ -1,5 +1,5 @@
+require('./src/config/env');
 const mongoose = require('mongoose');
-require('dotenv').config();
 
 const SubscriptionPlan = require('./src/models/SubscriptionPlan');
 
