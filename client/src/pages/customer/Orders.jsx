@@ -8,6 +8,7 @@ export default function Orders() {
   const { session, myOrders } = useRestaurant();
   const [ordersData, setOrdersData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('LIVE'); // 'LIVE' | 'PAST'
 
   useEffect(() => {
     if (!session || myOrders.length === 0) {
@@ -53,8 +54,6 @@ export default function Orders() {
       </div>
     );
   }
-
-  const [tab, setTab] = useState('LIVE'); // 'LIVE' | 'PAST'
 
   const liveOrders = ordersData.filter(o => !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status));
   const pastOrders = ordersData.filter(o => ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status));
