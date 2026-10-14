@@ -25,7 +25,7 @@ export default function AdminLayout() {
   const links = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
     { name: 'Restaurant Management', path: '/admin/restaurants', icon: <Store size={18} /> },
-    { name: 'Subscription & Billing', path: '/admin/billing', icon: <CreditCard size={18} /> },
+    { name: 'Plan Management', path: '/admin/plans', icon: <CreditCard size={18} /> },
     { name: 'Registration Requests', path: '/admin/requests', icon: <Store size={18} /> },
     { name: 'Banner Management', path: '/admin/ads', icon: <Megaphone size={18} /> },
     { name: 'Users', path: '/admin/users', icon: <Users size={18} /> },
@@ -59,7 +59,11 @@ export default function AdminLayout() {
         <nav className="flex-1 px-3 space-y-1 mt-6 overflow-y-auto overflow-x-hidden">
           <p className="px-4 text-[10px] font-medium text-gray-400 uppercase tracking-widest mb-2">Platform</p>
           {links.map((link) => {
-            const isActive = location.pathname.includes(link.path) && (link.path !== '/admin' || location.pathname === '/admin');
+            const isPlanTab = link.name === 'Plan Management';
+            const isActive = isPlanTab
+              ? (location.pathname.includes('/admin/billing') || location.pathname.includes('/admin/plans') || location.pathname.includes('/admin/plan-management'))
+              : (location.pathname.includes(link.path) && (link.path !== '/admin' || location.pathname === '/admin'));
+
             return (
               <Link 
                 key={link.path}

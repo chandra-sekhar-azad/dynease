@@ -144,6 +144,8 @@ function App() {
               <Route index element={<AdminDashboard />} />
               <Route path="restaurants" element={<RestaurantsManagement />} />
               <Route path="billing" element={<SubscriptionBillingManagement />} />
+              <Route path="plans" element={<SubscriptionBillingManagement />} />
+              <Route path="plan-management" element={<SubscriptionBillingManagement />} />
               <Route path="requests" element={<RequestsManagement />} />
               <Route path="ads" element={<AdsManagement />} />
               <Route path="messages" element={<CustomMessage />} />
@@ -155,6 +157,8 @@ function App() {
               <Route index element={<AdminDashboard />} />
               <Route path="restaurants" element={<RestaurantsManagement />} />
               <Route path="billing" element={<SubscriptionBillingManagement />} />
+              <Route path="plans" element={<SubscriptionBillingManagement />} />
+              <Route path="plan-management" element={<SubscriptionBillingManagement />} />
               <Route path="requests" element={<RequestsManagement />} />
               <Route path="ads" element={<AdsManagement />} />
               <Route path="messages" element={<CustomMessage />} />
@@ -221,6 +225,8 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="restaurants" element={<RestaurantsManagement />} />
             <Route path="billing" element={<SubscriptionBillingManagement />} />
+            <Route path="plans" element={<SubscriptionBillingManagement />} />
+            <Route path="plan-management" element={<SubscriptionBillingManagement />} />
             <Route path="requests" element={<RequestsManagement />} />
             <Route path="ads" element={<AdsManagement />} />
             <Route path="messages" element={<CustomMessage />} />

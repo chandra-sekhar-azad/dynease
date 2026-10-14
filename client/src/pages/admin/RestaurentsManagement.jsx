@@ -369,7 +369,14 @@ export default function RestaurantsManagement() {
                       >
                         {credStatus === 'sent' ? <><CheckCircle size={14} /> Sent!</> : credStatus === 'sending' ? <><Loader size={14} className="animate-spin" /> Sending...</> : <><Send size={14} /> Send Creds</>}
                       </button>
-                      <button onClick={() => openEditModal(res)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Edit Billing & Days Remaining"><CreditCard size={18} /></button>
+                      <button
+                        onClick={() => openEditModal(res)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all border border-emerald-200/80 cursor-pointer shadow-xs"
+                        title="Manage plan & subscription days"
+                      >
+                        <CreditCard size={13} />
+                        <span>Manage Plan</span>
+                      </button>
                       <button onClick={() => openEditModal(res)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit"><Edit size={18} /></button>
                       <button onClick={() => handleDelete(res._id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 size={18} /></button>
                     </div>

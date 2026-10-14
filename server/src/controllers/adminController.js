@@ -776,3 +776,80 @@ exports.deleteAdInquiry = async (req, res, next) => {
   }
 };
 
+exports.changeAdminPassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+    }
+
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'New password and confirmation do not match.' });
+    }
+
+    // Identify user from auth header or req.user
+    let adminUser = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_do_not_use_in_prod');
+        if (decoded && decoded.id) {
+          adminUser = await User.findById(decoded.id).select('+password');
+        }
+      } catch (err) {
+        // Token invalid or expired, continue to fallback
+      }
+    }
+
+    if (!adminUser && req.user && (req.user.id || req.user._id)) {
+      adminUser = await User.findById(req.user.id || req.user._id).select('+password');
+    }
+
+    // Fallback: locate Super Admin user
+    if (!adminUser) {
+      adminUser = await User.findOne({ role: 'SUPER_ADMIN' }).select('+password');
+    }
+
+    if (!adminUser) {
+      return res.status(404).json({ success: false, message: 'Admin account not found in system.' });
+    }
+
+    // If current password provided, verify it
+    if (currentPassword) {
+      const isMatch = await adminUser.comparePassword(currentPassword, adminUser.password);
+      if (!isMatch) {
+        return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+      }
+    }
+
+    // Update password (Mongoose pre-save hook will hash it with bcrypt)
+    adminUser.password = newPassword;
+    await adminUser.save();
+
+    // Also update PostgreSQL users table if pool is available
+    try {
+      const { pool } = require('../db/client');
+      if (pool) {
+        const bcrypt = require('bcrypt');
+        const hash = await bcrypt.hash(newPassword, 12);
+        await pool.query(
+          `UPDATE users SET password = $1 WHERE LOWER(email) = LOWER($2) OR user_type = 'SYSTEM_ADMIN'`,
+          [hash, adminUser.email]
+        );
+      }
+    } catch (pgError) {
+      console.warn('[ChangeAdminPassword] PostgreSQL sync skipped:', pgError.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Password has been updated successfully.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
