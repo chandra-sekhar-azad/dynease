@@ -207,7 +207,7 @@ export default function AdvertisementForm() {
                 <div className="bg-black/30 backdrop-blur-sm rounded-xl p-3.5 border border-white/10 flex items-center justify-between gap-3">
                   <div>
                     <span className="bg-amber-400 text-amber-950 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Sponsored</span>
-                    <h5 className="font-bold text-sm text-white mt-1">Your Brand Highlight</h5>
+                    <h4 className="font-bold text-[25px] text-white mt-1">Your Brand Highlight</h4>
                     <p className="text-[11px] text-emerald-100/70 mt-0.5">Special offers for diners tonight</p>
                     <span className="mt-2 inline-block text-[10px] font-bold bg-white text-emerald-950 px-2 py-0.5 rounded">
                       Explore Deals →

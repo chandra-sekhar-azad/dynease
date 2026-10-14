@@ -20,6 +20,7 @@ export default function Footer({ className = "" }) {
         
         <div className="flex flex-wrap justify-center gap-8 text-sm font-medium">
           <Link to="/" className="hover:text-[#34d399] transition-colors">Home</Link>
+          <a href="/#benefits" className="hover:text-[#34d399] transition-colors">Benefits</a>
           <Link to="/features" className="hover:text-[#34d399] transition-colors">Features</Link>
           <Link to="/how-it-works" className="hover:text-[#34d399] transition-colors">How It Works</Link>
           <Link to="/pricing" className="hover:text-[#34d399] transition-colors">Pricing</Link>

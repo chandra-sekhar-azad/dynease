@@ -3,10 +3,10 @@ import {
   PlayCircle, Check, ArrowRight,
   ScanLine, ListTree, ShoppingCart, Smile,
   FileText, Columns, Zap, Users, Monitor, BarChart2,
-  CheckCircle2, Sparkles
+  CheckCircle2, Sparkles, Printer, Smartphone, TrendingUp, RotateCw
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -30,8 +30,135 @@ import seafood2Img from '../assets/seafood/seafood2.png';
 import seafood3Img from '../assets/seafood/seafood3.png';
 import iconImg from '../assets/icon.png';
 
+const BENEFITS = [
+  {
+    id: 'printing-costs',
+    title: 'Save on Printing Costs',
+    userDesc: 'Eliminate repeated menu printing and reprinting with easy-to-update digital menus.',
+    frontTeaser: 'Say goodbye to recurring paper printing expenses, worn-out menu cards, and costly laminate reprints.',
+    category: 'Cost Efficiency',
+    metric: 'Save ₹15,000+ / yr',
+    icon: Printer,
+    theme: {
+      lightBg: 'bg-emerald-50',
+      lightBorder: 'border-emerald-200',
+      text: 'text-emerald-700',
+      glow: 'from-emerald-500/15 via-emerald-500/5 to-transparent',
+      badge: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      iconBg: 'bg-emerald-600 text-white shadow-emerald-600/30',
+      accentColor: '#059669',
+    },
+    highlights: [
+      { bold: 'Instant Menu Updates:', text: 'Update prices or mark dishes out-of-stock in seconds without wasting paper.' },
+      { bold: 'Zero Wastage:', text: 'No more discarding ripped, stained, or outdated physical menus.' },
+      { bold: 'Seasonal Menus:', text: 'Launch festival specials, chef specials, and weekend menus at zero print cost.' }
+    ],
+    valueChip: 'Zero Paper Wastage'
+  },
+  {
+    id: 'operational-efficiency',
+    title: 'Improve Operational Efficiency',
+    userDesc: 'Instant menu updates and digital ordering reduce manual work and streamline daily restaurant operations.',
+    frontTeaser: 'Cut down order-taking bottlenecks, reduce waiter trips, and eliminate handwritten order mistakes.',
+    category: 'Workflow & Speed',
+    metric: '35% Faster Turns',
+    icon: Zap,
+    theme: {
+      lightBg: 'bg-teal-50',
+      lightBorder: 'border-teal-200',
+      text: 'text-teal-700',
+      glow: 'from-teal-500/15 via-teal-500/5 to-transparent',
+      badge: 'bg-teal-50 text-teal-800 border-teal-200',
+      iconBg: 'bg-teal-600 text-white shadow-teal-600/30',
+      accentColor: '#0d9488',
+    },
+    highlights: [
+      { bold: 'Direct-to-Kitchen Sync:', text: 'Orders route instantly to the kitchen display, eliminating ticket delays.' },
+      { bold: 'Focus on Hospitality:', text: 'Waiters spend time attending guests instead of running pen-and-paper orders.' },
+      { bold: 'Centralized Control:', text: 'Manage table statuses, live items, and customer bills in real time from one dashboard.' }
+    ],
+    valueChip: '2x Faster Order Flow'
+  },
+  {
+    id: 'modern-dining',
+    title: 'Deliver a Modern Dining Experience',
+    userDesc: 'Offer customers a convenient, user-friendly digital menu and a seamless QR-based ordering experience.',
+    frontTeaser: 'Delight tech-savvy diners with an intuitive, picture-rich digital menu right on their smartphones.',
+    category: 'Guest Experience',
+    metric: '4.9★ Guest Rating',
+    icon: Smartphone,
+    theme: {
+      lightBg: 'bg-indigo-50',
+      lightBorder: 'border-indigo-200',
+      text: 'text-indigo-700',
+      glow: 'from-indigo-500/15 via-indigo-500/5 to-transparent',
+      badge: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+      iconBg: 'bg-indigo-600 text-white shadow-indigo-600/30',
+      accentColor: '#4f46e5',
+    },
+    highlights: [
+      { bold: 'Zero Wait Times:', text: 'Guests scan the table QR code and browse immediately without waiting for menus.' },
+      { bold: 'Rich Dish Visuals:', text: 'Showcase tempting photos, descriptions, dietary badges (Veg/Non-Veg), and allergen notes.' },
+      { bold: 'Frictionless Browsing:', text: 'Smooth smartphone browser experience with zero app downloads or accounts required.' }
+    ],
+    valueChip: 'Loved by Diners'
+  },
+  {
+    id: 'smart-promotions',
+    title: 'Boost Sales with Smart Promotions',
+    userDesc: 'Showcase combos, recommend add-ons, and highlight special offers to encourage additional purchases.',
+    frontTeaser: 'Intelligently upsell appetizers, drink pairings, combos, and chef specials at the optimal moment.',
+    category: 'Revenue Growth',
+    metric: '+20-25% Avg Bill',
+    icon: TrendingUp,
+    theme: {
+      lightBg: 'bg-amber-50',
+      lightBorder: 'border-amber-200',
+      text: 'text-amber-700',
+      glow: 'from-amber-500/15 via-amber-500/5 to-transparent',
+      badge: 'bg-amber-50 text-amber-800 border-amber-200',
+      iconBg: 'bg-amber-500 text-white shadow-amber-500/30',
+      accentColor: '#d97706',
+    },
+    highlights: [
+      { bold: 'Automated Recommendations:', text: 'Suggest beverage pairings, sides, and desserts automatically during item selection.' },
+      { bold: 'Combo Packages:', text: 'Feature high-margin combo meals prominently at the top of menu categories.' },
+      { bold: 'Dynamic Specials:', text: 'Highlight chef recommendations and time-sensitive promotions that drive purchases.' }
+    ],
+    valueChip: '+20%+ Revenue Uplift'
+  }
+];
+
 export default function LandingPage() {
+  const navigate = useNavigate();
   const [billingCycle, setBillingCycle] = useState('monthly');
+  const [isLaunchingDemo, setIsLaunchingDemo] = useState(false);
+  const [flippedCards, setFlippedCards] = useState({});
+  const [allFlipped, setAllFlipped] = useState(false);
+
+  const toggleFlipAll = () => {
+    const nextState = !allFlipped;
+    setAllFlipped(nextState);
+    const updated = {};
+    BENEFITS.forEach((b) => {
+      updated[b.id] = nextState;
+    });
+    setFlippedCards(updated);
+  };
+
+  const toggleCardFlip = (id) => {
+    setFlippedCards((prev) => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const handleWatchDemo = () => {
+    if (isLaunchingDemo) return;
+    setIsLaunchingDemo(true);
+    navigate('/demo?tour=true');
+  };
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <div className="bg-gradient-to-br from-[#eafaf0] via-[#f7fdf9] to-white">
@@ -55,8 +182,13 @@ export default function LandingPage() {
               <Link to="/register" className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] text-white px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2">
                 Get Started Free <ArrowRight size={18} />
               </Link>
-              <button className="bg-white border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[#f0fdf4] px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2">
-                <PlayCircle size={18} /> Watch Demo
+              <button 
+                onClick={handleWatchDemo}
+                disabled={isLaunchingDemo}
+                className="bg-white border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[#f0fdf4] px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+                aria-label="Watch interactive Dynease product demo"
+              >
+                <PlayCircle size={18} /> {isLaunchingDemo ? 'Opening Demo...' : 'Watch Demo'}
               </button>
             </div>
           </div>
@@ -84,6 +216,60 @@ export default function LandingPage() {
             <StepCard icon={<ListTree size={32} />} title="2. Choose Food" desc="Browse our digital menu and add items to cart." />
             <StepCard icon={<ShoppingCart size={32} />} title="3. Place Order" desc="Confirm your order and we'll take care of the rest." />
             <StepCard icon={<Smile size={32} />} title="4. Enjoy Your Meal" desc="Get real-time updates and enjoy your food!" />
+          </div>
+        </div>
+      </section>
+
+      {/* Benefits Section with 3D Flipping Cards */}
+      <section id="benefits" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#f4faf6] via-white to-white relative overflow-hidden">
+        {/* Ambient background decoration */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[550px] bg-gradient-to-tr from-emerald-100/50 via-teal-50/30 to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
+
+        <div className="max-w-7xl mx-auto">
+          {/* Section Header */}
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-bold tracking-widest uppercase mb-3 border border-emerald-200/60 shadow-2xs">
+              <Sparkles size={14} className="text-emerald-600" />
+              <span>KEY BENEFITS</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 tracking-tight mb-4 leading-tight">
+              Why Restaurants Choose <span className="text-[var(--color-primary)]">Dynease</span>
+            </h2>
+            <p className="text-base sm:text-lg text-gray-600 leading-relaxed">
+              Empowering food businesses to eliminate printing overheads, accelerate kitchen workflows, and boost revenue with modern QR menus.
+            </p>
+
+            {/* Interactive hint & toggle */}
+            <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-3 bg-white/95 backdrop-blur-sm border border-emerald-200/80 px-4 py-2 rounded-full shadow-xs text-xs sm:text-sm text-gray-600">
+              <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                <RotateCw size={13} className="text-emerald-600" />
+                <span>3D Interactive Cards</span>
+              </span>
+              <span className="text-gray-300 hidden sm:inline">•</span>
+              <span className="text-gray-500">Hover or tap cards to flip</span>
+              <span className="text-gray-300 hidden sm:inline">•</span>
+              <button 
+                type="button"
+                onClick={toggleFlipAll}
+                className="text-[var(--color-primary)] font-bold hover:underline cursor-pointer flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200 transition-colors"
+                aria-label="Toggle flip state for all cards"
+              >
+                <RotateCw size={12} className={allFlipped ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                <span>{allFlipped ? 'Flip Back to Front' : 'Flip All Cards'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 4 Flipping Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-6 lg:gap-7 items-stretch">
+            {BENEFITS.map((benefit) => (
+              <BenefitFlipCard
+                key={benefit.id}
+                benefit={benefit}
+                isFlipped={!!flippedCards[benefit.id]}
+                onToggleFlip={() => toggleCardFlip(benefit.id)}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -329,6 +515,149 @@ function FeatureItem({ icon, title, desc }) {
       <div>
         <h4 className="font-bold text-gray-900 mb-1">{title}</h4>
         <p className="text-gray-600 text-sm">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function BenefitFlipCard({ benefit, isFlipped, onToggleFlip }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const IconComponent = benefit.icon;
+
+  // The card is flipped if either the parent state is active OR the user hovers on desktop
+  const showBack = isFlipped || isHovered;
+
+  return (
+    <div
+      className="perspective-1000 h-[500px] w-full select-none cursor-pointer group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={onToggleFlip}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggleFlip();
+        }
+      }}
+      aria-label={`${benefit.title}. ${showBack ? 'Showing back side. Click to flip back.' : 'Showing front side. Click or hover to flip for details.'}`}
+    >
+      <div
+        className={`relative w-full h-full duration-700 ease-out transform-style-3d rounded-3xl transition-transform ${
+          showBack ? 'rotate-y-180' : ''
+        }`}
+      >
+        {/* ================= FRONT FACE ================= */}
+        <div className="absolute inset-0 w-full h-full backface-hidden rounded-3xl bg-white border border-gray-200/90 shadow-sm hover:shadow-xl transition-shadow duration-300 p-6 flex flex-col justify-between overflow-hidden">
+          {/* Ambient corner glow */}
+          <div className={`absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br ${benefit.theme.glow} rounded-full blur-2xl pointer-events-none`} />
+
+          {/* Top row: Category tag & Flip indicator */}
+          <div className="flex items-center justify-between gap-2 z-10">
+            <span className={`text-[11px] font-bold tracking-wider uppercase px-3 py-1 rounded-full border ${benefit.theme.badge}`}>
+              {benefit.category}
+            </span>
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-gray-500 bg-gray-100/80 px-2.5 py-1 rounded-full border border-gray-200 group-hover:border-emerald-300 group-hover:text-emerald-700 transition-colors">
+              <RotateCw size={11} className="transition-transform duration-500 group-hover:rotate-180" />
+              <span>Flip</span>
+            </span>
+          </div>
+
+          {/* Center content */}
+          <div className="my-auto pt-2 z-10 flex flex-col items-center text-center">
+            {/* Thematic Icon Container */}
+            <div className={`w-16 h-16 rounded-2xl ${benefit.theme.iconBg} flex items-center justify-center mb-5 shadow-lg transform transition-transform duration-300 group-hover:scale-110`}>
+              <IconComponent size={30} strokeWidth={2.2} />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl font-bold text-gray-900 mb-3 tracking-tight leading-snug">
+              {benefit.title}
+            </h3>
+
+            {/* Front Teaser */}
+            <p className="text-sm text-gray-600 leading-relaxed mb-5 max-w-[260px]">
+              {benefit.frontTeaser}
+            </p>
+
+            {/* Metric Chip */}
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-800 shadow-2xs">
+              <Sparkles size={13} className="text-emerald-600" />
+              <span>{benefit.metric}</span>
+            </div>
+          </div>
+
+          {/* Bottom call-to-action */}
+          <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 z-10">
+            <span className="text-[11px] text-gray-400 font-medium">Click or hover</span>
+            <span className="inline-flex items-center gap-1 font-semibold text-[var(--color-primary)] group-hover:translate-x-0.5 transition-transform">
+              <span>View details</span>
+              <ArrowRight size={13} />
+            </span>
+          </div>
+        </div>
+
+        {/* ================= BACK FACE ================= */}
+        <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-3xl bg-gradient-to-br from-[#0c2f1f] via-[#0f3d28] to-[#071f14] text-white border border-emerald-500/30 shadow-2xl p-6 flex flex-col justify-between overflow-hidden">
+          {/* Subtle glowing ambient lights */}
+          <div className="absolute -top-16 -right-16 w-36 h-36 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-emerald-600/15 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Top row: Category & Flip-back button */}
+          <div className="flex items-center justify-between gap-2 z-10">
+            <span className="text-[10px] font-extrabold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300">
+              {benefit.category}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFlip();
+              }}
+              className="flex items-center gap-1 text-[11px] font-semibold text-emerald-200 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full transition-colors cursor-pointer"
+            >
+              <RotateCw size={11} />
+              <span>Flip back</span>
+            </button>
+          </div>
+
+          {/* Middle content: Title, EXACT User Copy, and Highlights */}
+          <div className="z-10 my-auto py-2">
+            <h4 className="text-lg font-bold text-white mb-2.5 tracking-tight">
+              {benefit.title}
+            </h4>
+
+            {/* Exact User Prompt Copy highlighted box */}
+            <div className="bg-emerald-900/40 border border-emerald-400/30 rounded-xl p-3 mb-4 backdrop-blur-xs">
+              <p className="text-xs text-emerald-100 font-medium leading-relaxed">
+                {benefit.userDesc}
+              </p>
+            </div>
+
+            {/* 3 Concrete Bullet Highlights */}
+            <ul className="space-y-2.5 text-xs text-gray-200">
+              {benefit.highlights.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2 leading-snug">
+                  <CheckCircle2 size={14} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-white font-semibold">{item.bold} </strong>
+                    <span className="text-emerald-100/80">{item.text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Bottom tag / Actionable summary */}
+          <div className="pt-3 border-t border-emerald-500/25 flex items-center justify-between text-xs z-10">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-semibold text-[11px] border border-emerald-400/20">
+              <Sparkles size={11} className="text-emerald-300" />
+              {benefit.valueChip}
+            </span>
+            <span className="text-[10px] text-emerald-300/70 font-medium">Tap to return</span>
+          </div>
+        </div>
       </div>
     </div>
   );
