@@ -36,8 +36,8 @@ export default function Cart() {
           <div className="space-y-3">
             <h2 className="font-bold text-gray-700 text-sm uppercase tracking-wide mb-3">Your Items</h2>
 
-            {cart.map((item) => (
-              <div key={item.menuItemId} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex gap-3 items-start">
+            {cart.map((item, idx) => (
+              <div key={item.size ? `${item.menuItemId}_${item.size}` : `${item.menuItemId}_${idx}`} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex gap-3 items-start">
                 {item.imageUrl && (
                   <img
                     src={item.imageUrl}
@@ -46,26 +46,31 @@ export default function Cart() {
                   />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     <span className={`w-2.5 h-2.5 rounded-sm flex-shrink-0 ${
                       item.dietaryPreference === 'VEG' ? 'bg-green-500' :
                       item.dietaryPreference === 'NON_VEG' ? 'bg-red-500' : 'bg-gray-400'
                     }`} />
                     <h3 className="font-semibold text-gray-900 text-sm truncate">{item.name}</h3>
+                    {item.size && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                        {item.size}
+                      </span>
+                    )}
                   </div>
                   <p className="text-green-600 font-bold text-sm mb-2">₹{item.price}</p>
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center bg-gray-100 rounded-full p-0.5">
                       <button
-                        onClick={() => updateQuantity(item.menuItemId, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.menuItemId, item.quantity - 1, item.size)}
                         className="w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-sm text-gray-600 hover:bg-gray-50"
                       >
                         <Minus size={13} />
                       </button>
                       <span className="font-bold text-sm w-6 text-center">{item.quantity}</span>
                       <button
-                        onClick={() => updateQuantity(item.menuItemId, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.menuItemId, item.quantity + 1, item.size)}
                         className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center shadow-sm text-white hover:bg-green-600"
                       >
                         <Plus size={13} />
@@ -74,7 +79,7 @@ export default function Cart() {
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-gray-900">₹{(item.price * item.quantity).toFixed(2)}</span>
                       <button
-                        onClick={() => removeFromCart(item.menuItemId)}
+                        onClick={() => removeFromCart(item.menuItemId, item.size)}
                         className="text-gray-300 hover:text-red-400 transition-colors"
                       >
                         <Trash2 size={16} />

@@ -39,7 +39,7 @@ export default function Checkout() {
         tableId: session.table.id,
         customerName: name.trim() || 'Guest',
         customerPhone: phone.trim() || undefined,
-        items: cart.map(i => ({ menuItemId: i.menuItemId, quantity: i.quantity }))
+        items: cart.map(i => ({ menuItemId: i.menuItemId, quantity: i.quantity, size: i.size || undefined }))
       };
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/public/orders`, {
@@ -81,9 +81,11 @@ export default function Checkout() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="font-bold text-gray-800 mb-3">Order Summary</h2>
           <div className="space-y-2">
-            {cart.map(item => (
-              <div key={item.menuItemId} className="flex justify-between text-sm">
-                <span className="text-gray-700">{item.name} <span className="text-gray-400">× {item.quantity}</span></span>
+            {cart.map((item, idx) => (
+              <div key={item.size ? `${item.menuItemId}_${item.size}` : `${item.menuItemId}_${idx}`} className="flex justify-between text-sm">
+                <span className="text-gray-700">
+                  {item.name} {item.size && <span className="font-semibold text-emerald-700">({item.size})</span>} <span className="text-gray-400">× {item.quantity}</span>
+                </span>
                 <span className="font-semibold text-gray-900">₹{(item.price * item.quantity).toFixed(2)}</span>
               </div>
             ))}

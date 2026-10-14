@@ -1,4 +1,7 @@
+
 const enums = require('./enums');
+
+const { ads } = require('./ads');
 const { users } = require('./users');
 const { restaurants } = require('./restaurants');
 const { plans } = require('./plans');
@@ -13,6 +16,7 @@ const { service_requests, assignment_events } = require('./compat');
 
 module.exports = {
   ...enums,
+  ads,
   users,
   restaurants,
   plans,
@@ -27,5 +31,5 @@ module.exports = {
   rosters,
   audit_log,
   service_requests,
-  assignment_events
+  assignment_events,
 };

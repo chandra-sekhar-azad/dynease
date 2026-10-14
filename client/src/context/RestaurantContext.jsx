@@ -87,30 +87,47 @@ export function RestaurantProvider({ children }) {
   // ── Cart helpers ──────────────────────────────────────────────
 
   const addToCart = useCallback((item) => {
-    // item = { menuItemId, name, price, imageUrl, dietaryPreference }
+    // item = { menuItemId, name, price, imageUrl, dietaryPreference, size }
     setCart(prev => {
-      const existing = prev.find(i => i.menuItemId === item.menuItemId);
+      const existing = prev.find(i => 
+        i.menuItemId === item.menuItemId && (i.size || '') === (item.size || '')
+      );
       if (existing) {
         return prev.map(i =>
-          i.menuItemId === item.menuItemId
-            ? { ...i, quantity: i.quantity + 1 }
+          i.menuItemId === item.menuItemId && (i.size || '') === (item.size || '')
+            ? { ...i, quantity: i.quantity + (item.quantity || 1) }
             : i
         );
       }
-      return [...prev, { ...item, quantity: 1 }];
+      return [...prev, { ...item, quantity: item.quantity || 1, size: item.size || null }];
     });
   }, []);
 
-  const removeFromCart = useCallback((menuItemId) => {
-    setCart(prev => prev.filter(i => i.menuItemId !== menuItemId));
+  const removeFromCart = useCallback((menuItemId, size = null) => {
+    setCart(prev => prev.filter(i => {
+      if (size !== null) {
+        return !(i.menuItemId === menuItemId && (i.size || '') === (size || ''));
+      }
+      return i.menuItemId !== menuItemId;
+    }));
   }, []);
 
-  const updateQuantity = useCallback((menuItemId, quantity) => {
+  const updateQuantity = useCallback((menuItemId, quantity, size = null) => {
     if (quantity < 1) {
-      setCart(prev => prev.filter(i => i.menuItemId !== menuItemId));
+      setCart(prev => prev.filter(i => {
+        if (size !== null) {
+          return !(i.menuItemId === menuItemId && (i.size || '') === (size || ''));
+        }
+        return i.menuItemId !== menuItemId;
+      }));
     } else {
       setCart(prev =>
-        prev.map(i => i.menuItemId === menuItemId ? { ...i, quantity } : i)
+        prev.map(i => {
+          const match = size !== null
+            ? (i.menuItemId === menuItemId && (i.size || '') === (size || ''))
+            : (i.menuItemId === menuItemId);
+          return match ? { ...i, quantity } : i;
+        })
       );
     }
   }, []);

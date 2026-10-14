@@ -96,9 +96,10 @@ export default function MenuManagement() {
     data.append('price', formData.price);
     data.append('dietaryPreference', formData.dietaryPreference);
     data.append('preparationTime', formData.preparationTime);
-    if (quantities.length > 0) {
-      data.append('quantities', JSON.stringify(quantities));
-    }
+    const cleanQuantities = quantities
+      .filter(q => q.size && q.size.trim() && q.price !== '' && !isNaN(q.price))
+      .map(q => ({ size: q.size.trim(), price: Number(q.price) }));
+    data.append('quantities', JSON.stringify(cleanQuantities));
     if (imageFile) data.append('image', imageFile);
 
     try {
@@ -347,16 +348,27 @@ export default function MenuManagement() {
                     {item.category}
                   </span>
                 </td>
-                <td className="p-4 font-bold text-green-600">₹{item.price}</td>
+                <td className="p-4">
+                  <div className="font-bold text-green-600">₹{item.price}</div>
+                  {item.quantities && item.quantities.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5 max-w-[220px]">
+                      {item.quantities.map((q, qIdx) => (
+                        <span key={qIdx} className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-200 shadow-2xs">
+                          {q.size}: ₹{q.price}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </td>
                 <td className="p-4">
                   <div className="flex flex-col gap-1">
                     <span className={`px-2 py-1 rounded text-xs font-bold ${DIET_BADGE[item.dietaryPreference] || DIET_BADGE.NONE}`}>
                       {item.dietaryPreference}
                     </span>
                     {item.quantities && item.quantities.length > 0 && (
-                      <div className="text-xs text-gray-500 font-medium">
-                        {item.quantities.length} variant{item.quantities.length !== 1 ? 's' : ''}
-                      </div>
+                      <span className="text-[11px] text-gray-500 font-medium">
+                        {item.quantities.length} size{item.quantities.length !== 1 ? 's' : ''}
+                      </span>
                     )}
                   </div>
                 </td>
@@ -484,59 +496,109 @@ export default function MenuManagement() {
                 </div>
               </div>
 
-              {/* Quantity Variants */}
+              {/* Quantity / Portion Variants */}
               <div className="border-t pt-4">
-                <div className="flex justify-between items-center mb-3">
-                  <label className="block text-sm font-semibold text-gray-700">Add Size/Quantity Variants (Optional)</label>
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800">Portions / Quantities & Pricing (Optional)</label>
+                    <p className="text-xs text-gray-500">Mention portion sizes (Half, Full, Small, Medium, Large, Jumbo) and their prices</p>
+                  </div>
+                </div>
+
+                {/* Quick Add Presets */}
+                <div className="mb-3 flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-xs font-medium text-gray-500 mr-1">Quick Add:</span>
+                  {['Half', 'Full', 'Small', 'Medium', 'Large', 'Jumbo'].map(preset => {
+                    const alreadyAdded = quantities.some(q => q.size.toLowerCase() === preset.toLowerCase());
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          if (!alreadyAdded) {
+                            setQuantities([...quantities, { size: preset, price: '' }]);
+                          }
+                        }}
+                        disabled={alreadyAdded}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-all ${
+                          alreadyAdded
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 active:scale-95'
+                        }`}
+                      >
+                        + {preset}
+                      </button>
+                    );
+                  })}
                   <button
                     type="button"
                     onClick={() => setQuantities([...quantities, { size: '', price: '' }])}
-                    className="text-xs bg-green-100 text-green-600 hover:bg-green-200 px-2 py-1 rounded transition-colors font-medium"
+                    className="text-xs font-semibold px-2.5 py-1 rounded-full border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                   >
-                    + Add Variant
+                    + Custom
                   </button>
                 </div>
+
+                <datalist id="sizePresetOptions">
+                  <option value="Half" />
+                  <option value="Full" />
+                  <option value="Small" />
+                  <option value="Medium" />
+                  <option value="Large" />
+                  <option value="Jumbo" />
+                </datalist>
                 
                 {quantities.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-2">
                     {quantities.map((qty, idx) => (
-                      <div key={idx} className="flex gap-2 items-end bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <div key={idx} className="flex gap-2 items-center bg-gray-50 p-2.5 rounded-lg border border-gray-200">
                         <div className="flex-1">
-                          <label className="text-xs text-gray-600 font-medium block mb-1">Size/Type</label>
+                          <label className="text-[11px] text-gray-500 font-semibold block mb-0.5">Quantity / Size</label>
                           <input
                             type="text"
+                            list="sizePresetOptions"
                             value={qty.size}
                             onChange={(e) => {
                               const newQty = [...quantities];
                               newQty[idx].size = e.target.value;
                               setQuantities(newQty);
                             }}
-                            placeholder="e.g. Small, Medium, Large, 250ml"
-                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500"
+                            placeholder="e.g. Half, Full, Small, Medium, Large, Jumbo"
+                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500 bg-white"
                           />
                         </div>
-                        <div className="flex-1">
-                          <label className="text-xs text-gray-600 font-medium block mb-1">Price (₹)</label>
-                          <input
-                            type="number"
-                            value={qty.price}
-                            onChange={(e) => {
-                              const newQty = [...quantities];
-                              newQty[idx].price = e.target.value;
-                              setQuantities(newQty);
-                            }}
-                            placeholder="0"
-                            min="0"
-                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500"
-                          />
+                        <div className="w-32">
+                          <label className="text-[11px] text-gray-500 font-semibold block mb-0.5">Price (₹)</label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">₹</span>
+                            <input
+                              type="number"
+                              value={qty.price}
+                              onChange={(e) => {
+                                const newQty = [...quantities];
+                                newQty[idx].price = e.target.value;
+                                setQuantities(newQty);
+                                // If base price is empty, optionally fill with first variant price
+                                if (!formData.price && e.target.value) {
+                                  setFormData(prev => ({ ...prev, price: e.target.value }));
+                                }
+                              }}
+                              placeholder="0"
+                              min="0"
+                              className="w-full pl-6 p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500 bg-white"
+                            />
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setQuantities(quantities.filter((_, i) => i !== idx))}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="pt-4">
+                          <button
+                            type="button"
+                            onClick={() => setQuantities(quantities.filter((_, i) => i !== idx))}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Remove variant"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -1,30 +1,53 @@
-const { pgTable, varchar, text, timestamp, boolean, jsonb, uniqueIndex } = require('drizzle-orm/pg-core');
-const { sql } = require('drizzle-orm');
-const { restaurantStatusEnum, tableAllocationModeEnum } = require('./enums');
-const { plans } = require('./plans');
 
-const restaurants = pgTable('restaurants', {
-  id: varchar('id', { length: 64 }).primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  address: jsonb('address'),
-  phone_number: varchar('phone_number', { length: 50 }),
-  restaurant_status: restaurantStatusEnum('restaurant_status').notNull().default('ACTIVE'),
-  plan_id: varchar('plan_id', { length: 64 }).references(() => plans.id, { onDelete: 'restrict' }),
-  is_plan_overridden: boolean('is_plan_overridden').notNull().default(false),
-  overriden_plan: jsonb('overriden_plan'),
-  domain: varchar('domain', { length: 255 }).notNull(),
-  table_allocation_mode: tableAllocationModeEnum('table_allocation_mode').notNull().default('MANUAL'),
-  is_deleted: boolean('is_deleted').notNull().default(false),
-  createdat: timestamp('createdat', { withTimezone: true }).defaultNow().notNull(),
-  updatedat: timestamp('updatedat', { withTimezone: true }).defaultNow().notNull(),
-  deletedat: timestamp('deletedat', { withTimezone: true }),
-  createdby: varchar('createdby', { length: 64 }),
-  updatedby: varchar('updatedby', { length: 64 }),
-  deletedby: varchar('deletedby', { length: 64 })
-}, (table) => [
-  uniqueIndex('uq_restaurants_domain_active')
-    .on(sql`LOWER(${table.domain})`)
-    .where(sql`${table.is_deleted} = false`)
-]);
+const {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  timestamp,
+  index,
+} = require('drizzle-orm/pg-core');
+
+const { plans } = require('./plans');
+const {
+  restaurantStatusEnum,
+  tableAllocationModeEnum,
+} = require('./enums');
+
+const restaurants = pgTable(
+  'restaurants',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    restaurant_name: varchar('restaurant_name', { length: 255 }).notNull(),
+    address: text('address'),
+    phone_number: varchar('phone_number', { length: 30 }),
+    restaurant_status: restaurantStatusEnum('restaurant_status')
+      .notNull()
+      .default('ACTIVE'),
+    plan_id: uuid('plan_id').references(() => plans.id),
+    is_plan_overridden: boolean('is_plan_overridden')
+      .notNull()
+      .default(false),
+    overriden_plan: varchar('overriden_plan', { length: 100 }),
+    domain: varchar('domain', { length: 255 }).notNull(),
+    table_allocation_mode: tableAllocationModeEnum('table_allocation_mode')
+      .notNull()
+      .default('MANUAL'),
+    is_deleted: boolean('is_deleted').notNull().default(false),
+    createdat: timestamp('createdat', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedat: timestamp('updatedat', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    deletedat: timestamp('deletedat', { withTimezone: true }),
+  },
+  (table) => [
+    index('restaurants_status_idx').on(table.restaurant_status),
+    index('restaurants_domain_idx').on(table.domain),
+  ]
+);
 
 module.exports = { restaurants };

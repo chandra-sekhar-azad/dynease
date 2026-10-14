@@ -180,7 +180,8 @@ exports.getMenu = async (req, res, next) => {
         imageUrl: item.image?.secure_url || null,
         isAvailable: item.isAvailable,
         dietaryPreference: item.dietaryPreference,
-        preparationTime: item.preparationTime
+        preparationTime: item.preparationTime,
+        quantities: item.quantities || []
       });
     }
 
@@ -260,7 +261,8 @@ exports.getRestaurantMenu = async (req, res, next) => {
         imageUrl: item.image?.secure_url || null,
         isAvailable: item.isAvailable,
         dietaryPreference: item.dietaryPreference,
-        preparationTime: item.preparationTime
+        preparationTime: item.preparationTime,
+        quantities: item.quantities || []
       });
     }
 
@@ -333,13 +335,26 @@ exports.createOrder = async (req, res, next) => {
       if (isNaN(qty) || qty < 1 || qty > 50) {
         return res.status(400).json({ success: false, message: `Invalid quantity for ${menuItem.name}` });
       }
-      const lineSubtotal = parseFloat((menuItem.price * qty).toFixed(2));
+      let unitPrice = menuItem.price;
+      let matchedSize = null;
+      if (reqItem.size && Array.isArray(menuItem.quantities) && menuItem.quantities.length > 0) {
+        const found = menuItem.quantities.find(
+          q => q.size && q.size.trim().toLowerCase() === String(reqItem.size).trim().toLowerCase()
+        );
+        if (found) {
+          unitPrice = found.price;
+          matchedSize = found.size;
+        }
+      }
+
+      const lineSubtotal = parseFloat((unitPrice * qty).toFixed(2));
       subtotal += lineSubtotal;
       orderItems.push({
         menuItemId: menuItem._id,
-        itemName: menuItem.name,       // snapshot
-        unitPrice: menuItem.price,     // snapshot
+        itemName: matchedSize ? `${menuItem.name} (${matchedSize})` : menuItem.name,       // snapshot
+        unitPrice: unitPrice,     // snapshot
         quantity: qty,
+        size: matchedSize,
         subtotal: lineSubtotal
       });
     }

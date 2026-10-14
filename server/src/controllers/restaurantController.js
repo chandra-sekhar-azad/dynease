@@ -144,13 +144,19 @@ exports.createMenuItem = async (req, res) => {
       }
     }
 
-    // Parse quantities if it's a string
+    // Parse quantities if provided
     let parsedQuantities = [];
-    if (quantities) {
+    if (quantities !== undefined && quantities !== null) {
       try {
-        parsedQuantities = typeof quantities === 'string' ? JSON.parse(quantities) : quantities;
-        // Filter out invalid entries
-        parsedQuantities = parsedQuantities.filter(q => q.size && q.price);
+        const raw = typeof quantities === 'string' ? JSON.parse(quantities) : quantities;
+        if (Array.isArray(raw)) {
+          parsedQuantities = raw
+            .map(q => ({
+              size: typeof q.size === 'string' ? q.size.trim() : '',
+              price: Number(q.price)
+            }))
+            .filter(q => q.size && !isNaN(q.price) && q.price >= 0);
+        }
       } catch (parseError) {
         console.error("Error parsing quantities:", parseError);
       }
@@ -166,7 +172,7 @@ exports.createMenuItem = async (req, res) => {
       category,
       name,
       description,
-      price,
+      price: Number(price),
       isAvailable: isAvailable !== undefined ? isAvailable : true,
       dietaryPreference,
       preparationTime,
@@ -200,29 +206,34 @@ exports.updateMenuItem = async (req, res) => {
       }
     }
 
-    // Parse quantities if it's a string
-    let parsedQuantities = [];
-    if (quantities) {
-      try {
-        parsedQuantities = typeof quantities === 'string' ? JSON.parse(quantities) : quantities;
-        // Filter out invalid entries
-        parsedQuantities = parsedQuantities.filter(q => q.size && q.price);
-      } catch (parseError) {
-        console.error("Error parsing quantities:", parseError);
-      }
-    }
-
     const MenuItem = req.tenantDb.model('MenuItem');
     const updateData = {
       category,
       name,
       description,
-      price,
+      price: Number(price),
       isAvailable,
       dietaryPreference,
-      preparationTime,
-      quantities: parsedQuantities
+      preparationTime
     };
+
+    if (quantities !== undefined && quantities !== null) {
+      let parsedQuantities = [];
+      try {
+        const raw = typeof quantities === 'string' ? JSON.parse(quantities) : quantities;
+        if (Array.isArray(raw)) {
+          parsedQuantities = raw
+            .map(q => ({
+              size: typeof q.size === 'string' ? q.size.trim() : '',
+              price: Number(q.price)
+            }))
+            .filter(q => q.size && !isNaN(q.price) && q.price >= 0);
+        }
+      } catch (parseError) {
+        console.error("Error parsing quantities:", parseError);
+      }
+      updateData.quantities = parsedQuantities;
+    }
 
     if (image) updateData.image = image;
 

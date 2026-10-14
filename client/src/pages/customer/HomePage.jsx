@@ -5,6 +5,16 @@ import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext
 import CustomerSidebar from '../../components/customer/CustomerSidebar';
 import ServiceRequestModal from '../../components/customer/ServiceRequestModal';
 
+const SIZE_FILTERS = [
+  { id: 'ALL', label: 'All Sizes' },
+  { id: 'HALF', label: 'Half', keywords: ['half'] },
+  { id: 'FULL', label: 'Full', keywords: ['full'] },
+  { id: 'SMALL', label: 'Small', keywords: ['small'] },
+  { id: 'MEDIUM', label: 'Medium', keywords: ['medium', 'meduim'] },
+  { id: 'LARGE', label: 'Large', keywords: ['large'] },
+  { id: 'JUMBO', label: 'Jumbo', keywords: ['jumbo'] }
+];
+
 export default function HomePage({ forcedSlug }) {
   const { slug: paramSlug } = useParams();
   const activeSlug = forcedSlug || paramSlug;
@@ -16,6 +26,8 @@ export default function HomePage({ forcedSlug }) {
   const [search, setSearch] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeDiet, setActiveDiet] = useState('ALL');
+  const [activeSize, setActiveSize] = useState('ALL');
+  const [sizeSelectModalItem, setSizeSelectModalItem] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
@@ -114,6 +126,7 @@ export default function HomePage({ forcedSlug }) {
                 imageUrl: item.image?.secure_url || null,
                 isAvailable: item.isAvailable,
                 dietaryPreference: item.dietaryPreference,
+                quantities: item.quantities || []
               });
             }
             const cats = Object.entries(grouped).map(([name, items]) => ({ name, items }));
@@ -133,15 +146,68 @@ export default function HomePage({ forcedSlug }) {
     fetchMenu();
   }, [activeSlug]);
 
-  const getItemQty = (id) => cart.find(i => i.menuItemId === String(id))?.quantity || 0;
+  const getItemVariantForActiveSize = (item, sizeFilterId) => {
+    if (!sizeFilterId || sizeFilterId === 'ALL' || !Array.isArray(item.quantities) || item.quantities.length === 0) {
+      return null;
+    }
+    const filter = SIZE_FILTERS.find(f => f.id === sizeFilterId);
+    if (!filter || !filter.keywords) return null;
+    return item.quantities.find(q => {
+      if (!q || !q.size) return false;
+      const s = q.size.trim().toLowerCase();
+      return filter.keywords.some(kw => s.includes(kw));
+    }) || null;
+  };
 
-  const handleAdd = (item) => addToCart({
-    menuItemId: String(item.id),
-    name: item.name,
-    price: item.price,
-    imageUrl: item.imageUrl,
-    dietaryPreference: item.dietaryPreference
-  });
+  const getItemQty = (id, size = null) => {
+    if (size) {
+      return cart.find(i => i.menuItemId === String(id) && (i.size || '').toLowerCase() === size.toLowerCase())?.quantity || 0;
+    }
+    return cart.filter(i => i.menuItemId === String(id)).reduce((sum, i) => sum + i.quantity, 0);
+  };
+
+  const handleAdd = (item, chosenSize = null, chosenPrice = null) => {
+    if (chosenSize) {
+      addToCart({
+        menuItemId: String(item.id),
+        name: item.name,
+        price: chosenPrice !== null ? chosenPrice : item.price,
+        imageUrl: item.imageUrl,
+        dietaryPreference: item.dietaryPreference,
+        size: chosenSize
+      });
+      return;
+    }
+
+    if (activeSize !== 'ALL') {
+      const variant = getItemVariantForActiveSize(item, activeSize);
+      if (variant) {
+        addToCart({
+          menuItemId: String(item.id),
+          name: item.name,
+          price: variant.price,
+          imageUrl: item.imageUrl,
+          dietaryPreference: item.dietaryPreference,
+          size: variant.size
+        });
+        return;
+      }
+    }
+
+    if (Array.isArray(item.quantities) && item.quantities.length > 0) {
+      setSizeSelectModalItem(item);
+      return;
+    }
+
+    addToCart({
+      menuItemId: String(item.id),
+      name: item.name,
+      price: item.price,
+      imageUrl: item.imageUrl,
+      dietaryPreference: item.dietaryPreference,
+      size: null
+    });
+  };
 
   const isCategoryMatchingDiet = (cat, diet) => {
     if (!diet || diet === 'ALL') return true;
@@ -191,14 +257,43 @@ export default function HomePage({ forcedSlug }) {
     return true;
   };
 
+  const itemMatchesSize = (item, sizeFilterId) => {
+    if (!sizeFilterId || sizeFilterId === 'ALL') return true;
+    const filter = SIZE_FILTERS.find(f => f.id === sizeFilterId);
+    if (!filter || !filter.keywords) return true;
+
+    if (Array.isArray(item.quantities) && item.quantities.length > 0) {
+      const hasSize = item.quantities.some(q => {
+        if (!q || !q.size) return false;
+        const s = q.size.trim().toLowerCase();
+        return filter.keywords.some(kw => s.includes(kw));
+      });
+      if (hasSize) return true;
+    }
+
+    const nameLower = (item.name || '').toLowerCase();
+    const descLower = (item.description || '').toLowerCase();
+    return filter.keywords.some(kw => nameLower.includes(kw) || descLower.includes(kw));
+  };
+
+  const isCategoryMatchingDietAndSize = (cat, diet, sizeId) => {
+    const dietMatches = isCategoryMatchingDiet(cat, diet);
+    if (!dietMatches) return false;
+    if (!sizeId || sizeId === 'ALL') return true;
+    return (cat.items || []).some(item => 
+      itemMatchesDiet(item.dietaryPreference, diet) && itemMatchesSize(item, sizeId)
+    );
+  };
+
   const filteredCategories = categories.map(cat => ({
     ...cat,
-    items: cat.items.filter(item => {
+    items: (cat.items || []).filter(item => {
       const matchesSearch = !search || 
         item.name.toLowerCase().includes(search.toLowerCase()) || 
         (item.description || '').toLowerCase().includes(search.toLowerCase());
       const matchesDiet = itemMatchesDiet(item.dietaryPreference, activeDiet);
-      return matchesSearch && matchesDiet;
+      const matchesSize = itemMatchesSize(item, activeSize);
+      return matchesSearch && matchesDiet && matchesSize;
     })
   })).filter(cat => cat.items.length > 0);
 
@@ -208,7 +303,16 @@ export default function HomePage({ forcedSlug }) {
         item.name.toLowerCase().includes(search.toLowerCase()) || 
         (item.description || '').toLowerCase().includes(search.toLowerCase());
       const matchesDiet = itemMatchesDiet(item.dietaryPreference, activeDiet);
-      return matchesSearch && matchesDiet;
+      const matchesSize = itemMatchesSize(item, activeSize);
+      return matchesSearch && matchesDiet && matchesSize;
+    }).map(item => ({ ...item, categoryName: cat.name }))
+  ) : [];
+
+  const sizeFilteredDishes = activeSize !== 'ALL' ? categories.flatMap(cat =>
+    (cat.items || []).filter(item => {
+      const matchesDiet = itemMatchesDiet(item.dietaryPreference, activeDiet);
+      const matchesSize = itemMatchesSize(item, activeSize);
+      return matchesDiet && matchesSize;
     }).map(item => ({ ...item, categoryName: cat.name }))
   ) : [];
 
@@ -244,6 +348,125 @@ export default function HomePage({ forcedSlug }) {
       </div>
     );
   }
+
+  const renderSizeFilterButtons = () => (
+    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
+      {SIZE_FILTERS.map(btn => {
+        const isActive = activeSize === btn.id;
+        return (
+          <button
+            key={btn.id}
+            type="button"
+            onClick={() => setActiveSize(btn.id)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
+              isActive
+                ? 'bg-emerald-800 text-white border-emerald-800 shadow-xs'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+            }`}
+          >
+            <span>{btn.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderDishItem = (item, categoryName = null) => {
+    const variant = getItemVariantForActiveSize(item, activeSize);
+    const displayPrice = variant ? variant.price : item.price;
+    const displaySizeLabel = variant ? variant.size : null;
+    const itemQty = variant ? getItemQty(item.id, variant.size) : getItemQty(item.id);
+
+    return (
+      <div key={`${item.id}_${displaySizeLabel || 'default'}`} className="bg-white border border-[var(--color-border)] rounded-xl flex gap-3 p-3 items-center shadow-xs">
+        <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-gray-50 border border-gray-100 relative">
+          <img
+            src={item.imageUrl || `https://placehold.co/96x96/f5f5f4/1c1917?text=${encodeURIComponent(item.name[0])}`}
+            alt={item.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <h4 className="font-serif font-bold text-sm text-[var(--color-text)] truncate">{item.name}</h4>
+            {item.dietaryPreference && (
+              <span className={`w-2 h-2 rounded-full shrink-0 ${item.dietaryPreference === 'VEG' || item.dietaryPreference === 'VEGAN' ? 'bg-green-600' : 'bg-red-600'}`} />
+            )}
+          </div>
+          {categoryName && (
+            <div className="text-[11px] text-gray-500 font-medium truncate mb-1">
+              {categoryName}
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+            <p className="text-xs font-bold text-[var(--color-text)]">₹{displayPrice}</p>
+            {displaySizeLabel ? (
+              <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded">
+                {displaySizeLabel}
+              </span>
+            ) : (activeSize === 'ALL' && item.quantities && item.quantities.length > 0 && (
+              <span className="text-[10px] text-gray-400 font-medium">
+                ({item.quantities.length} sizes)
+              </span>
+            ))}
+          </div>
+
+          {/* Quick clickable size chips when on ALL view */}
+          {activeSize === 'ALL' && item.quantities && item.quantities.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {item.quantities.map((q, qIdx) => {
+                const qQty = getItemQty(item.id, q.size);
+                return (
+                  <button
+                    key={qIdx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAdd(item, q.size, q.price);
+                    }}
+                    className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border transition-all active:scale-95 cursor-pointer ${
+                      qQty > 0
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold'
+                        : 'bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-emerald-800 border-gray-200'
+                    }`}
+                    title={`Add ${q.size} (₹${q.price})`}
+                  >
+                    {q.size}: ₹{q.price} {qQty > 0 ? `(${qQty})` : '+'}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="shrink-0">
+          {itemQty === 0 ? (
+            <button
+              onClick={() => handleAdd(item, variant?.size, variant?.price)}
+              className="flex items-center gap-1 bg-white border border-emerald-700 text-emerald-800 font-bold px-3 py-1 rounded-lg text-xs hover:bg-emerald-700 hover:text-white transition-colors shadow-xs cursor-pointer"
+            >
+              <Plus size={12} /> Add
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 border border-emerald-700 bg-emerald-50/50 rounded-lg text-emerald-800 px-1 py-0.5">
+              <button
+                onClick={() => updateQuantity(String(item.id), itemQty - 1, variant?.size)}
+                className="p-1 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
+              >
+                <Minus size={11} />
+              </button>
+              <span className="font-bold text-xs w-3 text-center">{itemQty}</span>
+              <button
+                onClick={() => updateQuantity(String(item.id), itemQty + 1, variant?.size)}
+                className="p-1 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
+              >
+                <Plus size={11} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const tableLabel = session?.table?.tableNumber ? `Table ${session.table.tableNumber}` : null;
 
@@ -332,7 +555,7 @@ export default function HomePage({ forcedSlug }) {
                 </div>
               </div>
 
-              {/* Initially show search icon button */}
+              {/* Search icon button */}
               <button
                 type="button"
                 id="search-toggle-btn"
@@ -353,7 +576,7 @@ export default function HomePage({ forcedSlug }) {
 
       {!selectedCategory ? (
         <div className="bg-[var(--color-background)] pb-6">
-          {/* Two-Part Promotional Banner (Left & Right) */}
+          {/* Two-Part Promotional Banner */}
           {(() => {
             const activeBanner = banners.length > 0 ? banners[currentBannerIndex] : {
               title: "Chef's Signature Specials",
@@ -382,8 +605,6 @@ export default function HomePage({ forcedSlug }) {
                   className={`relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-green-950 text-white shadow-md border border-emerald-700/50 transition-all ${activeBanner.targetUrl ? 'cursor-pointer hover:shadow-lg' : ''}`}
                 >
                   <div className="grid grid-cols-12 items-stretch min-h-[135px]">
-                    
-                    {/* Left Part */}
                     <div className="col-span-7 sm:col-span-8 p-4 sm:p-5 flex flex-col justify-between">
                       <div>
                         {activeBanner.badge && (
@@ -410,7 +631,6 @@ export default function HomePage({ forcedSlug }) {
                       )}
                     </div>
 
-                    {/* Right Part */}
                     <div className="col-span-5 sm:col-span-4 relative overflow-hidden flex items-center justify-center p-2.5">
                       <div className="w-full h-full min-h-[110px] rounded-xl overflow-hidden relative shadow-inner bg-black/25">
                         <img 
@@ -428,10 +648,8 @@ export default function HomePage({ forcedSlug }) {
                         )}
                       </div>
                     </div>
-
                   </div>
 
-                  {/* Dot Indicators if multiple banners */}
                   {banners.length > 1 && (
                     <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-xs">
                       {banners.map((_, idx) => (
@@ -454,7 +672,7 @@ export default function HomePage({ forcedSlug }) {
             );
           })()}
 
-          {/* Dietary Buttons between Ads Banner and Categories List */}
+          {/* Dietary Buttons */}
           <div className="px-4 pt-3 pb-1">
             <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
               {[
@@ -469,7 +687,7 @@ export default function HomePage({ forcedSlug }) {
                   <button
                     key={dietBtn.id}
                     onClick={() => setActiveDiet(dietBtn.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
                       isActive
                         ? 'bg-emerald-800 text-white border-emerald-800 shadow-sm'
                         : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
@@ -485,16 +703,21 @@ export default function HomePage({ forcedSlug }) {
             </div>
           </div>
 
-          {/* If search query is present on Home, show matching food items */}
+          {/* Size Filter Buttons (Half, Full, Small, Medium, Large, Jumbo) */}
+          <div className="px-4 pb-2">
+            {renderSizeFilterButtons()}
+          </div>
+
+          {/* Search Results */}
           {search.trim() ? (
-            <div className="px-4 pt-3 pb-6">
+            <div className="px-4 pt-2 pb-6">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-serif font-bold text-sm text-[var(--color-text)]">
                   Dishes matching "{search}" ({matchingSearchItems.length})
                 </h3>
                 <button 
                   onClick={() => setSearch('')} 
-                  className="text-xs font-semibold text-emerald-700 hover:underline"
+                  className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
                 >
                   Clear search
                 </button>
@@ -502,71 +725,52 @@ export default function HomePage({ forcedSlug }) {
 
               {matchingSearchItems.length > 0 ? (
                 <div className="space-y-3">
-                  {matchingSearchItems.map(item => {
-                    const qty = getItemQty(item.id);
-                    return (
-                      <div key={item.id} className="bg-white border border-[var(--color-border)] rounded-xl flex gap-3 p-3 items-center shadow-xs">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-gray-50 border border-gray-100">
-                          <img
-                            src={item.imageUrl || `https://placehold.co/96x96/f5f5f4/1c1917?text=${encodeURIComponent(item.name[0])}`}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <h4 className="font-serif font-bold text-sm text-[var(--color-text)] truncate">{item.name}</h4>
-                            {item.dietaryPreference && (
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${item.dietaryPreference === 'VEG' || item.dietaryPreference === 'VEGAN' ? 'bg-green-600' : 'bg-red-600'}`} />
-                            )}
-                          </div>
-                          <div className="text-[11px] text-gray-500 font-medium truncate mb-1">
-                            {item.categoryName}
-                          </div>
-                          <p className="text-xs font-bold text-[var(--color-text)]">₹{item.price}</p>
-                        </div>
-                        <div className="shrink-0">
-                          {qty === 0 ? (
-                            <button
-                              onClick={() => handleAdd(item)}
-                              className="flex items-center gap-1 bg-white border border-emerald-700 text-emerald-800 font-bold px-3 py-1 rounded-lg text-xs hover:bg-emerald-700 hover:text-white transition-colors shadow-xs"
-                            >
-                              <Plus size={12} /> Add
-                            </button>
-                          ) : (
-                            <div className="flex items-center gap-2 border border-emerald-700 bg-emerald-50/50 rounded-lg text-emerald-800 px-1 py-0.5">
-                              <button
-                                onClick={() => updateQuantity(String(item.id), qty - 1)}
-                                className="p-1 hover:bg-emerald-100 rounded transition-colors"
-                              >
-                                <Minus size={11} />
-                              </button>
-                              <span className="font-bold text-xs w-3 text-center">{qty}</span>
-                              <button
-                                onClick={() => updateQuantity(String(item.id), qty + 1)}
-                                className="p-1 hover:bg-emerald-100 rounded transition-colors"
-                              >
-                                <Plus size={11} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {matchingSearchItems.map(item => renderDishItem(item, item.categoryName))}
                 </div>
               ) : (
                 <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 p-6">
                   <Search size={28} className="mx-auto text-gray-300 mb-2" />
                   <p className="font-serif font-bold text-sm text-gray-700">No dishes match "{search}"</p>
-                  <p className="text-xs text-gray-400 mt-1">Try another keyword or browse categories below</p>
+                  <p className="text-xs text-gray-400 mt-1">Try another keyword or select another size/diet filter</p>
+                </div>
+              )}
+            </div>
+          ) : activeSize !== 'ALL' ? (
+            /* Dishes Filtered By Size on Home View */
+            <div className="px-4 pt-2 pb-6">
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <h3 className="font-serif font-bold text-sm text-[var(--color-text)]">
+                    Dishes available in {SIZE_FILTERS.find(f => f.id === activeSize)?.label} ({sizeFilteredDishes.length})
+                  </h3>
+                  <p className="text-[11px] text-gray-500">Filtered by {SIZE_FILTERS.find(f => f.id === activeSize)?.label} size</p>
+                </div>
+                <button 
+                  onClick={() => setActiveSize('ALL')} 
+                  className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+                >
+                  All sizes
+                </button>
+              </div>
+
+              {sizeFilteredDishes.length > 0 ? (
+                <div className="space-y-3">
+                  {sizeFilteredDishes.map(item => renderDishItem(item, item.categoryName))}
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 p-6">
+                  <p className="font-serif font-bold text-sm text-gray-700">No dishes available in {SIZE_FILTERS.find(f => f.id === activeSize)?.label}</p>
+                  <p className="text-xs text-gray-400 mt-1">Try selecting another size filter or view all sizes</p>
+                  <button onClick={() => setActiveSize('ALL')} className="mt-3 text-xs text-emerald-700 font-bold hover:underline cursor-pointer">
+                    Show all sizes
+                  </button>
                 </div>
               )}
             </div>
           ) : (
-            /* Categories Grid (Filtered by activeDiet) */
+            /* Categories Grid */
             <div className="p-4 grid grid-cols-2 gap-4 mt-1">
-              {categories.filter(cat => isCategoryMatchingDiet(cat, activeDiet)).map(cat => {
+              {categories.filter(cat => isCategoryMatchingDietAndSize(cat, activeDiet, activeSize)).map(cat => {
                 const catImage = cat.image || cat.items.find(i => i.imageUrl)?.imageUrl;
                 return (
                   <div 
@@ -597,12 +801,12 @@ export default function HomePage({ forcedSlug }) {
                   </div>
                 );
               })}
-              {categories.filter(cat => isCategoryMatchingDiet(cat, activeDiet)).length === 0 && (
+              {categories.filter(cat => isCategoryMatchingDietAndSize(cat, activeDiet, activeSize)).length === 0 && (
                 <div className="col-span-2 text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 p-6">
                   <p className="font-serif font-bold text-sm text-gray-700">No categories found</p>
                   <p className="text-xs text-gray-400 mt-1">No categories match the selected filter</p>
-                  <button onClick={() => setActiveDiet('ALL')} className="mt-3 text-xs text-emerald-700 font-bold hover:underline">
-                    Show all categories
+                  <button onClick={() => { setActiveDiet('ALL'); setActiveSize('ALL'); }} className="mt-3 text-xs text-emerald-700 font-bold hover:underline cursor-pointer">
+                    Reset all filters
                   </button>
                 </div>
               )}
@@ -612,7 +816,8 @@ export default function HomePage({ forcedSlug }) {
       ) : (
         <div className="bg-[var(--color-background)] pb-6">
           {/* Filters in category view */}
-          <div className="bg-white px-4 py-3 sticky top-[57px] z-10 border-b border-[var(--color-border)]">
+          <div className="bg-white px-4 py-2.5 sticky top-[57px] z-10 border-b border-[var(--color-border)] space-y-1.5">
+            {/* Dietary buttons */}
             <div className="flex gap-2 overflow-x-auto scrollbar-hide py-0.5">
               {[
                 { value: 'ALL', label: 'All' },
@@ -624,7 +829,7 @@ export default function HomePage({ forcedSlug }) {
                 <button
                   key={type.value}
                   onClick={() => setActiveDiet(type.value)}
-                  className={`whitespace-nowrap px-3 py-1 text-xs font-semibold rounded-full transition-colors flex-shrink-0 border ${
+                  className={`whitespace-nowrap px-3 py-1 text-xs font-semibold rounded-full transition-colors flex-shrink-0 border cursor-pointer ${
                     activeDiet === type.value
                       ? 'bg-emerald-800 text-white border-emerald-800'
                       : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
@@ -634,70 +839,103 @@ export default function HomePage({ forcedSlug }) {
                 </button>
               ))}
             </div>
+
+            {/* Size filter buttons */}
+            {renderSizeFilterButtons()}
           </div>
 
           {/* Items List */}
-          <div className="px-4 pt-4 space-y-4">
+          <div className="px-4 pt-4 space-y-3">
             {filteredCategories
               .filter(cat => cat.name === selectedCategory)
-              .map(cat => cat.items.map(item => {
-                const qty = getItemQty(item.id);
+              .map(cat => cat.items.map(item => renderDishItem(item)))}
+            
+            {filteredCategories.filter(cat => cat.name === selectedCategory).length === 0 && (
+              <div className="text-center py-16 text-[var(--color-text-muted)] border border-[var(--color-border)] bg-white rounded-xl">
+                <p className="font-serif text-lg mb-1">No items found</p>
+                <p className="text-sm font-light">Try adjusting your dietary or size filters</p>
+                <button
+                  onClick={() => { setActiveDiet('ALL'); setActiveSize('ALL'); }}
+                  className="mt-3 text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                >
+                  Reset filters
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Size Selection Modal ── */}
+      {sizeSelectModalItem && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <div>
+                <h3 className="font-serif font-bold text-base text-gray-900 leading-tight">
+                  {sizeSelectModalItem.name}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">Select your preferred portion / size</p>
+              </div>
+              <button
+                onClick={() => setSizeSelectModalItem(null)}
+                className="p-1.5 rounded-full hover:bg-gray-200 text-gray-500 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-2.5">
+              {sizeSelectModalItem.quantities?.map((qtyItem, qIdx) => {
+                const qtyInCart = getItemQty(sizeSelectModalItem.id, qtyItem.size);
                 return (
-                  <div key={item.id} className="bg-white border border-[var(--color-border)] flex gap-4 p-4 items-start">
-                    <div className="relative shrink-0">
-                      <img
-                        src={item.imageUrl || `https://placehold.co/96x96/f5f5f4/1c1917?text=${encodeURIComponent(item.name[0])}`}
-                        alt={item.name}
-                        className="w-24 h-24 object-cover border border-[var(--color-border)]"
-                      />
+                  <div
+                    key={qIdx}
+                    className="flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/30 transition-all bg-white"
+                  >
+                    <div>
+                      <span className="font-bold text-sm text-gray-900 block">{qtyItem.size}</span>
+                      <span className="text-xs font-semibold text-emerald-700">₹{qtyItem.price}</span>
                     </div>
-                    <div className="flex-1 min-w-0 flex flex-col h-full justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-serif font-bold text-[var(--color-text)] text-sm leading-snug tracking-wide">{item.name}</h3>
-                        </div>
-                        <p className="text-[var(--color-text)] font-medium text-sm mb-2">₹{item.price}</p>
-                        {item.description && (
-                          <p className="text-xs text-[var(--color-text-muted)] line-clamp-2 leading-relaxed font-light">{item.description}</p>
-                        )}
-                      </div>
-                      <div className="mt-3 flex justify-end">
-                        {qty === 0 ? (
+                    <div>
+                      {qtyInCart === 0 ? (
+                        <button
+                          onClick={() => handleAdd(sizeSelectModalItem, qtyItem.size, qtyItem.price)}
+                          className="flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
+                        >
+                          <Plus size={12} /> Add
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 border border-emerald-700 bg-emerald-50 rounded-lg text-emerald-800 px-1 py-0.5">
                           <button
-                            onClick={() => handleAdd(item)}
-                            className="flex items-center gap-1.5 bg-transparent border border-[var(--color-primary)] text-[var(--color-primary)] font-medium px-4 py-1.5 text-xs uppercase tracking-widest hover:bg-[var(--color-primary)] hover:text-white transition-colors"
+                            onClick={() => updateQuantity(String(sizeSelectModalItem.id), qtyInCart - 1, qtyItem.size)}
+                            className="p-1 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
                           >
-                            <Plus size={12} /> Add
+                            <Minus size={12} />
                           </button>
-                        ) : (
-                          <div className="flex items-center gap-3 border border-[var(--color-primary)] text-[var(--color-primary)]">
-                            <button
-                              onClick={() => updateQuantity(String(item.id), qty - 1)}
-                              className="p-1.5 hover:bg-[var(--color-background)] transition-colors"
-                            >
-                              <Minus size={12} />
-                            </button>
-                            <span className="font-medium text-xs w-4 text-center">{qty}</span>
-                            <button
-                              onClick={() => updateQuantity(String(item.id), qty + 1)}
-                              className="p-1.5 hover:bg-[var(--color-background)] transition-colors"
-                            >
-                              <Plus size={12} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                          <span className="font-bold text-xs w-4 text-center">{qtyInCart}</span>
+                          <button
+                            onClick={() => updateQuantity(String(sizeSelectModalItem.id), qtyInCart + 1, qtyItem.size)}
+                            className="p-1 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
-            }))}
-            
-            {filteredCategories.filter(cat => cat.name === selectedCategory).length === 0 && (
-              <div className="text-center py-16 text-[var(--color-text-muted)] border border-[var(--color-border)] bg-white">
-                <p className="font-serif text-lg mb-1">No items found</p>
-                <p className="text-sm font-light">Try adjusting your filters</p>
-              </div>
-            )}
+              })}
+            </div>
+
+            <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setSizeSelectModalItem(null)}
+                className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

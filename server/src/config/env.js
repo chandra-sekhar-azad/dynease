@@ -44,7 +44,7 @@ function loadEnv() {
 
   // Fallback production Supabase URL if running in cloud production where .env was not uploaded to Git
   if (!process.env.SUPABASE_URL) {
-    process.env.SUPABASE_URL = "postgresql://postgres.zgwpxgpuberdxgxuutdw:Sagar%40dynease@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
+    process.env.SUPABASE_URL = process.env.DATABASE_URL;
     process.env.DATABASE_URL = process.env.SUPABASE_URL;
   }
 }
