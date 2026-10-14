@@ -37,6 +37,7 @@ import RegisterRestaurant from './pages/RegisterRestaurant';
 import AdvertisementForm from './pages/AdvertisementForm';
 import HowItWorks from './pages/HowItWorks';
 import Features from './pages/Features';
+import DemoPage from './pages/DemoPage';
 import RestaurantDashboard from './pages/restaurant/Dashboard';
 import StaffManagement from './pages/restaurant/StaffManagement';
 import Orders from './pages/restaurant/Orders';
@@ -102,6 +103,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<RegisterRestaurant />} />
               <Route path="/advertise" element={<AdvertisementForm />} />
+              <Route path="/demo" element={<DemoPage />} />
               <Route path="/item/:id" element={<ItemDescription />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
@@ -142,6 +144,8 @@ function App() {
               <Route index element={<AdminDashboard />} />
               <Route path="restaurants" element={<RestaurantsManagement />} />
               <Route path="billing" element={<SubscriptionBillingManagement />} />
+              <Route path="plans" element={<SubscriptionBillingManagement />} />
+              <Route path="plan-management" element={<SubscriptionBillingManagement />} />
               <Route path="requests" element={<RequestsManagement />} />
               <Route path="ads" element={<AdsManagement />} />
               <Route path="messages" element={<CustomMessage />} />
@@ -153,6 +157,8 @@ function App() {
               <Route index element={<AdminDashboard />} />
               <Route path="restaurants" element={<RestaurantsManagement />} />
               <Route path="billing" element={<SubscriptionBillingManagement />} />
+              <Route path="plans" element={<SubscriptionBillingManagement />} />
+              <Route path="plan-management" element={<SubscriptionBillingManagement />} />
               <Route path="requests" element={<RequestsManagement />} />
               <Route path="ads" element={<AdsManagement />} />
               <Route path="messages" element={<CustomMessage />} />
@@ -178,6 +184,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<RegisterRestaurant />} />
           <Route path="/advertise" element={<AdvertisementForm />} />
+          <Route path="/demo" element={<DemoPage />} />
           
           {/* Customer Routes (Fallback for local dev like /r/test) */}
           <Route path="/r/:slug" element={<CustomerRoot />} />
@@ -218,6 +225,8 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="restaurants" element={<RestaurantsManagement />} />
             <Route path="billing" element={<SubscriptionBillingManagement />} />
+            <Route path="plans" element={<SubscriptionBillingManagement />} />
+            <Route path="plan-management" element={<SubscriptionBillingManagement />} />
             <Route path="requests" element={<RequestsManagement />} />
             <Route path="ads" element={<AdsManagement />} />
             <Route path="messages" element={<CustomMessage />} />

@@ -44,4 +44,7 @@ router.post('/ad-inquiries', adminController.createAdInquiry);
 router.patch('/ad-inquiries/:id', adminController.updateAdInquiryStatus);
 router.delete('/ad-inquiries/:id', adminController.deleteAdInquiry);
 
+// Admin Password Management
+router.put('/change-password', adminController.changeAdminPassword);
+
 module.exports = router;

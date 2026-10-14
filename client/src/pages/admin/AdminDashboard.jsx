@@ -1,9 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Store, Users, Settings, Megaphone, FileText } from 'lucide-react';
+import { Store, Users, Settings, Megaphone, FileText, CreditCard } from 'lucide-react';
 
 export default function AdminDashboard() {
   const shortcuts = [
+    {
+      title: 'Plan Management',
+      description: 'Manage restaurant subscription plans, billing days, and tiers',
+      path: '/admin/plans',
+      icon: <CreditCard size={32} />,
+      color: 'bg-emerald-600'
+    },
     {
       title: 'Restaurant Management',
       description: 'Manage approved restaurants and their details',
