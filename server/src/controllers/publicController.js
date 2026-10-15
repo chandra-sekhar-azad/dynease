@@ -482,6 +482,87 @@ exports.createOrder = async (req, res, next) => {
 };
 
 /**
+ * GET /api/public/orders
+ * Fetch customer orders by orderIds and/or tableId
+ */
+exports.getCustomerOrders = async (req, res, next) => {
+  try {
+    const info = requireTenantDb(req, res);
+    if (!info) return;
+    const { tenantDb } = info;
+
+    const { orderIds, tableId } = req.query;
+    const mongoose = require('mongoose');
+    const Order = tenantDb.model('Order');
+
+    const conditions = [];
+
+    // Parse orderIds if provided (comma-separated or array)
+    if (orderIds) {
+      const rawIds = Array.isArray(orderIds)
+        ? orderIds
+        : String(orderIds).split(',').map(s => s.trim()).filter(Boolean);
+
+      const validIds = rawIds
+        .filter(id => mongoose.Types.ObjectId.isValid(id))
+        .map(id => new mongoose.Types.ObjectId(id));
+
+      if (validIds.length > 0) {
+        conditions.push({ _id: { $in: validIds } });
+      }
+    }
+
+    // Parse tableId if provided
+    if (tableId && mongoose.Types.ObjectId.isValid(tableId)) {
+      // Find orders for this table in the last 24 hours
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      conditions.push({
+        tableId: new mongoose.Types.ObjectId(tableId),
+        createdAt: { $gte: twentyFourHoursAgo }
+      });
+    }
+
+    if (conditions.length === 0) {
+      return res.status(200).json({ success: true, data: { orders: [] } });
+    }
+
+    const query = conditions.length === 1 ? conditions[0] : { $or: conditions };
+
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const formattedOrders = orders.map(order => ({
+      id: order._id.toString(),
+      _id: order._id.toString(),
+      orderNumber: order.orderNumber,
+      restaurantId: order.restaurantId,
+      tableId: order.tableId,
+      tableNumber: order.tableNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      items: order.items,
+      subtotal: order.subtotal,
+      taxPercent: order.taxPercent,
+      taxAmount: order.taxAmount,
+      discount: order.discount,
+      total: order.total,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: { orders: formattedOrders }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/public/orders/:orderId
  * Get order details for confirmation page
  */

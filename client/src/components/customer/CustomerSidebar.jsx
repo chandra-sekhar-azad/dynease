@@ -1,8 +1,10 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 export default function CustomerSidebar({ isOpen, onClose, tableLabel, googleReviewLink, onOpenServiceRequest }) {
+  const { liveOrdersCount } = useRestaurant();
   if (!isOpen) return null;
 
   return (
@@ -17,6 +19,18 @@ export default function CustomerSidebar({ isOpen, onClose, tableLabel, googleRev
         <div className="p-4 space-y-4 flex-1">
           <Link to="/" onClick={onClose} className="block text-gray-700 font-bold hover:text-emerald-600 transition-colors">Home / Menu</Link>
           <Link to="/cart" onClick={onClose} className="block text-gray-700 font-bold hover:text-emerald-600 transition-colors">Your Cart</Link>
+          <Link
+            to="/orders"
+            onClick={onClose}
+            className="flex items-center justify-between text-gray-700 font-bold hover:text-emerald-600 transition-colors"
+          >
+            <span>My Orders</span>
+            {liveOrdersCount > 0 && (
+              <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full animate-pulse">
+                {liveOrdersCount} Live
+              </span>
+            )}
+          </Link>
           {onOpenServiceRequest && (
             <button
               onClick={() => {

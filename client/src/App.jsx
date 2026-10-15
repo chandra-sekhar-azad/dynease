@@ -11,6 +11,7 @@ import OrderConfirmation from './pages/customer/OrderConfirmation';
 import FeedbackForm from './pages/customer/FeedbackForm';
 import GoogleReview from './pages/customer/GoogleReview';
 import QRMenuLoader from './pages/customer/QRMenuLoader';
+import CustomerOrders from './pages/customer/Orders';
 import Login from './pages/Login';
 import KitchenOrders from './pages/kitchen/Orders';
 import WaiterLayout from './pages/waiter/Layout';
@@ -108,6 +109,8 @@ function App() {
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/order/:orderId" element={<OrderConfirmation />} />
+              <Route path="/orders" element={<CustomerOrders />} />
+              <Route path="/my-orders" element={<CustomerOrders />} />
               <Route path="/feedback" element={<FeedbackForm />} />
               <Route path="/google-review" element={<GoogleReview />} />
               <Route path="/admin" element={<Navigate to="/restaurant" replace />} />
@@ -192,6 +195,9 @@ function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order/:orderId" element={<OrderConfirmation />} />
+          <Route path="/orders" element={<CustomerOrders />} />
+          <Route path="/my-orders" element={<CustomerOrders />} />
+          <Route path="/r/:slug/orders" element={<CustomerOrders />} />
           <Route path="/feedback" element={<FeedbackForm />} />
           <Route path="/google-review" element={<GoogleReview />} />
           <Route path="/t/:qrToken" element={<QRMenuLoader />} />

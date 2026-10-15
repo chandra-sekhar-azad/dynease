@@ -34,10 +34,10 @@ export function getTenantHeaders(extra = {}) {
 export function RestaurantProvider({ children }) {
   const slug = getSubdomainSlug();
   
-  // Session: resolved after QR scan
+  // Session: resolved after QR scan (persisted in sessionStorage and localStorage fallback)
   const [session, setSession] = useState(() => {
     try {
-      const raw = sessionStorage.getItem(`dynease-session:${slug}`);
+      const raw = sessionStorage.getItem(`dynease-session:${slug}`) || localStorage.getItem(`dynease-session:${slug}`);
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   });
@@ -75,11 +75,17 @@ export function RestaurantProvider({ children }) {
   const saveSession = useCallback((restaurantData, tableData, qrToken) => {
     const newSession = { restaurant: restaurantData, table: tableData, qrToken };
     setSession(newSession);
-    sessionStorage.setItem(`dynease-session:${restaurantData.slug}`, JSON.stringify(newSession));
+    try {
+      sessionStorage.setItem(`dynease-session:${restaurantData.slug}`, JSON.stringify(newSession));
+      localStorage.setItem(`dynease-session:${restaurantData.slug}`, JSON.stringify(newSession));
+    } catch {}
   }, []);
 
   const clearSession = useCallback(() => {
-    if (slug) sessionStorage.removeItem(`dynease-session:${slug}`);
+    if (slug) {
+      sessionStorage.removeItem(`dynease-session:${slug}`);
+      localStorage.removeItem(`dynease-session:${slug}`);
+    }
     setSession(null);
     setCart([]);
   }, [slug]);
@@ -196,6 +202,60 @@ export function RestaurantProvider({ children }) {
     });
   }, [myOrdersKey]);
 
+  // ── Live Orders state & real-time synchronization ──
+  const [liveOrdersCount, setLiveOrdersCount] = useState(0);
+  const [latestLiveOrder, setLatestLiveOrder] = useState(null);
+
+  const refreshOrders = useCallback(async () => {
+    if (!session && myOrders.length === 0) {
+      setLiveOrdersCount(0);
+      setLatestLiveOrder(null);
+      return [];
+    }
+
+    try {
+      const tableId = session?.table?.id || session?.table?.tableId || '';
+      const orderIdsQuery = myOrders.join(',');
+      const params = new URLSearchParams();
+      if (orderIdsQuery) params.append('orderIds', orderIdsQuery);
+      if (tableId) params.append('tableId', tableId);
+
+      const url = `${import.meta.env.VITE_API_URL}/public/orders?${params.toString()}`;
+      const res = await fetch(url, { headers: getTenantHeaders() });
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.data?.orders)) {
+        const fetchedOrders = data.data.orders;
+
+        // Sync any orders found by tableId back into myOrders
+        fetchedOrders.forEach(o => {
+          const oId = o.id || o._id;
+          if (oId && !myOrders.includes(oId)) {
+            addOrderId(oId);
+          }
+        });
+
+        const active = fetchedOrders.filter(o => 
+          !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
+        );
+
+        setLiveOrdersCount(active.length);
+        setLatestLiveOrder(active.length > 0 ? active[0] : null);
+        return fetchedOrders;
+      }
+    } catch (e) {
+      console.warn('Could not refresh orders:', e);
+    }
+    return [];
+  }, [session, myOrders, addOrderId]);
+
+  // Initial and periodic check for live orders count
+  useEffect(() => {
+    refreshOrders();
+    const interval = setInterval(refreshOrders, 12000);
+    return () => clearInterval(interval);
+  }, [session?.table?.id, myOrders.length]);
+
   return (
     <RestaurantContext.Provider value={{
       slug,
@@ -210,7 +270,12 @@ export function RestaurantProvider({ children }) {
       updateQuantity,
       clearCart,
       myOrders,
-      addOrderId
+      addOrderId,
+      liveOrdersCount,
+      setLiveOrdersCount,
+      latestLiveOrder,
+      setLatestLiveOrder,
+      refreshOrders
     }}>
       {children}
     </RestaurantContext.Provider>

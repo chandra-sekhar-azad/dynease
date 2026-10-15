@@ -409,6 +409,9 @@ exports.updateOrderStatus = async (req, res) => {
       io.to(`waiter:${restaurantId}`).emit('order_updated', order);
       io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
       io.to(`order:${order._id.toString()}`).emit('order_updated', order);
+      if (order.tableId) {
+        io.to(`table:${order.tableId.toString()}`).emit('order_updated', order);
+      }
 
       if (tableUpdated) {
         io.to(`restaurant:${restaurantId}`).emit('table_updated', tableUpdated);
@@ -445,6 +448,9 @@ exports.acceptOrder = async (req, res) => {
       io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
       io.to(`waiter:${restaurantId}`).emit('order_updated', order);
       io.to(`order:${order._id.toString()}`).emit('order_updated', order);
+      if (order.tableId) {
+        io.to(`table:${order.tableId.toString()}`).emit('order_updated', order);
+      }
     }
 
     res.status(200).json({ success: true, message: 'Order accepted successfully', data: { order } });

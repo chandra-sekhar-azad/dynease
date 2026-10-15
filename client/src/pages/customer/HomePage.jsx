@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Loader2, Plus, Minus, X, Menu as MenuIcon, ArrowLeft, Bell } from 'lucide-react';
+import { Search, ShoppingBag, Loader2, Plus, Minus, X, Menu as MenuIcon, ArrowLeft, Bell, Receipt, ArrowRight } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
 import CustomerSidebar from '../../components/customer/CustomerSidebar';
@@ -18,7 +18,7 @@ const SIZE_FILTERS = [
 export default function HomePage({ forcedSlug }) {
   const { slug: paramSlug } = useParams();
   const activeSlug = forcedSlug || paramSlug;
-  const { session, addToCart, removeFromCart, updateQuantity, cart, cartCount } = useRestaurant();
+  const { session, addToCart, removeFromCart, updateQuantity, cart, cartCount, liveOrdersCount, latestLiveOrder } = useRestaurant();
   
   const [restaurant, setRestaurant] = useState(session?.restaurant || null);
   const [categories, setCategories] = useState([]);
@@ -569,6 +569,22 @@ export default function HomePage({ forcedSlug }) {
               >
                 <Search size={18} />
               </button>
+
+              {/* My Orders icon button with live badge */}
+              <Link
+                to="/orders"
+                id="orders-header-btn"
+                className="relative p-2 text-gray-600 hover:text-emerald-700 hover:bg-gray-100 rounded-full transition-colors shrink-0 cursor-pointer"
+                title="My Orders"
+                aria-label="My Orders"
+              >
+                <Receipt size={18} />
+                {liveOrdersCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-extrabold text-white shadow-xs animate-pulse">
+                    {liveOrdersCount}
+                  </span>
+                )}
+              </Link>
             </>
           )}
         </div>
@@ -936,6 +952,40 @@ export default function HomePage({ forcedSlug }) {
                 Done
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Floating Live Order Tracker Bar ── */}
+      {liveOrdersCount > 0 && latestLiveOrder && (
+        <div className="fixed bottom-22 left-0 right-0 z-40 px-4 pointer-events-none">
+          <div className="w-full max-w-md mx-auto pointer-events-auto">
+            <Link
+              to="/orders"
+              className="flex items-center justify-between p-3.5 bg-gray-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-gray-800 hover:bg-black transition-all group"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="relative flex h-3 w-3 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 truncate">
+                    <span>Order {latestLiveOrder.orderNumber || ''}</span>
+                    <span className="text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.2 rounded font-semibold border border-emerald-800/50">
+                      {latestLiveOrder.status}
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-gray-300 truncate">
+                    {latestLiveOrder.items?.length || 1} items · Tap to view live progress
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-emerald-400 text-xs font-semibold shrink-0 pl-2">
+                <span>Track</span>
+                <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </Link>
           </div>
         </div>
       )}

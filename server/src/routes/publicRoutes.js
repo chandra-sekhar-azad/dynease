@@ -25,6 +25,9 @@ router.get('/restaurant/:slug/menu', checkSubscription, publicController.getRest
 // Orders - check subscription
 router.post('/orders', orderLimiter, checkSubscription, publicController.createOrder);
 
+// Allow customer to fetch their orders (live + past) by orderIds or tableId
+router.get('/orders', publicController.getCustomerOrders);
+
 // Allow fetching an existing order even if expired, since customers may need to see their bill
 router.get('/orders/:orderId', publicController.getOrder);
 

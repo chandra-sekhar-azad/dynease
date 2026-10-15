@@ -22,8 +22,17 @@ module.exports = (io) => {
     });
 
     socket.on('customer:join', (orderId) => {
-      socket.join(`order:${orderId}`);
-      console.log(`Socket ${socket.id} joined order:${orderId}`);
+      if (orderId) {
+        socket.join(`order:${orderId}`);
+        console.log(`Socket ${socket.id} joined order:${orderId}`);
+      }
+    });
+
+    socket.on('customer:join_table', (tableId) => {
+      if (tableId) {
+        socket.join(`table:${tableId}`);
+        console.log(`Socket ${socket.id} joined table:${tableId}`);
+      }
     });
 
     socket.on('disconnect', () => {

@@ -1,11 +1,11 @@
 import React from 'react';
-import { Minus, Plus, ShoppingBag, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
+import { Minus, Plus, ShoppingBag, ArrowLeft, ArrowRight, Trash2, Receipt } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useRestaurant } from '../../context/RestaurantContext';
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { session, cart, cartCount, cartSubtotal, updateQuantity, removeFromCart } = useRestaurant();
+  const { session, cart, cartCount, cartSubtotal, updateQuantity, removeFromCart, liveOrdersCount } = useRestaurant();
 
   const tableLabel = session?.table?.tableNumber ? `Table ${session.table.tableNumber}` : null;
   const restaurantName = session?.restaurant?.name || 'Restaurant';
@@ -24,11 +24,25 @@ export default function Cart() {
           <h1 className="text-xl font-bold text-gray-900">{restaurantName}</h1>
           {tableLabel && <p className="text-xs text-gray-400">{tableLabel}</p>}
         </div>
-        {tableLabel && (
-          <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
-            {tableLabel}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {tableLabel && (
+            <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
+              {tableLabel}
+            </span>
+          )}
+          <Link
+            to="/orders"
+            className="relative p-2 text-gray-600 hover:text-emerald-700 hover:bg-gray-100 rounded-xl transition-colors shrink-0"
+            title="My Orders"
+          >
+            <Receipt size={20} />
+            {liveOrdersCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-extrabold text-white shadow-xs animate-pulse">
+                {liveOrdersCount}
+              </span>
+            )}
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 p-4 pb-36">
@@ -118,9 +132,14 @@ export default function Cart() {
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
             <p className="text-gray-500 text-sm mb-8">Add items from the menu to get started.</p>
-            <Link to="/" className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-green-200">
-              Browse Menu
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center w-full max-w-xs">
+              <Link to="/" className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-emerald-200 transition-colors text-center text-sm">
+                Browse Menu
+              </Link>
+              <Link to="/orders" className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-2xl font-bold transition-colors text-center text-sm">
+                View My Orders
+              </Link>
+            </div>
           </div>
         )}
       </main>

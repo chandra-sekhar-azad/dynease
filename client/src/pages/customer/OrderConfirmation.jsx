@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useLocation } from 'react-router-dom';
-import { Loader2, CheckCircle, UtensilsCrossed } from 'lucide-react';
+import { Loader2, CheckCircle, UtensilsCrossed, Clock } from 'lucide-react';
 import { getTenantHeaders } from '../../context/RestaurantContext';
 
 export default function OrderConfirmation() {
@@ -96,12 +96,19 @@ export default function OrderConfirmation() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col gap-2.5 pt-2">
+            <Link
+              to="/orders"
+              className="w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-200 transition-all text-sm flex items-center justify-center gap-2"
+            >
+              <Clock size={16} />
+              <span>Track Live Order Status</span>
+            </Link>
             <Link
               to="/"
-              className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+              className="w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl transition-colors text-sm"
             >
-              Order More
+              Order More Items
             </Link>
           </div>
         </div>
