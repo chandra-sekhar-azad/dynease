@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Check, X, Loader2, Eye, MapPin, Mail, Phone, Crown } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 export default function RequestsManagement() {
   const [requests, setRequests] = useState([]);
@@ -16,10 +17,10 @@ export default function RequestsManagement() {
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/requests`);
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/requests`);
       const data = await res.json();
       if (data.success) {
-        setRequests(data.data.requests);
+        setRequests(data.data.requests || []);
       }
     } catch (error) {
       console.error('Error fetching requests:', error);
@@ -31,14 +32,15 @@ export default function RequestsManagement() {
   const handleApprove = async (id) => {
     setActionLoading(id);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/requests/${id}/approve`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/requests/${id}/approve`, {
         method: 'POST'
       });
-      if (res.ok) {
-        setRequests(requests.filter(req => req._id !== id));
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRequests(requests.filter(req => (req._id || req.id) !== id));
         setSelectedReq(null);
       } else {
-        alert('Failed to approve');
+        alert(data.message || 'Failed to approve');
       }
     } catch (error) {
       console.error('Error approve request:', error);
@@ -51,20 +53,21 @@ export default function RequestsManagement() {
     e.preventDefault();
     if (!selectedReq) return;
     
-    setActionLoading(selectedReq._id);
+    const reqId = selectedReq._id || selectedReq.id;
+    setActionLoading(reqId);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/requests/${selectedReq._id}/reject`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/requests/${reqId}/reject`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: rejectReason })
       });
-      if (res.ok) {
-        setRequests(requests.filter(req => req._id !== selectedReq._id));
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRequests(requests.filter(req => (req._id || req.id) !== reqId));
         setShowRejectModal(false);
         setSelectedReq(null);
         setRejectReason('');
       } else {
-        alert('Failed to reject');
+        alert(data.message || 'Failed to reject');
       }
     } catch (error) {
       console.error('Error reject request:', error);

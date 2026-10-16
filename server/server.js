@@ -1,7 +1,6 @@
 require('./src/config/env');
 const http = require('http');
 const app = require('./src/app');
-const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 
 const PORT = process.env.PORT || 5000;
@@ -36,23 +35,33 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n❌ [PORT CONFLICT] Port ${PORT} is already in use by another running process.`);
+    console.error(`   Please terminate any existing server process or run: npx kill-port ${PORT}\n`);
+  } else {
+    console.error('[Server Error]:', err);
+  }
+  process.exit(1);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Uncaught Exception]:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Unhandled Rejection]:', reason);
+});
+
 // Initialize Supabase PostgreSQL & CRON jobs
 pool.query('SELECT current_database(), now()')
   .then(() => {
     console.log('[PostgreSQL] Connected to Supabase PostgreSQL successfully via Drizzle client');
     initRosterCron();
+    initSubscriptionJobs();
+    initAssignmentTimeoutJobs();
   })
   .catch((err) => {
     console.error('[PostgreSQL] Supabase connection error:', err.message);
   });
 
-// Database connection & jobs
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/dynease')
-  .then(() => {
-    console.log('Connected to MongoDB');
-    initSubscriptionJobs();
-    initAssignmentTimeoutJobs();
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err.message);
-  });

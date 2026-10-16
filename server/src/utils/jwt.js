@@ -1,24 +1,29 @@
 const jwt = require('jsonwebtoken');
 
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'fallback_secret_do_not_use_in_prod', {
+const signToken = (id, sessionVersion = 0) => {
+  return jwt.sign({ id, sessionVersion }, process.env.JWT_SECRET || 'fallback_secret_do_not_use_in_prod', {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d'
   });
 };
 
 const createSendToken = (user, statusCode, res) => {
-  const token = signToken(user._id);
+  const userId = user.id || user._id;
+  const token = signToken(userId, user.sessionVersion || 0);
 
-  // Remove password from output
-  user.password = undefined;
+  // Remove passwords and methods from output
+  const safeUser = { ...user };
+  delete safeUser.password;
+  delete safeUser.password_hash;
+  delete safeUser.comparePassword;
 
   res.status(statusCode).json({
     success: true,
     token,
     data: {
-      user
+      user: safeUser
     }
   });
 };
 
 module.exports = { signToken, createSendToken };
+

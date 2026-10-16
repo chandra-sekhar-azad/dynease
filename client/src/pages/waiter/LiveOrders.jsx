@@ -241,10 +241,11 @@ export default function LiveOrders() {
   };
 
   // Filter orders assigned directly to this waiter or to this waiter's assigned tables
-  const myAssignedTableIds = (waiter?.assignedTables || []).map(t => (typeof t === 'string' ? t : t._id));
+  const myAssignedTableIds = (waiter?.assignedTables || []).map(t => (typeof t === 'string' ? t : (t._id || t.id)));
   const myOrders = orders.filter(o => {
     const isDirectlyAssigned = o.assignedWaiterId && (o.assignedWaiterId._id || o.assignedWaiterId) === waiter?._id;
-    const isTableAssigned = myAssignedTableIds.includes(o.tableId);
+    const orderTableId = o.tableId?._id || o.tableId?.id || o.tableId;
+    const isTableAssigned = myAssignedTableIds.includes(orderTableId);
     return isDirectlyAssigned || isTableAssigned || myAssignedTableIds.length === 0;
   });
 

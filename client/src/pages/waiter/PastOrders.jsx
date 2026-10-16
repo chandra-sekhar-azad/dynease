@@ -43,7 +43,7 @@ export default function PastOrders() {
         let assignedTables = [];
         if (meData.success && meData.data.user) {
           assignedTables = meData.data.user.assignedTables || [];
-          setAssignedTableIds(assignedTables.map(t => t._id));
+          setAssignedTableIds(assignedTables.map(t => (typeof t === 'string' ? t : (t._id || t.id))));
         }
 
         const ordersData = await ordersRes.json();
@@ -52,7 +52,7 @@ export default function PastOrders() {
           const pastOrdersList = ordersData.data.orders.filter(o => 
             ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
           );
-          setOrders(pastOrdersList.map(o => ({ ...o, id: o._id })));
+          setOrders(pastOrdersList.map(o => ({ ...o, id: o._id || o.id })));
         }
       } catch (e) {
         console.error(e);
@@ -65,7 +65,10 @@ export default function PastOrders() {
   }, [navigate]);
 
   const filteredOrders = assignedTableIds.length > 0 
-    ? orders.filter(o => assignedTableIds.includes(o.tableId))
+    ? orders.filter(o => {
+        const orderTableId = o.tableId?._id || o.tableId?.id || o.tableId;
+        return assignedTableIds.includes(orderTableId);
+      })
     : orders;
 
   return (

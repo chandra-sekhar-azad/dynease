@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Send, CheckCircle, Loader2 } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 export default function CustomMessage() {
   const [phone, setPhone] = useState('');
@@ -15,7 +16,7 @@ export default function CustomMessage() {
     setStatusText('');
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/whatsapp/send`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/whatsapp/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

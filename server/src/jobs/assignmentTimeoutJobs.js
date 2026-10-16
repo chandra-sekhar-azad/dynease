@@ -1,6 +1,7 @@
 const cron = require('node-cron');
-const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
-const TenantDatabaseManager = require('../services/TenantDatabaseManager');
+const { db, schema } = require('../db/client');
+const { eq, and } = require('drizzle-orm');
+const { restaurants } = schema;
 const WaiterAssignmentService = require('../services/waiterAssignmentService');
 
 /**
@@ -10,21 +11,25 @@ const WaiterAssignmentService = require('../services/waiterAssignmentService');
 const initAssignmentTimeoutJobs = () => {
   cron.schedule('*/1 * * * *', async () => {
     try {
-      const activeRegistries = await RestaurantRegistry.find({ status: 'ACTIVE' });
+      const activeRestaurants = await db.select().from(restaurants).where(
+        and(
+          eq(restaurants.restaurant_status, 'ACTIVE'),
+          eq(restaurants.is_deleted, false)
+        )
+      );
 
-      for (const registry of activeRegistries) {
+      for (const restaurant of activeRestaurants) {
         try {
-          const tenantDb = await TenantDatabaseManager.getConnection(registry.databaseName);
           const results = await WaiterAssignmentService.checkAssignmentTimeouts(
-            tenantDb,
-            registry.restaurantId
+            null,
+            restaurant.id
           );
 
-          if (results.length > 0) {
-            console.log(`[AssignmentTimeoutJob] Processed ${results.length} timed-out orders in ${registry.subdomain}`);
+          if (results && results.length > 0) {
+            console.log(`[AssignmentTimeoutJob] Processed ${results.length} timed-out orders in ${restaurant.domain || restaurant.name}`);
           }
         } catch (tenantErr) {
-          // Continue to next tenant if one fails
+          // Continue to next restaurant if one encounters an error
         }
       }
     } catch (err) {

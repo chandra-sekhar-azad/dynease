@@ -1,4 +1,27 @@
+const crypto = require('crypto');
+const { db, schema } = require('../db/client');
+const { eq, and, sql, desc, or, isNull, gte, lte, inArray } = require('drizzle-orm');
+const {
+  restaurants,
+  users,
+  tables,
+  tables_assignment,
+  menu_categories,
+  menu_categories_items,
+  order_details,
+  order_items,
+  leads,
+  service_requests,
+  assignment_events,
+  audit_log,
+  plan_requests,
+  plans
+} = schema;
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const SubscriptionService = require('../services/SubscriptionService');
+const WaiterAssignmentService = require('../services/waiterAssignmentService');
+const { getPlan, getPublicPlans } = require('../config/plans');
+
 
 // ──────────────────────────────────────────
 //  CATEGORY CRUD
@@ -7,11 +30,27 @@ const { uploadToCloudinary } = require('../utils/cloudinary');
 exports.getCategories = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const Category = req.tenantDb.model('Category');
-    const categories = await Category.find({ restaurantId }).sort({ displayOrder: 1, name: 1 });
+    const categoryRows = await db.select().from(menu_categories).where(
+      and(
+        eq(menu_categories.restaurant_id, restaurantId),
+        isNull(menu_categories.deletedat)
+      )
+    ).orderBy(menu_categories.display_order, menu_categories.category);
+
+    const categories = categoryRows.map(c => ({
+      _id: c.id,
+      id: c.id,
+      restaurantId: c.restaurant_id,
+      name: c.category,
+      description: c.description || '',
+      displayOrder: c.display_order,
+      isActive: c.menu_category_status === 'ACTIVE',
+      type: 'all'
+    }));
+
     res.status(200).json({ success: true, data: { categories } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching categories:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -20,11 +59,19 @@ exports.createCategory = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { name, description, displayOrder } = req.body;
+
     if (!name?.trim()) {
       return res.status(400).json({ success: false, message: 'Category name is required.' });
     }
-    const Category = req.tenantDb.model('Category');
-    const existing = await Category.findOne({ restaurantId, name: name.trim() });
+
+    const [existing] = await db.select().from(menu_categories).where(
+      and(
+        eq(menu_categories.restaurant_id, restaurantId),
+        eq(sql`LOWER(${menu_categories.category})`, name.trim().toLowerCase()),
+        isNull(menu_categories.deletedat)
+      )
+    ).limit(1);
+
     if (existing) {
       return res.status(409).json({ success: false, message: 'A category with this name already exists.' });
     }
@@ -38,21 +85,34 @@ exports.createCategory = async (req, res) => {
           secure_url: uploadResult.secure_url
         };
       } catch (uploadError) {
-        console.error("Cloudinary Upload Error:", uploadError);
+        console.error('Cloudinary Upload Error:', uploadError);
       }
     }
 
-    const category = await Category.create({
-      restaurantId,
-      name: name.trim(),
+    const [category] = await db.insert(menu_categories).values({
+      restaurant_id: restaurantId,
+      category: name.trim(),
       description: description?.trim() || '',
-      displayOrder: displayOrder || 0,
-      type: (req.body.type || 'all').toLowerCase(),
-      image
+      display_order: displayOrder ? parseInt(displayOrder, 10) : 0,
+      menu_category_status: 'ACTIVE'
+    }).returning();
+
+    res.status(201).json({
+      success: true,
+      data: {
+        category: {
+          _id: category.id,
+          id: category.id,
+          name: category.category,
+          description: category.description,
+          displayOrder: category.display_order,
+          isActive: category.menu_category_status === 'ACTIVE',
+          image
+        }
+      }
     });
-    res.status(201).json({ success: true, data: { category } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error creating category:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -61,37 +121,46 @@ exports.updateCategory = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const { name, description, displayOrder, isActive, type } = req.body;
-    
-    let updateData = { name: name?.trim(), description: description?.trim(), displayOrder, isActive };
-    if (type !== undefined) {
-      updateData.type = String(type).toLowerCase();
+    const { name, description, displayOrder, isActive } = req.body;
+
+    const updateFields = {
+      updatedat: new Date()
+    };
+
+    if (name) updateFields.category = name.trim();
+    if (description !== undefined) updateFields.description = description.trim();
+    if (displayOrder !== undefined) updateFields.display_order = parseInt(displayOrder, 10);
+    if (isActive !== undefined) {
+      updateFields.menu_category_status = isActive ? 'ACTIVE' : 'INACTIVE';
     }
 
-    if (req.file) {
-      try {
-        const uploadResult = await uploadToCloudinary(req.file.buffer, `dynease/categories/${restaurantId}`);
-        updateData.image = {
-          public_id: uploadResult.public_id,
-          secure_url: uploadResult.secure_url
-        };
-      } catch (uploadError) {
-        console.error("Cloudinary Upload Error:", uploadError);
-      }
-    }
+    const [category] = await db.update(menu_categories).set(updateFields).where(
+      and(
+        eq(menu_categories.id, id),
+        eq(menu_categories.restaurant_id, restaurantId),
+        isNull(menu_categories.deletedat)
+      )
+    ).returning();
 
-    const Category = req.tenantDb.model('Category');
-    const category = await Category.findOneAndUpdate(
-      { _id: id, restaurantId },
-      updateData,
-      { new: true, runValidators: true }
-    );
     if (!category) {
       return res.status(404).json({ success: false, message: 'Category not found.' });
     }
-    res.status(200).json({ success: true, data: { category } });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        category: {
+          _id: category.id,
+          id: category.id,
+          name: category.category,
+          description: category.description,
+          displayOrder: category.display_order,
+          isActive: category.menu_category_status === 'ACTIVE'
+        }
+      }
+    });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error updating category:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -100,24 +169,46 @@ exports.deleteCategory = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const Category = req.tenantDb.model('Category');
-    // Check if any menu items use this category
-    const MenuItem = req.tenantDb.model('MenuItem');
-    const category = await Category.findOne({ _id: id, restaurantId });
+
+    const [category] = await db.select().from(menu_categories).where(
+      and(
+        eq(menu_categories.id, id),
+        eq(menu_categories.restaurant_id, restaurantId),
+        isNull(menu_categories.deletedat)
+      )
+    ).limit(1);
+
     if (!category) {
       return res.status(404).json({ success: false, message: 'Category not found.' });
     }
-    const itemCount = await MenuItem.countDocuments({ restaurantId, category: category.name });
-    if (itemCount > 0) {
+
+    const [itemCount] = await db.select({ count: sql`count(*)` }).from(menu_categories_items).where(
+      and(
+        eq(menu_categories_items.category_id, id),
+        eq(menu_categories_items.restaurant_id, restaurantId),
+        isNull(menu_categories_items.deletedat)
+      )
+    );
+
+    if (parseInt(itemCount.count, 10) > 0) {
       return res.status(400).json({
         success: false,
-        message: `Cannot delete: ${itemCount} menu item(s) use this category. Reassign them first.`
+        message: `Cannot delete: ${itemCount.count} menu item(s) use this category. Reassign them first.`
       });
     }
-    await Category.deleteOne({ _id: id, restaurantId });
+
+    await db.update(menu_categories).set({
+      deletedat: new Date()
+    }).where(
+      and(
+        eq(menu_categories.id, id),
+        eq(menu_categories.restaurant_id, restaurantId)
+      )
+    );
+
     res.status(200).json({ success: true, message: 'Category deleted.' });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error deleting category:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -129,7 +220,92 @@ exports.deleteCategory = async (req, res) => {
 exports.createMenuItem = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const { category, name, description, price, isAvailable, dietaryPreference, preparationTime, quantities } = req.body;
+    const { 
+      category, 
+      categoryId, 
+      name, 
+      description, 
+      price, 
+      isAvailable, 
+      dietaryPreference, 
+      type,
+      itemSize,
+      size,
+      rating,
+      displayOrder 
+    } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({ success: false, message: 'Item name is required.' });
+    }
+
+    const parsedPrice = parseFloat(price);
+    if (price === undefined || price === null || isNaN(parsedPrice) || parsedPrice < 0) {
+      return res.status(400).json({ success: false, message: 'Price must be a valid non-negative number.' });
+    }
+
+    // Enforce subscription plan menu item limit
+    await SubscriptionService.checkResourceLimit(null, req.tenantRegistry || { restaurantId }, 'menuItems', 1);
+
+    // Resolve category and enforce tenant isolation
+    let catId = categoryId;
+    let catName = category || 'General';
+
+    if (catId) {
+      const [validCat] = await db.select().from(menu_categories).where(
+        and(
+          eq(menu_categories.id, catId),
+          eq(menu_categories.restaurant_id, restaurantId),
+          isNull(menu_categories.deletedat)
+        )
+      ).limit(1);
+
+      if (!validCat) {
+        return res.status(400).json({ success: false, message: 'Invalid category or category does not belong to your restaurant.' });
+      }
+      catName = validCat.category;
+    } else if (category?.trim()) {
+      const [foundCat] = await db.select().from(menu_categories).where(
+        and(
+          eq(menu_categories.restaurant_id, restaurantId),
+          eq(sql`LOWER(${menu_categories.category})`, category.trim().toLowerCase()),
+          isNull(menu_categories.deletedat)
+        )
+      ).limit(1);
+
+      if (foundCat) {
+        catId = foundCat.id;
+        catName = foundCat.category;
+      } else {
+        const [newCat] = await db.insert(menu_categories).values({
+          restaurant_id: restaurantId,
+          category: category.trim(),
+          menu_category_status: 'ACTIVE'
+        }).returning();
+        catId = newCat.id;
+        catName = newCat.category;
+      }
+    } else {
+      const [firstCat] = await db.select().from(menu_categories).where(
+        and(
+          eq(menu_categories.restaurant_id, restaurantId),
+          isNull(menu_categories.deletedat)
+        )
+      ).limit(1);
+
+      if (firstCat) {
+        catId = firstCat.id;
+        catName = firstCat.category;
+      } else {
+        const [newCat] = await db.insert(menu_categories).values({
+          restaurant_id: restaurantId,
+          category: 'General',
+          menu_category_status: 'ACTIVE'
+        }).returning();
+        catId = newCat.id;
+        catName = newCat.category;
+      }
+    }
 
     let image = null;
     if (req.file) {
@@ -140,50 +316,60 @@ exports.createMenuItem = async (req, res) => {
           secure_url: uploadResult.secure_url
         };
       } catch (uploadError) {
-        console.error("Cloudinary Upload Error:", uploadError);
+        console.error('Cloudinary Upload Error:', uploadError);
       }
     }
 
-    // Parse quantities if provided
-    let parsedQuantities = [];
-    if (quantities !== undefined && quantities !== null) {
-      try {
-        const raw = typeof quantities === 'string' ? JSON.parse(quantities) : quantities;
-        if (Array.isArray(raw)) {
-          parsedQuantities = raw
-            .map(q => ({
-              size: typeof q.size === 'string' ? q.size.trim() : '',
-              price: Number(q.price)
-            }))
-            .filter(q => q.size && !isNaN(q.price) && q.price >= 0);
+    const itemType = (dietaryPreference || type || '').toLowerCase().includes('non') ? 'NON_VEG' : 'VEG';
+    const validSizes = ['SMALL', 'MEDIUM', 'LARGE', 'JUMBO', 'FULL', 'HALF'];
+    const chosenSize = (itemSize || size || 'FULL').toUpperCase();
+    const finalSize = validSizes.includes(chosenSize) ? chosenSize : 'FULL';
+
+    let ratingVal = null;
+    if (rating !== undefined && rating !== null && !isNaN(rating)) {
+      const r = parseFloat(rating);
+      if (r >= 0 && r <= 5) ratingVal = r.toFixed(2);
+    }
+
+    const [menuItem] = await db.insert(menu_categories_items).values({
+      restaurant_id: restaurantId,
+      category_id: catId,
+      name: name.trim(),
+      description: description?.trim() || '',
+      price: parsedPrice.toFixed(2),
+      menu_item_status: isAvailable !== false ? 'AVAILABLE' : 'UNAVAILABLE',
+      menu_item_type: itemType,
+      item_size: finalSize,
+      rating: ratingVal,
+      display_order: displayOrder !== undefined ? parseInt(displayOrder, 10) || 0 : 0
+    }).returning();
+
+    res.status(201).json({
+      success: true,
+      data: {
+        menuItem: {
+          _id: menuItem.id,
+          id: menuItem.id,
+          restaurantId: menuItem.restaurant_id,
+          category: catName,
+          categoryId: menuItem.category_id,
+          name: menuItem.name,
+          description: menuItem.description,
+          price: parseFloat(menuItem.price),
+          isAvailable: menuItem.menu_item_status === 'AVAILABLE',
+          dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
+          itemSize: menuItem.item_size,
+          displayOrder: menuItem.display_order,
+          rating: menuItem.rating ? parseFloat(menuItem.rating) : null,
+          preparationTime: 15,
+          image,
+          quantities: []
         }
-      } catch (parseError) {
-        console.error("Error parsing quantities:", parseError);
       }
-    }
-
-    // Enforce subscription plan menu item limit
-    const SubscriptionService = require('../services/SubscriptionService');
-    await SubscriptionService.checkResourceLimit(req.tenantDb, req.tenantRegistry, 'menuItems', 1);
-
-    const MenuItem = req.tenantDb.model('MenuItem');
-    const menuItem = await MenuItem.create({
-      restaurantId,
-      category,
-      name,
-      description,
-      price: Number(price),
-      isAvailable: isAvailable !== undefined ? isAvailable : true,
-      dietaryPreference,
-      preparationTime,
-      image,
-      quantities: parsedQuantities
     });
-
-    res.status(201).json({ success: true, data: { menuItem } });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Server Error' });
+    console.error('[RestaurantController] Error creating menu item:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server Error' });
   }
 };
 
@@ -191,65 +377,118 @@ exports.updateMenuItem = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const { category, name, description, price, isAvailable, dietaryPreference, preparationTime, quantities } = req.body;
+    const { 
+      category, 
+      categoryId, 
+      name, 
+      description, 
+      price, 
+      isAvailable, 
+      dietaryPreference, 
+      type,
+      itemSize,
+      size,
+      rating,
+      displayOrder 
+    } = req.body;
 
-    let image = null;
-    if (req.file) {
-      try {
-        const uploadResult = await uploadToCloudinary(req.file.buffer, `dynease/menu/${restaurantId}`);
-        image = {
-          public_id: uploadResult.public_id,
-          secure_url: uploadResult.secure_url
-        };
-      } catch (uploadError) {
-        console.error("Cloudinary Upload Error:", uploadError);
-      }
+    const [existingItem] = await db.select().from(menu_categories_items).where(
+      and(
+        eq(menu_categories_items.id, id),
+        eq(menu_categories_items.restaurant_id, restaurantId),
+        isNull(menu_categories_items.deletedat)
+      )
+    ).limit(1);
+
+    if (!existingItem) {
+      return res.status(404).json({ success: false, message: 'Menu item not found in your restaurant.' });
     }
 
-    const MenuItem = req.tenantDb.model('MenuItem');
-    const updateData = {
-      category,
-      name,
-      description,
-      price: Number(price),
-      isAvailable,
-      dietaryPreference,
-      preparationTime
+    const updateFields = {
+      updatedat: new Date()
     };
 
-    if (quantities !== undefined && quantities !== null) {
-      let parsedQuantities = [];
-      try {
-        const raw = typeof quantities === 'string' ? JSON.parse(quantities) : quantities;
-        if (Array.isArray(raw)) {
-          parsedQuantities = raw
-            .map(q => ({
-              size: typeof q.size === 'string' ? q.size.trim() : '',
-              price: Number(q.price)
-            }))
-            .filter(q => q.size && !isNaN(q.price) && q.price >= 0);
-        }
-      } catch (parseError) {
-        console.error("Error parsing quantities:", parseError);
+    if (name?.trim()) updateFields.name = name.trim();
+    if (description !== undefined) updateFields.description = description.trim();
+    
+    if (price !== undefined) {
+      const parsedPrice = parseFloat(price);
+      if (isNaN(parsedPrice) || parsedPrice < 0) {
+        return res.status(400).json({ success: false, message: 'Price must be a valid non-negative number.' });
       }
-      updateData.quantities = parsedQuantities;
+      updateFields.price = parsedPrice.toFixed(2);
     }
 
-    if (image) updateData.image = image;
-
-    const menuItem = await MenuItem.findOneAndUpdate(
-      { _id: id, restaurantId },
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!menuItem) {
-      return res.status(404).json({ success: false, message: 'Menu item not found.' });
+    if (isAvailable !== undefined) {
+      updateFields.menu_item_status = isAvailable ? 'AVAILABLE' : 'UNAVAILABLE';
     }
 
-    res.status(200).json({ success: true, data: { menuItem } });
+    if (dietaryPreference || type) {
+      updateFields.menu_item_type = (dietaryPreference || type).toLowerCase().includes('non') ? 'NON_VEG' : 'VEG';
+    }
+
+    if (categoryId) {
+      const [validCat] = await db.select().from(menu_categories).where(
+        and(
+          eq(menu_categories.id, categoryId),
+          eq(menu_categories.restaurant_id, restaurantId),
+          isNull(menu_categories.deletedat)
+        )
+      ).limit(1);
+
+      if (!validCat) {
+        return res.status(400).json({ success: false, message: 'Category not found or does not belong to your restaurant.' });
+      }
+      updateFields.category_id = categoryId;
+    }
+
+    if (itemSize || size) {
+      const validSizes = ['SMALL', 'MEDIUM', 'LARGE', 'JUMBO', 'FULL', 'HALF'];
+      const chosenSize = (itemSize || size).toUpperCase();
+      if (validSizes.includes(chosenSize)) updateFields.item_size = chosenSize;
+    }
+
+    if (rating !== undefined) {
+      const r = parseFloat(rating);
+      if (!isNaN(r) && r >= 0 && r <= 5) updateFields.rating = r.toFixed(2);
+    }
+
+    if (displayOrder !== undefined) {
+      updateFields.display_order = parseInt(displayOrder, 10) || 0;
+    }
+
+    const [menuItem] = await db.update(menu_categories_items).set(updateFields).where(
+      and(
+        eq(menu_categories_items.id, id),
+        eq(menu_categories_items.restaurant_id, restaurantId)
+      )
+    ).returning();
+
+    const [cat] = await db.select().from(menu_categories).where(eq(menu_categories.id, menuItem.category_id)).limit(1);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        menuItem: {
+          _id: menuItem.id,
+          id: menuItem.id,
+          restaurantId: menuItem.restaurant_id,
+          category: cat?.category || 'General',
+          categoryId: menuItem.category_id,
+          name: menuItem.name,
+          description: menuItem.description,
+          price: parseFloat(menuItem.price),
+          isAvailable: menuItem.menu_item_status === 'AVAILABLE',
+          dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
+          itemSize: menuItem.item_size,
+          displayOrder: menuItem.display_order,
+          rating: menuItem.rating ? parseFloat(menuItem.rating) : null,
+          preparationTime: 15
+        }
+      }
+    });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error updating menu item:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -257,17 +496,53 @@ exports.updateMenuItem = async (req, res) => {
 exports.getMenu = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const MenuItem = req.tenantDb.model('MenuItem');
     const { category, type } = req.query;
 
-    const filter = { restaurantId };
-    if (category) filter.category = category;
-    if (type) filter.dietaryPreference = type;
+    const conditions = [
+      eq(menu_categories_items.restaurant_id, restaurantId),
+      isNull(menu_categories_items.deletedat)
+    ];
 
-    const menuItems = await MenuItem.find(filter).sort({ category: 1, name: 1 });
+    if (type) {
+      const isNonVeg = type.toLowerCase().includes('non');
+      conditions.push(eq(menu_categories_items.menu_item_type, isNonVeg ? 'NON_VEG' : 'VEG'));
+    }
+
+    const rows = await db.select().from(menu_categories_items).where(
+      and(...conditions)
+    ).orderBy(menu_categories_items.display_order, menu_categories_items.name);
+
+    const categoryDocs = await db.select().from(menu_categories).where(
+      and(
+        eq(menu_categories.restaurant_id, restaurantId),
+        isNull(menu_categories.deletedat)
+      )
+    );
+    const catMap = new Map();
+    categoryDocs.forEach(c => catMap.set(c.id, c.category));
+
+    let menuItems = rows.map(r => ({
+      _id: r.id,
+      id: r.id,
+      restaurantId: r.restaurant_id,
+      categoryId: r.category_id,
+      category: catMap.get(r.category_id) || 'General',
+      name: r.name,
+      description: r.description,
+      price: parseFloat(r.price),
+      isAvailable: r.menu_item_status === 'AVAILABLE',
+      dietaryPreference: r.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
+      preparationTime: 15,
+      quantities: []
+    }));
+
+    if (category) {
+      menuItems = menuItems.filter(i => i.category.toLowerCase() === category.toLowerCase());
+    }
+
     res.status(200).json({ success: true, data: { menuItems } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching menu:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -276,12 +551,20 @@ exports.deleteMenuItem = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const MenuItem = req.tenantDb.model('MenuItem');
-    const item = await MenuItem.findOneAndDelete({ _id: id, restaurantId });
+
+    const [item] = await db.update(menu_categories_items).set({
+      deletedat: new Date()
+    }).where(
+      and(
+        eq(menu_categories_items.id, id),
+        eq(menu_categories_items.restaurant_id, restaurantId)
+      )
+    ).returning();
+
     if (!item) return res.status(404).json({ success: false, message: 'Item not found.' });
     res.status(200).json({ success: true, message: 'Menu item deleted.' });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error deleting menu item:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -291,16 +574,21 @@ exports.toggleMenuItemStatus = async (req, res) => {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
     const { isAvailable } = req.body;
-    const MenuItem = req.tenantDb.model('MenuItem');
-    const item = await MenuItem.findOneAndUpdate(
-      { _id: id, restaurantId },
-      { isAvailable },
-      { new: true }
-    );
+
+    const [item] = await db.update(menu_categories_items).set({
+      menu_item_status: isAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
+      updatedat: new Date()
+    }).where(
+      and(
+        eq(menu_categories_items.id, id),
+        eq(menu_categories_items.restaurant_id, restaurantId)
+      )
+    ).returning();
+
     if (!item) return res.status(404).json({ success: false, message: 'Item not found.' });
     res.status(200).json({ success: true, data: { menuItem: item } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error toggling status:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -312,40 +600,129 @@ exports.toggleMenuItemStatus = async (req, res) => {
 exports.getOrders = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const Order = req.tenantDb.model('Order');
-    const { waiterId, status, unassignedOnly } = req.query;
+    const { status, type, date, startDate, endDate } = req.query;
 
-    const query = { restaurantId };
-    if (waiterId) {
-      query.assignedWaiterId = waiterId;
-    }
+    const conditions = [
+      eq(order_details.restaurant_id, restaurantId)
+    ];
+
     if (status) {
-      query.status = status;
-    }
-    if (unassignedOnly === 'true') {
-      query.$or = [
-        { assignedWaiterId: null },
-        { assignmentStatus: 'UNASSIGNED' }
-      ];
+      conditions.push(eq(order_details.order_status, status));
+    } else if (type === 'live') {
+      conditions.push(sql`${order_details.order_status} IN ('ORDERED', 'PREPARING', 'READY', 'SERVED')`);
+    } else if (type === 'past') {
+      conditions.push(sql`${order_details.order_status} IN ('COMPLETED', 'CANCELLED', 'PAID')`);
     }
 
-    // Apply safe historical order visibility retention rule based on subscription plan
-    // (Preserves financial/audit records in DB, while respecting plan visibility entitlement)
-    const { getOrderRetentionFilter } = require('../middlewares/entitlementMiddleware');
-    const retentionCutoff = getOrderRetentionFilter(req.tenantRegistry?.selectedPlan);
-    if (retentionCutoff) {
-      query.createdAt = { ...(query.createdAt || {}), $gte: retentionCutoff };
+    if (date) {
+      const d = new Date(date);
+      const start = new Date(d);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(d);
+      end.setHours(23, 59, 59, 999);
+      conditions.push(and(gte(order_details.date, start), lte(order_details.date, end)));
+    } else if (startDate && endDate) {
+      conditions.push(and(gte(order_details.date, new Date(startDate)), lte(order_details.date, new Date(endDate))));
     }
-    
-    const orders = await Order.find(query)
-      .populate('assignedWaiterId', 'name email phone shiftStatus availabilityStatus')
-      .populate('tableId', 'tableNumber tableName section isOccupied primaryWaiterId')
-      .sort({ createdAt: -1 })
+
+    // If caller is STAFF (waiter), check if they have specific table assignments
+    if (req.user.userType === 'STAFF') {
+      const myAssignments = await db.select().from(tables_assignment).where(
+        and(
+          eq(tables_assignment.restaurant_id, restaurantId),
+          eq(tables_assignment.staff_id, req.user.id),
+          eq(tables_assignment.assignment_status, 'ASSIGNED')
+        )
+      );
+      if (myAssignments.length > 0) {
+        const assignedTableIds = myAssignments.map(a => a.table_id);
+        conditions.push(or(
+          inArray(order_details.table_id, assignedTableIds),
+          isNull(order_details.table_id)
+        ));
+      }
+    }
+
+    const orderRows = await db.select().from(order_details)
+      .where(and(...conditions))
+      .orderBy(desc(order_details.date))
       .limit(100);
-    
+
+    const orders = [];
+    for (const ord of orderRows) {
+      const items = await db.select().from(order_items).where(
+        eq(order_items.order_id, ord.id)
+      );
+
+      const [tbl] = ord.table_id ? await db.select().from(tables).where(eq(tables.id, ord.table_id)).limit(1) : [null];
+      const [lead] = ord.lead_id ? await db.select().from(leads).where(eq(leads.id, ord.lead_id)).limit(1) : [null];
+
+      let assignedWaiter = null;
+      if (ord.table_id) {
+        const [asgn] = await db.select().from(tables_assignment).where(
+          and(
+            eq(tables_assignment.table_id, ord.table_id),
+            eq(tables_assignment.assignment_status, 'ASSIGNED')
+          )
+        ).limit(1);
+
+        if (asgn) {
+          const [w] = await db.select().from(users).where(eq(users.id, asgn.staff_id)).limit(1);
+          if (w) {
+            assignedWaiter = {
+              _id: w.id,
+              id: w.id,
+              name: w.name,
+              email: w.email,
+              phone: w.phone_number
+            };
+          }
+        }
+      }
+
+      const totalCalculated = items.reduce((sum, oi) => sum + parseFloat(oi.total || 0), 0);
+
+      orders.push({
+        _id: ord.id,
+        id: ord.id,
+        orderNumber: `ORD-${ord.id.slice(0, 8).toUpperCase()}`,
+        restaurantId: ord.restaurant_id,
+        tableId: ord.table_id ? {
+          _id: ord.table_id,
+          id: ord.table_id,
+          tableNumber: tbl?.table_code || 'Table',
+          tableName: `Table ${tbl?.table_code || ''}`,
+          section: 'Main',
+          isOccupied: true
+        } : null,
+        tableNumber: tbl?.table_code || 'Takeaway',
+        customerName: lead?.name || 'Guest',
+        customerPhone: lead?.number || null,
+        items: items.map(oi => ({
+          _id: oi.id,
+          id: oi.id,
+          itemName: oi.item_name,
+          quantity: oi.quantity,
+          unitPrice: parseFloat(oi.unit_price),
+          subtotal: parseFloat(oi.total)
+        })),
+        subtotal: totalCalculated,
+        taxPercent: 0,
+        taxAmount: 0,
+        discount: 0,
+        total: totalCalculated,
+        totalAmount: totalCalculated,
+        status: ord.order_status,
+        paymentStatus: ['COMPLETED', 'PAID'].includes(ord.order_status) ? 'PAID' : 'PENDING',
+        assignedWaiterId: assignedWaiter,
+        createdAt: ord.date || ord.createdat,
+        updatedAt: ord.updatedat
+      });
+    }
+
     res.status(200).json({ success: true, data: { orders } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching orders:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -354,128 +731,106 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const { status, paymentStatus, isReadByWaiter } = req.body;
-    
-    const Order = req.tenantDb.model('Order');
-    const Table = req.tenantDb.model('Table');
+    const { status } = req.body;
 
-    const updateData = {};
-    if (status) updateData.status = status;
-    if (paymentStatus) updateData.paymentStatus = paymentStatus;
-    if (isReadByWaiter !== undefined) {
-      updateData.isReadByWaiter = isReadByWaiter;
-    } else if (status === 'READ') {
-      updateData.isReadByWaiter = true;
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Status is required.' });
     }
-    
-    const order = await Order.findOneAndUpdate(
-      { _id: id, restaurantId },
-      updateData,
-      { new: true }
-    );
-    
+
+    const [order] = await db.select().from(order_details).where(
+      and(
+        eq(order_details.id, id),
+        eq(order_details.restaurant_id, restaurantId)
+      )
+    ).limit(1);
+
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
-    
-    let tableUpdated = null;
-    // When order is COMPLETED or CANCELLED, free up the table if no other active orders exist on that table
-    if (status === 'COMPLETED' || status === 'CANCELLED') {
-      const activeOrdersCount = await Order.countDocuments({
-        restaurantId,
-        tableId: order.tableId,
-        _id: { $ne: order._id },
-        status: { $nin: ['COMPLETED', 'CANCELLED', 'PAID'] }
-      });
 
-      if (activeOrdersCount === 0) {
-        tableUpdated = await Table.findByIdAndUpdate(
-          order.tableId,
-          { isOccupied: false, lastOrderId: null },
-          { new: true }
-        );
+    // Permitted order status transitions
+    const currentStatus = order.order_status;
+    const validTransitions = {
+      'NO_ORDER': ['ORDERED', 'CANCELLED'],
+      'ORDERED': ['PREPARING', 'CANCELLED'],
+      'PREPARING': ['READY', 'CANCELLED'],
+      'READY': ['SERVED', 'CANCELLED'],
+      'SERVED': ['COMPLETED', 'PAID'],
+      'COMPLETED': ['PAID'],
+      'CANCELLED': [],
+      'PAID': []
+    };
+
+    const allowed = validTransitions[currentStatus] || [];
+    if (req.user.userType === 'STAFF') {
+      if (!allowed.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid order status transition from ${currentStatus} to ${status}.`
+        });
       }
-    } else if (status === 'READ' || status === 'PREPARING' || status === 'CONFIRMED') {
-      // Ensure table is marked occupied while order is active
-      tableUpdated = await Table.findByIdAndUpdate(
-        order.tableId,
-        { isOccupied: true, lastOrderId: order._id },
-        { new: true }
-      );
     }
 
-    // Emit socket event for order update
+    const [updatedOrder] = await db.update(order_details).set({
+      order_status: status,
+      updatedat: new Date()
+    }).where(eq(order_details.id, id)).returning();
+
     const io = req.app.get('io');
     if (io) {
-      io.to(`kitchen:${restaurantId}`).emit('order_updated', order);
-      io.to(`waiter:${restaurantId}`).emit('order_updated', order);
-      io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
-      io.to(`order:${order._id.toString()}`).emit('order_updated', order);
-      if (order.tableId) {
-        io.to(`table:${order.tableId.toString()}`).emit('order_updated', order);
-      }
-
-      if (tableUpdated) {
-        io.to(`restaurant:${restaurantId}`).emit('table_updated', tableUpdated);
-        io.to(`waiter:${restaurantId}`).emit('table_updated', tableUpdated);
-      }
+      const payload = {
+        _id: updatedOrder.id,
+        id: updatedOrder.id,
+        status: updatedOrder.order_status,
+        restaurantId,
+        updatedAt: updatedOrder.updatedat
+      };
+      io.to(`kitchen:${restaurantId}`).emit('order_updated', payload);
+      io.to(`waiter:${restaurantId}`).emit('order_updated', payload);
+      io.to(`restaurant:${restaurantId}`).emit('order_updated', payload);
     }
-    
-    res.status(200).json({ success: true, data: { order, table: tableUpdated } });
+
+    res.status(200).json({ success: true, data: { order: updatedOrder } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error updating order status:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
-/**
- * PATCH /api/restaurant/orders/:id/accept
- * Waiter accepts assigned order
- */
 exports.acceptOrder = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const WaiterAssignmentService = require('../services/waiterAssignmentService');
 
     const order = await WaiterAssignmentService.acceptOrder(
-      req.tenantDb,
+      null,
       restaurantId,
       id,
-      req.user._id
+      req.user.id || req.user._id
     );
 
     const io = req.app.get('io');
     if (io) {
       io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
       io.to(`waiter:${restaurantId}`).emit('order_updated', order);
-      io.to(`order:${order._id.toString()}`).emit('order_updated', order);
-      if (order.tableId) {
-        io.to(`table:${order.tableId.toString()}`).emit('order_updated', order);
-      }
     }
 
     res.status(200).json({ success: true, message: 'Order accepted successfully', data: { order } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error accepting order:', error);
     res.status(400).json({ success: false, message: error.message || 'Failed to accept order' });
   }
 };
 
-/**
- * PATCH /api/restaurant/orders/:id/reject
- * Waiter rejects assigned order (triggers auto-reassign or escalation)
- */
 exports.rejectOrder = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
     const { reason } = req.body;
-    const WaiterAssignmentService = require('../services/waiterAssignmentService');
 
     const result = await WaiterAssignmentService.rejectOrder(
-      req.tenantDb,
+      null,
       restaurantId,
       id,
-      req.user._id,
+      req.user.id || req.user._id,
       reason || 'Waiter rejected'
     );
 
@@ -483,258 +838,149 @@ exports.rejectOrder = async (req, res) => {
     if (io) {
       io.to(`restaurant:${restaurantId}`).emit('order_updated', result.order);
       io.to(`waiter:${restaurantId}`).emit('order_updated', result.order);
-
-      if (result.reassignedTo) {
-        io.to(`waiter_user:${result.reassignedTo._id.toString()}`).emit('assigned_order', {
-          id: result.order._id,
-          orderNumber: result.order.orderNumber,
-          tableNumber: result.order.tableNumber,
-          items: result.order.items,
-          total: result.order.total,
-          assignmentType: 'OVERFLOW',
-          assignmentStatus: 'PENDING_ACCEPTANCE'
-        });
-      } else {
-        io.to(`restaurant:${restaurantId}`).emit('unassigned_order_alert', {
-          orderNumber: result.order.orderNumber,
-          tableNumber: result.order.tableNumber,
-          reason: 'All waiters rejected or unavailable'
-        });
-      }
     }
 
     res.status(200).json({ success: true, message: 'Order rejected and processed', data: result });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error rejecting order:', error);
     res.status(400).json({ success: false, message: error.message || 'Failed to reject order' });
   }
 };
 
-/**
- * PATCH /api/restaurant/orders/:id/reassign
- * Manager or Admin manually reassigns order to a waiter
- */
 exports.reassignOrder = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const { waiterId, reason } = req.body;
+    const { waiterId } = req.body;
 
-    const Order = req.tenantDb.model('Order');
-    const User = req.tenantDb.model('User');
-    const AssignmentEvent = req.tenantDb.model('AssignmentEvent');
+    const [order] = await db.select().from(order_details).where(
+      and(
+        eq(order_details.id, id),
+        eq(order_details.restaurant_id, restaurantId)
+      )
+    ).limit(1);
 
-    const order = await Order.findOne({ _id: id, restaurantId });
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     let newWaiter = null;
     if (waiterId) {
-      newWaiter = await User.findOne({ _id: waiterId, restaurantId, role: 'RESTAURANT_STAFF' });
-      if (!newWaiter) return res.status(400).json({ success: false, message: 'Target waiter not found in this restaurant' });
+      const [w] = await db.select().from(users).where(
+        and(
+          eq(users.id, waiterId),
+          eq(users.restaurant_id, restaurantId),
+          eq(users.is_deleted, false)
+        )
+      ).limit(1);
+      if (!w) return res.status(400).json({ success: false, message: 'Target waiter not found in this restaurant' });
+      newWaiter = w;
     }
 
-    const previousWaiterId = order.assignedWaiterId;
-    order.assignedWaiterId = waiterId || null;
-    order.assignmentType = 'MANUAL_REASSIGN';
-    order.assignmentStatus = waiterId ? 'PENDING_ACCEPTANCE' : 'UNASSIGNED';
-    order.assignedAt = waiterId ? new Date() : null;
-    order.assignmentTimeoutAt = waiterId ? new Date(Date.now() + 3 * 60000) : null;
-    await order.save();
-
-    await AssignmentEvent.create({
-      restaurantId,
-      targetType: 'ORDER',
-      targetId: order._id,
-      tableId: order.tableId,
-      tableNumber: order.tableNumber,
-      previousWaiterId,
-      newWaiterId: waiterId || null,
-      assignmentMode: 'MANUAL',
-      action: waiterId ? 'REASSIGNED' : 'UNASSIGNED',
-      actorId: req.user._id,
-      actorRole: req.user.role,
-      reason: reason || 'Manager manual reassignment'
-    }).catch(err => console.error(err));
+    await db.insert(assignment_events).values({
+      restaurant_id: restaurantId,
+      assignment_id: order.id,
+      staff_id: waiterId || null,
+      event_type: waiterId ? 'MANUAL_REASSIGN' : 'UNASSIGNED',
+      details: {
+        orderId: order.id,
+        waiterName: newWaiter?.name || null
+      }
+    });
 
     const io = req.app.get('io');
     if (io) {
       io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
       io.to(`waiter:${restaurantId}`).emit('order_updated', order);
-      if (waiterId) {
-        io.to(`waiter_user:${waiterId.toString()}`).emit('assigned_order', {
-          id: order._id,
-          orderNumber: order.orderNumber,
-          tableNumber: order.tableNumber,
-          items: order.items,
-          total: order.total,
-          assignmentType: 'MANUAL_REASSIGN',
-          assignmentStatus: 'PENDING_ACCEPTANCE'
-        });
-      }
     }
 
     res.status(200).json({ success: true, message: 'Order reassigned successfully', data: { order } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error reassigning order:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
-/**
- * GET /api/restaurant/assignment/settings
- * Fetch restaurant assignment mode & scoring configurations
- */
+// ──────────────────────────────────────────
+//  ASSIGNMENT & WORKLOAD
+// ──────────────────────────────────────────
+
 exports.getAssignmentSettings = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const WaiterAssignmentService = require('../services/waiterAssignmentService');
-    const settings = await WaiterAssignmentService.getSettings(req.tenantDb, restaurantId);
+    const settings = await WaiterAssignmentService.getSettings(null, restaurantId);
     res.status(200).json({ success: true, data: { settings } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching settings:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
-/**
- * PUT /api/restaurant/assignment/settings
- * Update restaurant assignment configuration
- */
 exports.updateAssignmentSettings = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const RestaurantProfile = req.tenantDb.model('RestaurantProfile');
-    const profile = await RestaurantProfile.findOne({ restaurantId });
-    if (!profile) return res.status(404).json({ success: false, message: 'Profile not found' });
+    const { mode } = req.body;
 
-    profile.assignmentSettings = {
-      ...(profile.assignmentSettings || {}),
-      ...req.body
-    };
-    await profile.save();
+    if (mode && (mode === 'MANUAL' || mode === 'DYNAMIC')) {
+      await db.update(restaurants).set({
+        table_allocation_mode: mode,
+        updatedat: new Date()
+      }).where(eq(restaurants.id, restaurantId));
+    }
 
-    res.status(200).json({ success: true, message: 'Assignment settings updated', data: { settings: profile.assignmentSettings } });
+    const settings = await WaiterAssignmentService.getSettings(null, restaurantId);
+    res.status(200).json({ success: true, message: 'Assignment settings updated', data: { settings } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error updating settings:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
-/**
- * GET /api/restaurant/assignment/history
- * Audit log of all table and order assignment events
- */
 exports.getAssignmentHistory = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const AssignmentEvent = req.tenantDb.model('AssignmentEvent');
-    const events = await AssignmentEvent.find({ restaurantId })
-      .populate('previousWaiterId', 'name')
-      .populate('newWaiterId', 'name')
-      .populate('actorId', 'name role')
-      .sort({ createdAt: -1 })
-      .limit(100);
+    const events = await db.select().from(assignment_events).where(
+      eq(assignment_events.restaurant_id, restaurantId)
+    ).orderBy(desc(assignment_events.createdat)).limit(100);
 
     res.status(200).json({ success: true, data: { events } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching history:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
-/**
- * GET /api/restaurant/service-requests
- * Fetch active and recent service requests
- */
-exports.getServiceRequests = async (req, res) => {
-  try {
-    const restaurantId = req.user.restaurantId;
-    const ServiceRequest = req.tenantDb.model('ServiceRequest');
-    const requests = await ServiceRequest.find({ restaurantId })
-      .populate('assignedWaiterId', 'name')
-      .populate('tableId', 'tableNumber tableName section')
-      .sort({ createdAt: -1 })
-      .limit(50);
-
-    res.status(200).json({ success: true, data: { serviceRequests: requests } });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
-};
-
-/**
- * PATCH /api/restaurant/service-requests/:id/resolve
- * Mark a service request as acknowledged or resolved
- */
-exports.resolveServiceRequest = async (req, res) => {
-  try {
-    const restaurantId = req.user.restaurantId;
-    const { id } = req.params;
-    const { status } = req.body; // 'ACKNOWLEDGED' or 'RESOLVED'
-
-    const ServiceRequest = req.tenantDb.model('ServiceRequest');
-    const request = await ServiceRequest.findOne({ _id: id, restaurantId });
-    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
-
-    request.status = status || 'RESOLVED';
-    if (status === 'ACKNOWLEDGED') {
-      request.acknowledgedAt = new Date();
-    } else if (status === 'RESOLVED') {
-      request.resolvedAt = new Date();
-      request.resolvedBy = req.user._id;
-    }
-    await request.save();
-
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`restaurant:${restaurantId}`).emit('service_request_updated', request);
-      io.to(`waiter:${restaurantId}`).emit('service_request_updated', request);
-    }
-
-    res.status(200).json({ success: true, message: `Service request marked as ${request.status}`, data: { serviceRequest: request } });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
-};
-
-/**
- * GET /api/restaurant/waiters/workload
- * Admin & Waiter view of live waiter workloads, shifts, and capacities
- */
 exports.getWaitersWorkload = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const User = req.tenantDb.model('User');
-    const WaiterAssignmentService = require('../services/waiterAssignmentService');
-    const settings = await WaiterAssignmentService.getSettings(req.tenantDb, restaurantId);
+    const settings = await WaiterAssignmentService.getSettings(null, restaurantId);
 
-    const waiters = await User.find({
-      restaurantId,
-      role: 'RESTAURANT_STAFF'
-    }).populate('assignedTables', 'tableNumber tableName section');
+    const waiters = await db.select().from(users).where(
+      and(
+        eq(users.restaurant_id, restaurantId),
+        eq(users.user_type, 'STAFF'),
+        eq(users.is_deleted, false)
+      )
+    );
 
     const result = [];
     for (const w of waiters) {
       const { activeOrdersCount, activeRequestsCount, totalWorkload } = await WaiterAssignmentService.getWaiterWorkload(
-        req.tenantDb,
+        null,
         restaurantId,
-        w._id
+        w.id
       );
+
       result.push({
-        _id: w._id,
-        id: w._id,
+        _id: w.id,
+        id: w.id,
         name: w.name,
         email: w.email,
-        phone: w.phone,
-        shiftStatus: w.shiftStatus || 'ON_SHIFT',
-        availabilityStatus: w.availabilityStatus || 'AVAILABLE',
-        acceptingOrders: w.acceptingOrders !== false,
-        workloadCapacity: w.workloadCapacity || settings.defaultCapacity || 5,
-        sections: w.sections || [],
-        assignedTables: w.assignedTables || [],
-        lastAssignedAt: w.lastAssignedAt,
+        phone: w.phone_number,
+        shiftStatus: 'ON_SHIFT',
+        availabilityStatus: 'AVAILABLE',
+        acceptingOrders: true,
+        workloadCapacity: settings.defaultCapacity || 5,
+        sections: [],
+        assignedTables: [],
         activeOrdersCount,
         activeRequestsCount,
         totalWorkload
@@ -743,43 +989,107 @@ exports.getWaitersWorkload = async (req, res) => {
 
     res.status(200).json({ success: true, data: { waiters: result } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching workload:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
-/**
- * PATCH /api/restaurant/waiters/my-availability
- * Allows a waiter to toggle their own shift or availability
- */
 exports.updateMyAvailability = async (req, res) => {
   try {
-    const restaurantId = req.user.restaurantId;
-    const User = req.tenantDb.model('User');
-    const { shiftStatus, availabilityStatus, acceptingOrders } = req.body;
+    const userId = req.user.id || req.user._id;
+    const [user] = await db.select().from(users).where(
+      and(eq(users.id, userId), eq(users.is_deleted, false))
+    ).limit(1);
 
-    const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    if (shiftStatus !== undefined) user.shiftStatus = shiftStatus;
-    if (availabilityStatus !== undefined) user.availabilityStatus = availabilityStatus;
-    if (acceptingOrders !== undefined) user.acceptingOrders = acceptingOrders;
-    await user.save();
+    res.status(200).json({
+      success: true,
+      message: 'Availability updated',
+      data: {
+        user: {
+          _id: user.id,
+          name: user.name,
+          shiftStatus: req.body.shiftStatus || 'ON_SHIFT',
+          availabilityStatus: req.body.availabilityStatus || 'AVAILABLE',
+          acceptingOrders: req.body.acceptingOrders !== false
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[RestaurantController] Error updating availability:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
 
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`restaurant:${restaurantId}`).emit('waiter_status_updated', {
-        waiterId: user._id,
-        name: user.name,
-        shiftStatus: user.shiftStatus,
-        availabilityStatus: user.availabilityStatus,
-        acceptingOrders: user.acceptingOrders
+// ──────────────────────────────────────────
+//  SERVICE REQUESTS
+// ──────────────────────────────────────────
+
+exports.getServiceRequests = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const requests = await db.select().from(service_requests).where(
+      eq(service_requests.restaurant_id, restaurantId)
+    ).orderBy(desc(service_requests.createdat)).limit(50);
+
+    const formatted = [];
+    for (const reqItem of requests) {
+      const [table] = reqItem.table_id ? await db.select().from(tables).where(eq(tables.id, reqItem.table_id)).limit(1) : [null];
+
+      formatted.push({
+        _id: reqItem.id,
+        id: reqItem.id,
+        restaurantId: reqItem.restaurant_id,
+        tableId: reqItem.table_id ? {
+          _id: reqItem.table_id,
+          id: reqItem.table_id,
+          tableNumber: table?.table_code || 'Table',
+          tableName: table?.table_code || 'Table',
+          section: 'Main'
+        } : null,
+        type: reqItem.request_type,
+        status: reqItem.request_status,
+        note: reqItem.details?.note || '',
+        createdAt: reqItem.createdat,
+        updatedAt: reqItem.updatedat
       });
     }
 
-    res.status(200).json({ success: true, message: 'Availability updated', data: { user } });
+    res.status(200).json({ success: true, data: { serviceRequests: formatted } });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching service requests:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+exports.resolveServiceRequest = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const [updated] = await db.update(service_requests).set({
+      request_status: status || 'RESOLVED',
+      updatedat: new Date()
+    }).where(
+      and(
+        eq(service_requests.id, id),
+        eq(service_requests.restaurant_id, restaurantId)
+      )
+    ).returning();
+
+    if (!updated) return res.status(404).json({ success: false, message: 'Request not found' });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`restaurant:${restaurantId}`).emit('service_request_updated', updated);
+      io.to(`waiter:${restaurantId}`).emit('service_request_updated', updated);
+    }
+
+    res.status(200).json({ success: true, message: `Service request marked as ${updated.request_status}`, data: { serviceRequest: updated } });
+  } catch (error) {
+    console.error('[RestaurantController] Error resolving service request:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -791,14 +1101,33 @@ exports.updateMyAvailability = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const RestaurantProfile = req.tenantDb.model('RestaurantProfile');
-    const profile = await RestaurantProfile.findOne({ restaurantId });
-    if (!profile) {
+    const [restaurant] = await db.select().from(restaurants).where(
+      and(eq(restaurants.id, restaurantId), eq(restaurants.is_deleted, false))
+    ).limit(1);
+
+    if (!restaurant) {
       return res.status(404).json({ success: false, message: 'Profile not found' });
     }
-    res.status(200).json({ success: true, data: { profile } });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        profile: {
+          _id: restaurant.id,
+          id: restaurant.id,
+          restaurantId: restaurant.id,
+          name: restaurant.restaurant_name || restaurant.name,
+          subtitle: '',
+          phone: restaurant.phone_number,
+          address: restaurant.address,
+          isActive: restaurant.restaurant_status === 'ACTIVE',
+          googleReviewLink: null,
+          taxInfo: { taxPercentage: 0 }
+        }
+      }
+    });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching profile:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -806,34 +1135,43 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const { name, subtitle, googleReviewLink } = req.body;
-    const RestaurantProfile = req.tenantDb.model('RestaurantProfile');
-    
-    const profile = await RestaurantProfile.findOne({ restaurantId });
-    if (!profile) {
+    const { name, phone, address } = req.body;
+
+    const updateFields = {
+      updatedat: new Date()
+    };
+    if (name) {
+      updateFields.restaurant_name = name.trim();
+      updateFields.name = name.trim();
+    }
+    if (phone) updateFields.phone_number = phone.trim();
+    if (address) updateFields.address = address;
+
+    const [restaurant] = await db.update(restaurants).set(updateFields).where(
+      and(eq(restaurants.id, restaurantId), eq(restaurants.is_deleted, false))
+    ).returning();
+
+    if (!restaurant) {
       return res.status(404).json({ success: false, message: 'Profile not found' });
     }
 
-    if (subtitle !== undefined && subtitle.trim() !== '') {
-      const { hasEntitlement } = require('../config/plans');
-      const isAllowed = hasEntitlement(req.tenantRegistry?.selectedPlan, 'restaurantBranding', 'customizable');
-      if (!isAllowed) {
-        return res.status(403).json({
-          success: false,
-          code: 'FEATURE_NOT_INCLUDED',
-          message: 'Customizable branding is available on Growth, Business, and Pro plans.'
-        });
+    res.status(200).json({
+      success: true,
+      data: {
+        profile: {
+          _id: restaurant.id,
+          id: restaurant.id,
+          restaurantId: restaurant.id,
+          name: restaurant.restaurant_name || restaurant.name,
+          subtitle: '',
+          phone: restaurant.phone_number,
+          address: restaurant.address,
+          isActive: restaurant.restaurant_status === 'ACTIVE'
+        }
       }
-    }
-
-    if (name) profile.name = name.trim();
-    if (subtitle !== undefined) profile.subtitle = subtitle.trim();
-    if (googleReviewLink !== undefined) profile.googleReviewLink = googleReviewLink.trim();
-
-    await profile.save();
-    res.status(200).json({ success: true, data: { profile } });
+    });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error updating profile:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -845,48 +1183,46 @@ exports.updateProfile = async (req, res) => {
 exports.getStats = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const Order = req.tenantDb.model('Order');
-    const Table = req.tenantDb.model('Table');
 
-    // Get today's start and end date
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Fetch today's orders
-    const todaysOrders = await Order.find({
-      restaurantId,
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
-    });
+    const todaysOrders = await db.select().from(order_details).where(
+      and(
+        eq(order_details.restaurant_id, restaurantId),
+        gte(order_details.date, startOfDay),
+        lte(order_details.date, endOfDay)
+      )
+    );
 
     const todaysOrdersCount = todaysOrders.length;
-    
-    // Calculate Revenue
-    const revenue = todaysOrders.reduce((sum, order) => {
-      // Only count completed/paid orders if needed, for now let's sum all non-cancelled
-      if (order.status !== 'CANCELLED') {
-        return sum + (order.totalAmount || 0);
-      }
-      return sum;
-    }, 0);
+    let revenue = 0;
+    for (const ord of todaysOrders) {
+      const items = await db.select().from(order_items).where(eq(order_items.order_id, ord.id));
+      const orderTotal = items.reduce((sum, it) => sum + parseFloat(it.total || 0), 0);
+      revenue += orderTotal;
+    }
 
-    // Get active tables
-    const activeTablesCount = await Table.countDocuments({
-      restaurantId,
-      status: 'ACTIVE'
-    });
+    const [activeTablesRow] = await db.select({ count: sql`count(*)` }).from(tables).where(
+      and(
+        eq(tables.restaurant_id, restaurantId),
+        eq(tables.table_status, 'ACTIVE'),
+        eq(tables.is_deleted, false)
+      )
+    );
 
     res.status(200).json({
       success: true,
       data: {
         todaysOrders: todaysOrdersCount,
-        revenue: revenue,
-        activeTables: activeTablesCount
+        revenue: parseFloat(revenue.toFixed(2)),
+        activeTables: parseInt(activeTablesRow?.count || 0, 10)
       }
     });
   } catch (error) {
-    console.error('Error fetching stats:', error);
+    console.error('[RestaurantController] Error fetching stats:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -895,110 +1231,186 @@ exports.getStats = async (req, res) => {
 //  SUBSCRIPTION
 // ──────────────────────────────────────────
 
-const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
-const SubscriptionService = require('../services/SubscriptionService');
-const { getPlan, getPublicPlans } = require('../config/plans');
-
 exports.getSubscription = async (req, res) => {
   try {
-    const registry = req.tenantRegistry;
-    if (!registry) return res.status(404).json({ success: false, message: 'Registry not found' });
-    
-    let remainingDays = 0;
-    if (registry.subscriptionEndDate) {
-      const diff = new Date(registry.subscriptionEndDate) - new Date();
-      remainingDays = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    const restaurantId = req.user.restaurantId;
+    const [restaurant] = await db.select().from(restaurants).where(
+      and(eq(restaurants.id, restaurantId), eq(restaurants.is_deleted, false))
+    ).limit(1);
+
+    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found' });
+
+    let currentPlan = null;
+    if (restaurant.plan_id) {
+      const [p] = await db.select().from(plans).where(eq(plans.id, restaurant.plan_id)).limit(1);
+      if (p) currentPlan = p;
     }
 
-    const canonicalPlan = getPlan(registry.selectedPlan) || getPlan('STARTER');
-    const usageAndLimits = await SubscriptionService.getUsageAndLimits(req.tenantDb, registry);
-    const platformSub = await SubscriptionService.getSubscriptionForRestaurant(registry.restaurantId, registry.subdomain);
+    const canonicalPlan = currentPlan
+      ? {
+          planId: currentPlan.name.toUpperCase(),
+          name: currentPlan.name,
+          limits: currentPlan.configuration?.limits || { maxTables: 10, maxMenuItems: 50, maxStaff: 3 },
+          features: currentPlan.configuration?.features || [],
+          displayFeatures: currentPlan.configuration?.displayFeatures || []
+        }
+      : (getPlan(restaurant.plan_id) || getPlan('STARTER'));
 
-    res.status(200).json({ 
-      success: true, 
+    const usageAndLimits = await SubscriptionService.getUsageAndLimits(null, {
+      restaurantId: restaurant.id,
+      selectedPlan: canonicalPlan.planId
+    });
+
+    // Check for pending plan change requests
+    const [pendingRequest] = await db.select().from(plan_requests).where(
+      and(
+        eq(plan_requests.restaurant_id, restaurantId),
+        eq(plan_requests.status, 'PENDING')
+      )
+    ).orderBy(desc(plan_requests.createdat)).limit(1);
+
+    let pendingReqData = null;
+    if (pendingRequest) {
+      const [reqPlan] = await db.select().from(plans).where(eq(plans.id, pendingRequest.plan_id)).limit(1);
+      pendingReqData = {
+        _id: pendingRequest.id,
+        id: pendingRequest.id,
+        plan: reqPlan?.name || 'PLAN',
+        billingCycle: pendingRequest.billing_cycle,
+        status: pendingRequest.status,
+        createdAt: pendingRequest.createdat
+      };
+    }
+
+    // Fetch active plans available in system
+    const availablePlansList = await db.select().from(plans).where(eq(plans.status, 'ACTIVE')).orderBy(plans.display_order);
+
+    res.status(200).json({
+      success: true,
       data: {
         plan: canonicalPlan.planId,
         planName: canonicalPlan.name,
-        billingCycle: registry.billingCycle || 'monthly',
-        status: registry.subscriptionStatus,
-        startDate: registry.subscriptionStartDate,
-        endDate: registry.subscriptionEndDate,
-        remainingDays,
-        lastPaymentAt: registry.lastPaymentAt,
-        renewalHistory: registry.renewalHistory,
-        renewalRequest: registry.renewalRequest,
+        billingCycle: 'monthly',
+        status: restaurant.restaurant_status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
+        startDate: restaurant.createdat,
+        endDate: null,
+        remainingDays: 365,
         limits: canonicalPlan.limits,
         features: canonicalPlan.features,
         displayFeatures: canonicalPlan.displayFeatures,
         usage: usageAndLimits.usage,
         capacityRemaining: usageAndLimits.capacityRemaining,
-        scheduledChange: platformSub?.scheduledChange || null
-      } 
+        renewalRequest: pendingReqData,
+        availablePlans: availablePlansList.map(p => ({
+          _id: p.id,
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          billingPeriod: p.billing_period,
+          configuration: p.configuration
+        }))
+      }
     });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error fetching subscription:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
 exports.renewSubscription = async (req, res) => {
   try {
-    const { plan, billingCycle = 'monthly' } = req.body;
-    
-    const registry = req.tenantRegistry;
-    if (!registry) return res.status(404).json({ success: false, message: 'Registry not found' });
+    const { plan, planId, billingCycle = 'monthly' } = req.body;
+    const restaurantId = req.user.restaurantId;
 
-    // Validate plan against canonical plans
-    const targetPlan = getPlan(plan);
+    let targetPlan = null;
+    if (planId) {
+      const [p] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
+      if (p) targetPlan = p;
+    }
+    if (!targetPlan && plan) {
+      const [p] = await db.select().from(plans).where(
+        eq(sql`LOWER(${plans.name})`, String(plan).trim().toLowerCase())
+      ).limit(1);
+      if (p) targetPlan = p;
+    }
+
     if (!targetPlan) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid plan selected. Choose from Starter, Growth, Business, or Pro.' 
-      });
+      const fallback = getPlan(plan);
+      if (fallback) {
+        const [existingP] = await db.select().from(plans).where(
+          eq(sql`LOWER(${plans.name})`, fallback.name.toLowerCase())
+        ).limit(1);
+        if (existingP) {
+          targetPlan = existingP;
+        } else {
+          const [inserted] = await db.insert(plans).values({
+            name: fallback.name,
+            description: fallback.description || '',
+            price: fallback.price || '0',
+            status: 'ACTIVE',
+            configuration: { limits: fallback.limits, features: fallback.features }
+          }).returning();
+          targetPlan = inserted;
+        }
+      }
     }
 
-    if (registry.renewalRequest && registry.renewalRequest.status === 'PENDING') {
-      return res.status(400).json({ success: false, message: 'A renewal or plan change request is already pending review.' });
-    }
-
-    // Downgrade check: check if current usage exceeds target plan limits
-    const { usage } = await SubscriptionService.getUsageAndLimits(req.tenantDb, registry);
-    const violations = [];
-    if (targetPlan.limits.maxTables !== null && usage.tables > targetPlan.limits.maxTables) {
-      violations.push(`Tables: current ${usage.tables} exceeds plan limit ${targetPlan.limits.maxTables}`);
-    }
-    if (targetPlan.limits.maxMenuItems !== null && usage.menuItems > targetPlan.limits.maxMenuItems) {
-      violations.push(`Menu items: current ${usage.menuItems} exceeds plan limit ${targetPlan.limits.maxMenuItems}`);
-    }
-    if (targetPlan.limits.maxStaffAccounts !== null && usage.staffAccounts > targetPlan.limits.maxStaffAccounts) {
-      violations.push(`Staff accounts: current ${usage.staffAccounts} exceeds plan limit ${targetPlan.limits.maxStaffAccounts}`);
-    }
-
-    if (violations.length > 0) {
+    if (!targetPlan) {
       return res.status(400).json({
         success: false,
-        code: 'DOWNGRADE_LIMIT_EXCEEDED',
-        message: `Cannot switch to ${targetPlan.name} plan because current usage exceeds limits: ${violations.join(', ')}. Please adjust resources before downgrading.`,
-        violations
+        message: 'Invalid plan selected. Choose from Starter, Growth, Business, or Pro.'
       });
     }
 
-    const now = new Date();
-    registry.renewalRequest = {
-      plan: targetPlan.planId,
+    // Check if there is already a PENDING request
+    const [existingPending] = await db.select().from(plan_requests).where(
+      and(
+        eq(plan_requests.restaurant_id, restaurantId),
+        eq(plan_requests.status, 'PENDING')
+      )
+    ).limit(1);
+
+    if (existingPending) {
+      return res.status(409).json({
+        success: false,
+        message: 'You already have a pending plan change request. Please wait for system admin review.'
+      });
+    }
+
+    // Insert into plan_requests - do NOT mutate restaurants.plan_id directly
+    const [newRequest] = await db.insert(plan_requests).values({
+      restaurant_id: restaurantId,
+      plan_id: targetPlan.id,
+      billing_cycle: billingCycle,
       status: 'PENDING',
-      requestedAt: now
-    };
+      requested_by: req.user.id
+    }).returning();
 
-    await registry.save();
+    await db.insert(audit_log).values({
+      restaurant_id: restaurantId,
+      user_id: req.user.id,
+      action: 'PLAN_CHANGE_REQUESTED',
+      entity_type: 'PLAN_REQUEST',
+      entity_id: newRequest.id,
+      details: {
+        planId: targetPlan.id,
+        planName: targetPlan.name,
+        billingCycle,
+        requestedAt: new Date()
+      }
+    });
 
-    res.status(200).json({ 
-      success: true, 
-      message: `Request for ${targetPlan.name} plan (${billingCycle}) sent successfully. Pending review/activation.`, 
-      data: { renewalRequest: registry.renewalRequest, plan: targetPlan }
+    res.status(200).json({
+      success: true,
+      message: `Request for ${targetPlan.name} plan (${billingCycle}) sent successfully. Pending platform admin approval.`,
+      data: {
+        request: newRequest,
+        plan: targetPlan
+      }
     });
   } catch (error) {
-    console.error(error);
+    console.error('[RestaurantController] Error renewing subscription:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };

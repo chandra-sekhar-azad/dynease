@@ -4,6 +4,7 @@ import {
   Megaphone, Phone, Mail, Building2, User, MessageSquare, Clock, MapPin, 
   ArrowUpRight, Search, Filter, MessageCircle, AlertCircle
 } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 const DEFAULT_BANNER_IMAGE = 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
 
@@ -37,7 +38,7 @@ export default function AdsManagement() {
 
   const fetchAds = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/ads`);
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/ads`);
       const data = await res.json();
       if (data.success) setAds(data.data.ads || []);
     } catch (err) {
@@ -48,7 +49,7 @@ export default function AdsManagement() {
   const fetchInquiries = async () => {
     let serverInquiries = [];
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/ad-inquiries`);
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/ad-inquiries`);
       const data = await res.json();
       if (data.success && data.data?.inquiries) {
         serverInquiries = data.data.inquiries;
@@ -95,9 +96,8 @@ export default function AdsManagement() {
 
     // 3. Update server API
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/admin/ad-inquiries/${id}`, {
+      await authFetch(`${import.meta.env.VITE_API_URL}/admin/ad-inquiries/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
     } catch (err) {
@@ -120,7 +120,7 @@ export default function AdsManagement() {
 
     // 3. Update server API
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/admin/ad-inquiries/${id}`, {
+      await authFetch(`${import.meta.env.VITE_API_URL}/admin/ad-inquiries/${id}`, {
         method: 'DELETE'
       });
     } catch (err) {
@@ -192,9 +192,8 @@ export default function AdsManagement() {
       
       const method = isEditing ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
       const data = await res.json();
@@ -214,7 +213,7 @@ export default function AdsManagement() {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this banner?')) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/ads/${id}`, { method: 'DELETE' });
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/ads/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setAds(ads.filter(ad => ad._id !== id));

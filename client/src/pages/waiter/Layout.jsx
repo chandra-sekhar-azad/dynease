@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle, User, LogOut, Menu, X, Bell } from 'lucide-react';
+import { Clock, CheckCircle, User, LogOut, Menu, X, Bell, Settings } from 'lucide-react';
 
 export default function WaiterLayout() {
   const location = useLocation();
@@ -47,6 +47,7 @@ export default function WaiterLayout() {
     { name: 'Live Orders', path: '/waiter', icon: <Bell size={20} /> },
     { name: 'Past Orders', path: '/waiter/past-orders', icon: <CheckCircle size={20} /> },
     { name: 'Profile', path: '/waiter/profile', icon: <User size={20} /> },
+    { name: 'Settings', path: '/waiter/settings', icon: <Settings size={20} /> },
   ];
 
   return (

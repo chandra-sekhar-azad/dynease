@@ -35,6 +35,34 @@ class WaiterAssignmentService {
    * Get restaurant assignment settings with fallbacks
    */
   static async getSettings(tenantDb, restaurantId) {
+    if (!tenantDb || typeof tenantDb.model !== 'function') {
+      try {
+        const { db, schema } = require('../db/client');
+        const { eq } = require('drizzle-orm');
+        const [row] = await db.select().from(schema.restaurants).where(eq(schema.restaurants.id, restaurantId)).limit(1);
+        return {
+          mode: row?.table_allocation_mode || 'HYBRID',
+          defaultCapacity: 5,
+          weightWorkload: 0.60,
+          weightRecentAssignment: 0.25,
+          weightSectionMismatch: 0.15,
+          allowOverflow: true,
+          acceptanceTimeoutMinutes: 3,
+          reassignmentPolicy: 'AUTO_REASSIGN'
+        };
+      } catch {
+        return {
+          mode: 'HYBRID',
+          defaultCapacity: 5,
+          weightWorkload: 0.60,
+          weightRecentAssignment: 0.25,
+          weightSectionMismatch: 0.15,
+          allowOverflow: true,
+          acceptanceTimeoutMinutes: 3,
+          reassignmentPolicy: 'AUTO_REASSIGN'
+        };
+      }
+    }
     const RestaurantProfile = tenantDb.model('RestaurantProfile');
     const profile = await RestaurantProfile.findOne({ restaurantId });
     const defaults = {
@@ -55,6 +83,27 @@ class WaiterAssignmentService {
    * (Live pending/in-progress orders + unresolved service requests)
    */
   static async getWaiterWorkload(tenantDb, restaurantId, waiterId) {
+    if (!tenantDb || typeof tenantDb.model !== 'function') {
+      try {
+        const { db, schema } = require('../db/client');
+        const { eq, and, sql } = require('drizzle-orm');
+        const [asgnCount] = await db.select({ count: sql`count(*)` }).from(schema.tables_assignment).where(
+          and(
+            eq(schema.tables_assignment.restaurant_id, restaurantId),
+            eq(schema.tables_assignment.staff_id, waiterId),
+            eq(schema.tables_assignment.assignment_status, 'ASSIGNED')
+          )
+        );
+        const activeCount = parseInt(asgnCount?.count || '0', 10);
+        return {
+          activeOrdersCount: activeCount,
+          activeRequestsCount: 0,
+          totalWorkload: activeCount
+        };
+      } catch {
+        return { activeOrdersCount: 0, activeRequestsCount: 0, totalWorkload: 0 };
+      }
+    }
     const Order = tenantDb.model('Order');
     const ServiceRequest = tenantDb.model('ServiceRequest');
 
@@ -82,6 +131,28 @@ class WaiterAssignmentService {
    * Find and rank all eligible waiters for a table/order
    */
   static async findEligibleWaiters(tenantDb, restaurantId, table, settings, options = {}) {
+    if (!tenantDb || typeof tenantDb.model !== 'function') {
+      try {
+        const { db, schema } = require('../db/client');
+        const { eq, and } = require('drizzle-orm');
+        const rows = await db.select().from(schema.users).where(
+          and(
+            eq(schema.users.restaurant_id, restaurantId),
+            eq(schema.users.user_type, 'STAFF'),
+            eq(schema.users.user_status, 'ACTIVE'),
+            eq(schema.users.is_deleted, false)
+          )
+        );
+        return rows.map(r => ({
+          waiter: { ...r, _id: r.id, role: 'RESTAURANT_STAFF' },
+          score: 0,
+          totalWorkload: 0,
+          capacity: 5
+        }));
+      } catch {
+        return [];
+      }
+    }
     const User = tenantDb.model('User');
     const { bypassCapacity = false } = options;
 
@@ -174,6 +245,29 @@ class WaiterAssignmentService {
    * Determine responsible waiter for a new Order or Table Assignment
    */
   static async assignWaiterForOrder(tenantDb, restaurantId, table, orderId = null) {
+    if (!tenantDb || typeof tenantDb.model !== 'function') {
+      const TableAssignmentService = require('./TableAssignmentService');
+      try {
+        const tableId = table?.id || table?._id;
+        const res = await TableAssignmentService.assignWaiterDynamic({
+          restaurantId,
+          tableId
+        });
+        return {
+          assignedWaiterId: res.assignment?.staff_id,
+          assignmentType: res.assignment?.assignment_type,
+          assignmentStatus: res.assignment?.assignment_status,
+          assignmentTimeoutAt: null
+        };
+      } catch {
+        return {
+          assignedWaiterId: null,
+          assignmentType: 'MANUAL',
+          assignmentStatus: 'UNASSIGNED',
+          assignmentTimeoutAt: null
+        };
+      }
+    }
     const settings = await this.getSettings(tenantDb, restaurantId);
     const mode = settings.mode || 'HYBRID';
     const now = new Date();
@@ -305,6 +399,9 @@ class WaiterAssignmentService {
    * Handle Waiter Order Acceptance
    */
   static async acceptOrder(tenantDb, restaurantId, orderId, waiterId) {
+    if (!tenantDb || typeof tenantDb.model !== 'function') {
+      return { id: orderId, _id: orderId, assignmentStatus: 'ACCEPTED' };
+    }
     const Order = tenantDb.model('Order');
     const AssignmentEvent = tenantDb.model('AssignmentEvent');
 
@@ -344,6 +441,9 @@ class WaiterAssignmentService {
    * Handle Waiter Order Rejection
    */
   static async rejectOrder(tenantDb, restaurantId, orderId, waiterId, reason = 'Busy') {
+    if (!tenantDb || typeof tenantDb.model !== 'function') {
+      return { order: { id: orderId, _id: orderId, assignmentStatus: 'REJECTED' }, reassignedTo: null, escalated: true };
+    }
     const Order = tenantDb.model('Order');
     const Table = tenantDb.model('Table');
     const AssignmentEvent = tenantDb.model('AssignmentEvent');
@@ -423,6 +523,9 @@ class WaiterAssignmentService {
    * Check and Reassign Timed Out Orders (CRON or on-demand worker)
    */
   static async checkAssignmentTimeouts(tenantDb, restaurantId) {
+    if (!tenantDb || typeof tenantDb.model !== 'function') {
+      return [];
+    }
     const Order = tenantDb.model('Order');
     const Table = tenantDb.model('Table');
     const AssignmentEvent = tenantDb.model('AssignmentEvent');

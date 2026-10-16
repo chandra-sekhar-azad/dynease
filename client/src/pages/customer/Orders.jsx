@@ -61,12 +61,14 @@ export default function Orders() {
 
     try {
       const orderIdsQuery = myOrders.join(',');
+      const savedPhone = localStorage.getItem('customerPhone') || session?.customerPhone || '';
       const params = new URLSearchParams();
       if (orderIdsQuery) params.append('orderIds', orderIdsQuery);
       if (tableId) params.append('tableId', tableId);
+      if (savedPhone) params.append('phone', savedPhone);
 
-      // If we have neither order IDs nor tableId, nothing to query
-      if (!orderIdsQuery && !tableId) {
+      // If we have neither order IDs nor tableId nor phone, nothing to query
+      if (!orderIdsQuery && !tableId && !savedPhone) {
         setOrdersData([]);
         setLoading(false);
         setRefreshing(false);

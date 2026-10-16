@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Store, Users, ShoppingBag, Loader2 } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 export default function Analytics() {
   const [data, setData] = useState(null);
@@ -11,7 +12,7 @@ export default function Analytics() {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/analytics`);
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/analytics`);
       const json = await res.json();
       if (json.success) {
         setData(json.data);

@@ -1,6 +1,8 @@
 const cron = require('node-cron');
-const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
-const whatsapp = require('../utils/whatsapp'); // Assuming whatsapp is available for sending messages
+const { db, schema } = require('../db/client');
+const { eq, and } = require('drizzle-orm');
+const { restaurants } = schema;
+const whatsapp = require('../utils/whatsapp');
 
 // Run every day at midnight (UTC)
 const initSubscriptionJobs = () => {
@@ -8,60 +10,26 @@ const initSubscriptionJobs = () => {
     console.log('[SubscriptionJob] Running daily subscription check...');
     try {
       const now = new Date();
-      // Fetch all non-cancelled, non-suspended restaurants
-      const registries = await RestaurantRegistry.find({
-        status: { $nin: ['SUSPENDED', 'REJECTED'] },
-        subscriptionStatus: { $nin: ['CANCELLED'] }
-      });
+      // Fetch active, non-deleted restaurants
+      const list = await db.select().from(restaurants).where(
+        and(
+          eq(restaurants.is_deleted, false)
+        )
+      );
 
-      for (const registry of registries) {
-        if (!registry.subscriptionEndDate) continue;
+      for (const restaurant of list) {
+        // If restaurant is paused or inactive, skip active reminders
+        if (restaurant.restaurant_status === 'INACTIVE') continue;
 
-        const endDate = new Date(registry.subscriptionEndDate);
-        const diffMs = endDate - now;
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        
-        let needsSave = false;
-
-        // Ensure remindersSent object exists
-        if (!registry.remindersSent) {
-          registry.remindersSent = { sevenDay: false, threeDay: false, oneDay: false, expired: false };
-          needsSave = true;
-        }
-
-        // Expired
-        if (diffDays <= 0) {
-          if (registry.subscriptionStatus !== 'EXPIRED') {
-            registry.subscriptionStatus = 'EXPIRED';
-            needsSave = true;
+        // In PostgreSQL schema, restaurants has deletedat, plan_id, etc.
+        // If plan subscription tracking is active, check expiry
+        if (restaurant.deletedat && new Date(restaurant.deletedat) < now) {
+          if (restaurant.restaurant_status !== 'INACTIVE') {
+            await db.update(restaurants)
+              .set({ restaurant_status: 'INACTIVE', updatedat: new Date() })
+              .where(eq(restaurants.id, restaurant.id));
+            await sendReminder(restaurant, 'EXPIRED', 0);
           }
-          if (!registry.remindersSent.expired) {
-            await sendReminder(registry, 'EXPIRED', diffDays);
-            registry.remindersSent.expired = true;
-            needsSave = true;
-          }
-        } 
-        // 1 Day Reminder
-        else if (diffDays === 1 && !registry.remindersSent.oneDay) {
-          await sendReminder(registry, '1_DAY', diffDays);
-          registry.remindersSent.oneDay = true;
-          needsSave = true;
-        } 
-        // 3 Day Reminder
-        else if (diffDays <= 3 && diffDays > 1 && !registry.remindersSent.threeDay) {
-          await sendReminder(registry, '3_DAYS', diffDays);
-          registry.remindersSent.threeDay = true;
-          needsSave = true;
-        } 
-        // 7 Day Reminder
-        else if (diffDays <= 7 && diffDays > 3 && !registry.remindersSent.sevenDay) {
-          await sendReminder(registry, '7_DAYS', diffDays);
-          registry.remindersSent.sevenDay = true;
-          needsSave = true;
-        }
-
-        if (needsSave) {
-          await registry.save();
         }
       }
       console.log('[SubscriptionJob] Daily check complete.');
@@ -71,32 +39,33 @@ const initSubscriptionJobs = () => {
   });
 };
 
-const sendReminder = async (registry, type, days) => {
-  if (!registry.ownerPhone) return;
+const sendReminder = async (restaurant, type, days) => {
+  const phone = restaurant.phone_number;
+  if (!phone) return;
 
   let message = '';
   switch (type) {
     case '7_DAYS':
-      message = `Hello from Dynease. Your ${registry.selectedPlan} subscription for ${registry.restaurantName} will expire in 7 days. Please login to your dashboard to renew.`;
+      message = `Hello from Dynease. Your subscription for ${restaurant.name} will expire in 7 days. Please login to your dashboard to renew.`;
       break;
     case '3_DAYS':
-      message = `URGENT: Your Dynease subscription for ${registry.restaurantName} expires in ${days} days. Renew soon to avoid interruption of orders!`;
+      message = `URGENT: Your Dynease subscription for ${restaurant.name} expires in ${days} days. Renew soon to avoid interruption of orders!`;
       break;
     case '1_DAY':
-      message = `FINAL NOTICE: Your Dynease subscription for ${registry.restaurantName} expires TOMORROW. Please renew immediately to keep your online menu active.`;
+      message = `FINAL NOTICE: Your Dynease subscription for ${restaurant.name} expires TOMORROW. Please renew immediately to keep your online menu active.`;
       break;
     case 'EXPIRED':
-      message = `Your Dynease subscription for ${registry.restaurantName} has EXPIRED. Online ordering has been disabled. Login to renew and reactivate your services.`;
+      message = `Your Dynease subscription for ${restaurant.name} has EXPIRED. Online ordering has been disabled. Login to renew and reactivate your services.`;
       break;
   }
 
   try {
     if (message) {
-      await whatsapp.sendTextMessage(registry.ownerPhone, message);
-      console.log(`[SubscriptionJob] Sent ${type} reminder to ${registry.restaurantName}`);
+      await whatsapp.sendTextMessage(phone, message);
+      console.log(`[SubscriptionJob] Sent ${type} reminder to ${restaurant.name}`);
     }
   } catch (error) {
-    console.error(`[SubscriptionJob] Failed to send ${type} reminder to ${registry.restaurantName}:`, error.message);
+    console.error(`[SubscriptionJob] Failed to send ${type} reminder to ${restaurant.name}:`, error.message);
   }
 };
 

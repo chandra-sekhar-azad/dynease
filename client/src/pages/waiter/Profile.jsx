@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Hash } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { User, Mail, Phone, Hash, KeyRound, ArrowRight } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -149,6 +149,23 @@ export default function Profile() {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="bg-gray-50 p-8 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <KeyRound size={16} className="text-orange-500" />
+              Account Security
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">Need to update your waiter login password?</p>
+          </div>
+          <Link
+            to="/waiter/settings"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-orange-50 border border-gray-200 text-orange-600 rounded-xl text-xs font-bold transition-all shadow-xs"
+          >
+            <span>Change Password</span>
+            <ArrowRight size={14} />
+          </Link>
         </div>
       </div>
     </div>

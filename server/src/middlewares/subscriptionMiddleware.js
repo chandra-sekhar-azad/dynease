@@ -1,14 +1,19 @@
-const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
+const PostgresAdapter = require('../services/PostgresAdapter');
+const { db, schema } = require('../db/client');
+const { eq } = require('drizzle-orm');
 
 exports.checkSubscription = async (req, res, next) => {
   try {
-    let registry = req.tenantRegistry;
+    let registry = req.tenantRegistry || req.restaurant;
     
     // If tenantResolver didn't attach it, check slug in params
     if (!registry) {
       const slug = req.params.slug;
       if (slug) {
-        registry = await RestaurantRegistry.findOne({ slug });
+        registry = await PostgresAdapter.getRegistryBySubdomain(slug).catch(() => null);
+        if (!registry) {
+          registry = await PostgresAdapter.getRegistryById(slug).catch(() => null);
+        }
       }
     }
 
@@ -18,12 +23,16 @@ exports.checkSubscription = async (req, res, next) => {
 
     const now = new Date();
     
-    // Check if the subscription end date has passed
+    // Check if subscription end date has passed
     if (registry.subscriptionEndDate && new Date(registry.subscriptionEndDate) < now) {
-      // Update status if needed (though cron should handle this)
-      if (registry.subscriptionStatus !== 'EXPIRED') {
+      if (registry.status !== 'INACTIVE' && registry.subscriptionStatus !== 'EXPIRED') {
         registry.subscriptionStatus = 'EXPIRED';
-        await registry.save();
+        if (registry.id) {
+          await db.update(schema.restaurants)
+            .set({ restaurant_status: 'INACTIVE', updatedat: new Date() })
+            .where(eq(schema.restaurants.id, registry.id))
+            .catch((err) => console.error('[Subscription Middleware] Status update error:', err.message));
+        }
       }
       return res.status(403).json({ 
         success: false, 
@@ -32,23 +41,25 @@ exports.checkSubscription = async (req, res, next) => {
       });
     }
 
-    if (registry.subscriptionStatus === 'SUSPENDED' || registry.status === 'SUSPENDED') {
+    if (registry.status === 'PAUSED' || registry.restaurant_status === 'PAUSED' || registry.subscriptionStatus === 'SUSPENDED') {
       return res.status(403).json({ 
         success: false, 
         code: 'SUBSCRIPTION_SUSPENDED',
-        message: 'This restaurant account is currently suspended.'
+        message: 'This restaurant account is currently suspended or paused.'
       });
     }
 
-    if (registry.subscriptionStatus === 'PENDING' || registry.status === 'PENDING_APPROVAL') {
+    if (registry.status === 'INACTIVE' || registry.restaurant_status === 'INACTIVE' || registry.subscriptionStatus === 'PENDING') {
       return res.status(403).json({ 
         success: false, 
         code: 'SUBSCRIPTION_PENDING',
-        message: 'This restaurant account is pending approval.'
+        message: 'This restaurant account is currently inactive.'
       });
     }
 
-    req.subscriptionStatus = registry.subscriptionStatus;
+    req.subscriptionStatus = registry.subscriptionStatus || 'ACTIVE';
+    req.tenantRegistry = registry;
+    req.restaurant = registry;
     next();
   } catch (error) {
     console.error('[Subscription Middleware] Error:', error);

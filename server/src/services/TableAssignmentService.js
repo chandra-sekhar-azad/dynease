@@ -42,7 +42,7 @@ class TableAssignmentService {
         );
 
       // 3. Create new assignment history record
-      const assignmentId = 'asgn_' + crypto.randomBytes(8).toString('hex');
+      const assignmentId = crypto.randomUUID();
       const [assignment] = await tx.insert(tables_assignment).values({
         id: assignmentId,
         restaurant_id: restaurantId,
@@ -164,7 +164,7 @@ class TableAssignmentService {
       const selectedStaff = staffWorkload[0].staff;
 
       // Create dynamic assignment record
-      const assignmentId = 'asgn_' + crypto.randomBytes(8).toString('hex');
+      const assignmentId = crypto.randomUUID();
       const [newAssignment] = await tx.insert(tables_assignment).values({
         id: assignmentId,
         restaurant_id: restaurantId,

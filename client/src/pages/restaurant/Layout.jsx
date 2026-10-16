@@ -30,7 +30,7 @@ export default function RestaurantLayout() {
     { name: 'Menu', path: '/restaurant/menu', icon: <Utensils size={20} /> },
     { name: 'Categories', path: '/restaurant/categories', icon: <FolderOpen size={20} /> },
     { name: 'Staff', path: '/restaurant/staff', icon: <Users size={20} /> },
-    { name: 'Subscription', path: '/restaurant/subscription', icon: <CreditCard size={20} /> },
+    { name: 'Subscription & Billing', path: '/restaurant/subscription', icon: <CreditCard size={20} /> },
     { name: 'Settings', path: '/restaurant/settings', icon: <Settings size={20} /> },
   ];
 

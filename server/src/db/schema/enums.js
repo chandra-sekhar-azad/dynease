@@ -13,6 +13,8 @@ const restaurantStatusEnum = pgEnum('restaurant_status', [
   'ACTIVE',
   'PAUSED',
   'INACTIVE',
+  'PENDING',
+  'REJECTED',
 ]);
 
 const planStatusEnum = pgEnum('plan_status', ['ACTIVE', 'INACTIVE']);
@@ -57,7 +59,17 @@ const itemSizeEnum = pgEnum('item_size', [
   'HALF',
 ]);
 
-const orderStatusEnum = pgEnum('order_status', ['NO_ORDER', 'ORDERED']);
+const orderStatusEnum = pgEnum('order_status', [
+  'NO_ORDER',
+  'ORDERED',
+  'PREPARING',
+  'READY',
+  'SERVED',
+  'COMPLETED',
+  'CANCELLED',
+  'PAID',
+]);
+
 
 const shiftTypeEnum = pgEnum('shift_type', [
   'WORKING',

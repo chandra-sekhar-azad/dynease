@@ -5,6 +5,7 @@ import {
   Send, ExternalLink, ChevronRight, Check, AlertCircle, Filter, Layers,
   CheckCircle2, Users, Store, DollarSign
 } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 export default function SubscriptionBillingManagement() {
   const [restaurants, setRestaurants] = useState([]);
@@ -33,8 +34,8 @@ export default function SubscriptionBillingManagement() {
     setIsLoading(true);
     try {
       const [resRes, plansRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants`),
-        fetch(`${import.meta.env.VITE_API_URL}/admin/plans`)
+        authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants`),
+        authFetch(`${import.meta.env.VITE_API_URL}/admin/plans`)
       ]);
       const resData = await resRes.json();
       const plansData = await plansRes.json();
@@ -121,7 +122,7 @@ export default function SubscriptionBillingManagement() {
         note: editNote || `Admin updated plan to ${editPlan} (${editDaysRemaining} days remaining)`
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${editingRestaurant._id}/billing`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${editingRestaurant._id}/billing`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -149,7 +150,7 @@ export default function SubscriptionBillingManagement() {
     if (!window.confirm(`Extend ${restaurant.name} subscription by +${daysToAdd} days (total ${newDays} days remaining)?`)) return;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurant._id}/billing`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurant._id}/billing`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

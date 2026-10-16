@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
-import { Save, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, KeyRound, Globe, Mail } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, KeyRound, Globe, Mail, User, Phone } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 export default function Settings() {
+  // Admin Profile State
+  const [adminName, setAdminName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPhone, setAdminPhone] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [profileError, setProfileError] = useState('');
+
   // Platform Info State
   const [platformName, setPlatformName] = useState('Dynease');
   const [supportEmail, setSupportEmail] = useState('contact@dynease.in');
@@ -19,6 +28,54 @@ export default function Settings() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/profile`);
+      const data = await res.json();
+      if (data.success && data.data?.profile) {
+        setAdminName(data.data.profile.name || '');
+        setAdminEmail(data.data.profile.email || '');
+        setAdminPhone(data.data.profile.phone || '');
+      }
+    } catch (err) {
+      console.error('Error fetching admin profile:', err);
+    }
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setProfileLoading(true);
+    setProfileSuccess('');
+    setProfileError('');
+
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/profile`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: adminName,
+          email: adminEmail,
+          phone: adminPhone
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setProfileSuccess(data.message || 'Profile updated successfully!');
+        setTimeout(() => setProfileSuccess(''), 4000);
+      } else {
+        setProfileError(data.message || 'Failed to update profile.');
+      }
+    } catch (err) {
+      setProfileError('Network error updating profile.');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const handleSaveInfo = (e) => {
     e.preventDefault();
@@ -49,13 +106,8 @@ export default function Settings() {
 
     setPasswordLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/change-password`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/change-password`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
         body: JSON.stringify({
           currentPassword,
           newPassword,
@@ -91,7 +143,105 @@ export default function Settings() {
         </p>
       </div>
 
-      {/* ── 1. Admin Password & Security Card ── */}
+      {/* ── 1. Admin Profile Card ── */}
+      <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-xl bg-purple-100 text-purple-800">
+              <User size={20} />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-gray-900 font-serif">Admin Profile Details</h2>
+              <p className="text-xs text-gray-500">Update your name, contact email, and phone number</p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+            <Shield size={12} />
+            System Administrator
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveProfile} className="p-6 space-y-5">
+          {profileSuccess && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-emerald-800">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{profileSuccess}</span>
+            </div>
+          )}
+
+          {profileError && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-rose-800">
+              <AlertCircle size={16} className="text-rose-600 shrink-0" />
+              <span>{profileError}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+              Full Name
+            </label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input
+                type="text"
+                required
+                value={adminName}
+                onChange={(e) => setAdminName(e.target.value)}
+                placeholder="Administrator Name"
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  type="email"
+                  required
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="admin@dynease.in"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Phone Number
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  type="tel"
+                  value={adminPhone}
+                  onChange={(e) => setAdminPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={profileLoading}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-black text-white font-bold rounded-xl text-xs shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Save size={16} />
+              <span>{profileLoading ? 'Saving Profile...' : 'Save Profile Details'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* ── 2. Admin Password & Security Card ── */}
       <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center gap-3">

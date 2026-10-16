@@ -1,9 +1,9 @@
-const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
-const TenantDatabaseManager = require('../services/TenantDatabaseManager');
+const PostgresAdapter = require('../services/PostgresAdapter');
 
 /**
- * Middleware to resolve the tenant database based on the subdomain
- * and attach it to req.tenantDb.
+ * Middleware to resolve tenant restaurant from subdomain
+ * and attach tenant context (req.tenantRegistry, req.restaurant, req.pg)
+ * backed by Supabase PostgreSQL and Drizzle ORM.
  */
 module.exports = async (req, res, next) => {
   try {
@@ -11,9 +11,9 @@ module.exports = async (req, res, next) => {
     const hostname = req.hostname; // e.g., spicegarden.dynease.in
 
     if (!subdomain) {
-      // Ignore admin and public domain
+      // Ignore admin, public domain, and www
       if (hostname.includes('admin') || hostname === process.env.BASE_DOMAIN || hostname.includes('www')) {
-        return next(); // Proceed without tenant DB attached
+        return next();
       }
 
       // Extract subdomain
@@ -28,26 +28,24 @@ module.exports = async (req, res, next) => {
       return next();
     }
 
-    // Lookup in registry (Postgres first, with Mongo fallback)
-    const PostgresAdapter = require('../services/PostgresAdapter');
-    let pgRegistry = await PostgresAdapter.getRegistryBySubdomain(subdomain).catch(() => null);
+    // Lookup restaurant in PostgreSQL via Drizzle ORM
+    const pgRegistry = await PostgresAdapter.getRegistryBySubdomain(subdomain).catch((err) => {
+      console.error('[TenantResolver] PostgreSQL lookup error:', err.message);
+      return null;
+    });
 
-    const registry = await RestaurantRegistry.findOne({ subdomain, status: 'ACTIVE' });
-    if (!registry && !pgRegistry) {
+    if (!pgRegistry) {
       return res.status(404).json({ success: false, message: 'Restaurant not found or not active.' });
     }
 
-    // Get database connection
-    const tenantDb = registry ? await TenantDatabaseManager.getConnection(registry.databaseName) : null;
-    
-    // Attach to request
-    req.tenantDb = tenantDb;
-    req.tenantRegistry = registry || pgRegistry;
+    // Attach restaurant context to request
+    req.restaurant = pgRegistry;
+    req.tenantRegistry = pgRegistry;
     req.pg = PostgresAdapter;
 
     next();
   } catch (error) {
     console.error('[TenantResolver] Error:', error);
-    res.status(500).json({ success: false, message: 'Failed to resolve tenant database' });
+    res.status(500).json({ success: false, message: 'Failed to resolve tenant restaurant' });
   }
 };

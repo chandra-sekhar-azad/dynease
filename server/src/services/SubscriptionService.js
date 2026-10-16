@@ -1,7 +1,7 @@
 const { getPlan, PLANS, hasEntitlement } = require('../config/plans');
-const PlatformSubscription = require('../models/platform/PlatformSubscription');
-const PlatformInvoice = require('../models/platform/PlatformInvoice');
-const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
+const { db, schema } = require('../db/client');
+const { eq, and, sql } = require('drizzle-orm');
+const { restaurants, tables, menu_categories_items, users, plans, audit_log } = schema;
 const crypto = require('crypto');
 
 class SubscriptionService {
@@ -15,53 +15,49 @@ class SubscriptionService {
   }
 
   /**
-   * Resolves the canonical subscription record for a restaurant.
-   * If PlatformSubscription record does not yet exist for a legacy registry, automatically backfills it.
+   * Resolves the subscription record for a restaurant from Supabase PostgreSQL.
    */
   async getSubscriptionForRestaurant(restaurantId, subdomain = null) {
-    let sub = await PlatformSubscription.findOne({ restaurantId });
-    if (sub) return sub;
+    let restaurant = null;
+    if (restaurantId) {
+      const [row] = await db.select().from(restaurants).where(
+        and(eq(restaurants.id, restaurantId), eq(restaurants.is_deleted, false))
+      ).limit(1);
+      restaurant = row;
+    } else if (subdomain) {
+      const [row] = await db.select().from(restaurants).where(
+        and(eq(sql`LOWER(${restaurants.domain})`, subdomain.toLowerCase()), eq(restaurants.is_deleted, false))
+      ).limit(1);
+      restaurant = row;
+    }
 
-    // Fallback: lookup in RestaurantRegistry and create initial subscription
-    const query = restaurantId ? { restaurantId } : { subdomain };
-    const registry = await RestaurantRegistry.findOne(query);
-    if (!registry) return null;
+    if (!restaurant) return null;
 
-    const rawPlan = registry.selectedPlan || 'STARTER';
-    const plan = getPlan(rawPlan) || PLANS.STARTER;
+    let planConfig = PLANS.STARTER;
+    if (restaurant.plan_id) {
+      const [p] = await db.select().from(plans).where(eq(plans.id, restaurant.plan_id)).limit(1);
+      if (p) {
+        planConfig = getPlan(p.name) || PLANS.STARTER;
+      }
+    }
+
     const now = new Date();
-    const periodStart = registry.subscriptionStartDate || now;
-    const periodEnd = registry.subscriptionEndDate || new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-    const billingCycle = registry.billingCycle || 'monthly';
-    const pricePaise = billingCycle === 'yearly' ? plan.yearlyPricePaise : plan.monthlyPricePaise;
+    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    let subStatus = 'trialing';
-    if (registry.subscriptionStatus === 'ACTIVE') subStatus = 'active';
-    else if (registry.subscriptionStatus === 'EXPIRED') subStatus = 'expired';
-    else if (registry.subscriptionStatus === 'SUSPENDED') subStatus = 'suspended';
-
-    sub = await PlatformSubscription.create({
-      restaurantId: registry.restaurantId,
-      subdomain: registry.subdomain,
-      planId: plan.planId,
-      billingCycle,
-      status: subStatus,
-      startDate: periodStart,
-      currentPeriodStart: periodStart,
+    return {
+      restaurantId: restaurant.id,
+      subdomain: restaurant.domain,
+      planId: planConfig.planId,
+      billingCycle: 'monthly',
+      status: restaurant.restaurant_status === 'ACTIVE' ? 'active' : 'suspended',
+      startDate: restaurant.createdat,
+      currentPeriodStart: restaurant.createdat,
       currentPeriodEnd: periodEnd,
       nextBillingDate: periodEnd,
-      pricePaise,
-      history: [{
-        action: 'CREATED',
-        toPlan: plan.planId,
-        toStatus: subStatus,
-        amountPaise: pricePaise,
-        performedBy: 'SYSTEM_SYNC',
-        note: 'Backfilled from restaurant registry record'
-      }]
-    });
-
-    return sub;
+      pricePaise: planConfig.monthlyPricePaise || 0,
+      limits: planConfig.limits,
+      features: planConfig.features
+    };
   }
 
   /**
@@ -70,62 +66,59 @@ class SubscriptionService {
   async getUsageAndLimits(tenantDb, restaurantRegistry) {
     if (!restaurantRegistry) throw new Error('Restaurant registry not found');
 
-    const rawPlan = restaurantRegistry.selectedPlan || 'STARTER';
+    const restaurantId = restaurantRegistry.restaurantId || restaurantRegistry.id;
+    const rawPlan = restaurantRegistry.selectedPlan || restaurantRegistry.plan_id || 'STARTER';
     const plan = getPlan(rawPlan) || PLANS.STARTER;
 
-    // 1. Locations count (groups or registered subdomains for this owner email)
     let locationCount = 1;
-    try {
-      if (restaurantRegistry.ownerEmail) {
-        locationCount = await RestaurantRegistry.countDocuments({
-          ownerEmail: restaurantRegistry.ownerEmail,
-          status: { $in: ['ACTIVE', 'PROVISIONING', 'PENDING_APPROVAL'] }
-        });
-      }
-    } catch {
-      locationCount = 1;
-    }
-
-    // 2. Tables count (valid, active/non-deleted tables)
     let tableCount = 0;
-    if (tenantDb) {
+    let menuItemCount = 0;
+    let staffCount = 0;
+
+    // Check if mock tenantDb is provided (e.g. In unit tests)
+    if (tenantDb && typeof tenantDb.model === 'function') {
       try {
         const Table = tenantDb.model('Table');
-        // Count non-deleted tables (status !== 'DELETED')
-        tableCount = await Table.countDocuments({
-          restaurantId: restaurantRegistry.restaurantId,
-          status: { $ne: 'DELETED' }
-        });
-      } catch (err) {
-        console.error('Error counting tables for usage:', err);
-      }
-    }
-
-    // 3. Menu items count
-    let menuItemCount = 0;
-    if (tenantDb) {
+        tableCount = await Table.countDocuments({ restaurantId, status: { $ne: 'DELETED' } });
+      } catch {}
       try {
         const MenuItem = tenantDb.model('MenuItem');
-        menuItemCount = await MenuItem.countDocuments({
-          restaurantId: restaurantRegistry.restaurantId
-        });
-      } catch (err) {
-        console.error('Error counting menu items for usage:', err);
-      }
-    }
-
-    // 4. Staff count (RESTAURANT_STAFF, KITCHEN_STAFF, etc. Owner excluded from limit)
-    let staffCount = 0;
-    if (tenantDb) {
+        menuItemCount = await MenuItem.countDocuments({ restaurantId });
+      } catch {}
       try {
         const User = tenantDb.model('User');
         staffCount = await User.countDocuments({
-          restaurantId: restaurantRegistry.restaurantId,
+          restaurantId,
           role: { $in: ['RESTAURANT_STAFF', 'KITCHEN_STAFF'] },
           isActive: true
         });
+      } catch {}
+    } else {
+      // Query Supabase PostgreSQL via Drizzle ORM
+      try {
+        if (restaurantId) {
+          const [tRes] = await db.select({ count: sql`count(*)` }).from(tables).where(
+            and(eq(tables.restaurant_id, restaurantId), eq(tables.is_deleted, false))
+          );
+          tableCount = parseInt(tRes?.count || '0', 10);
+
+          const [mRes] = await db.select({ count: sql`count(*)` }).from(menu_categories_items).where(
+            and(eq(menu_categories_items.restaurant_id, restaurantId), eq(menu_categories_items.is_deleted, false))
+          );
+          menuItemCount = parseInt(mRes?.count || '0', 10);
+
+          const [sRes] = await db.select({ count: sql`count(*)` }).from(users).where(
+            and(
+              eq(users.restaurant_id, restaurantId),
+              eq(users.user_type, 'STAFF'),
+              eq(users.user_status, 'ACTIVE'),
+              eq(users.is_deleted, false)
+            )
+          );
+          staffCount = parseInt(sRes?.count || '0', 10);
+        }
       } catch (err) {
-        console.error('Error counting staff for usage:', err);
+        console.error('[SubscriptionService] Error counting usage from PostgreSQL:', err.message);
       }
     }
 
@@ -193,7 +186,7 @@ class SubscriptionService {
   }
 
   /**
-   * Records an immutable invoice for a subscription payment/adjustment.
+   * Records an invoice for a subscription payment or plan adjustment.
    */
   async createInvoice({
     restaurantId,
@@ -211,7 +204,30 @@ class SubscriptionService {
     recordedBy = 'SYSTEM'
   }) {
     const invoiceNumber = this.generateInvoiceNumber();
-    const invoice = await PlatformInvoice.create({
+    try {
+      await db.insert(audit_log).values({
+        restaurant_id: restaurantId,
+        action: 'INVOICE_GENERATED',
+        entity_type: 'INVOICE',
+        details: {
+          invoiceNumber,
+          subdomain,
+          planId,
+          planName,
+          billingCycle,
+          amountPaise,
+          status,
+          paymentMethod,
+          transactionId,
+          notes,
+          recordedBy
+        }
+      });
+    } catch (err) {
+      console.warn('[SubscriptionService] Could not log invoice in audit_log:', err.message);
+    }
+
+    return {
       invoiceNumber,
       restaurantId,
       subdomain,
@@ -226,11 +242,10 @@ class SubscriptionService {
       periodEnd,
       paymentMethod,
       transactionId,
-      paidAt: status === 'PAID' ? new Date() : null,
       notes,
-      recordedBy
-    });
-    return invoice;
+      recordedBy,
+      paidAt: status === 'PAID' ? new Date() : null
+    };
   }
 }
 

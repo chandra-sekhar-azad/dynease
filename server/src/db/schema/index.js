@@ -13,6 +13,7 @@ const { leads } = require('./leads');
 const { shifts, rosters } = require('./staff');
 const { audit_log } = require('./audit-log');
 const { service_requests, assignment_events } = require('./compat');
+const { plan_requests } = require('./plan_requests');
 
 module.exports = {
   ...enums,
@@ -32,4 +33,6 @@ module.exports = {
   audit_log,
   service_requests,
   assignment_events,
+  plan_requests,
 };
+

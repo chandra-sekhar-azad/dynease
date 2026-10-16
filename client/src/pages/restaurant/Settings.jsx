@@ -1,153 +1,194 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2, Save, Store } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  Loader2, Lock, KeyRound, Eye, EyeOff, 
+  CheckCircle2, AlertCircle, ShieldCheck, Settings as SettingsIcon 
+} from 'lucide-react';
 import { getTenantHeaders } from '../../context/RestaurantContext';
 
 export default function RestaurantSettings() {
-  const [profile, setProfile] = useState({ name: '', subtitle: '', googleReviewLink: '' });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  // Password Management State
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/profile`, {
-        headers: getTenantHeaders()
-      });
-      const data = await res.json();
-      if (data.success && data.data.profile) {
-        setProfile({
-          name: data.data.profile.name || '',
-          subtitle: data.data.profile.subtitle || '',
-          googleReviewLink: data.data.profile.googleReviewLink || ''
-        });
-      }
-    } catch (error) {
-      alert('Failed to load profile');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
-    setSaving(true);
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirm password do not match.');
+      return;
+    }
+
+    setPasswordLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/profile`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/change-password`, {
         method: 'PUT',
         headers: getTenantHeaders(),
-        body: JSON.stringify(profile)
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword
+        })
       });
+
       const data = await res.json();
       if (data.success) {
-        alert('Restaurant profile updated');
+        setPasswordSuccess(data.message || 'Your password has been changed successfully!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setPasswordSuccess(''), 6000);
       } else {
-        alert(data.message || 'Failed to update profile');
+        setPasswordError(data.message || 'Failed to update password. Please check your current password.');
       }
-    } catch (error) {
-      alert('Failed to update profile');
+    } catch (err) {
+      console.error('Password change error:', err);
+      setPasswordError('Network error while changing password. Please try again.');
     } finally {
-      setSaving(false);
+      setPasswordLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="animate-spin text-green-500 w-8 h-8" />
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-3 bg-green-100 text-green-600 rounded-lg">
-            <Store size={24} />
+    <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-200">
+      {/* ── Page Header ── */}
+      <div className="flex items-center gap-3 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs">
+        <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl">
+          <SettingsIcon size={24} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold font-serif text-gray-900 tracking-tight">Restaurant Settings</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage your restaurant owner security credentials and password.</p>
+        </div>
+      </div>
+
+      {/* ── Change Password & Security Card ── */}
+      <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+              <KeyRound size={18} />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Change Account Password</h2>
+              <p className="text-xs text-gray-500">Update your restaurant owner login credentials.</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Restaurant Settings</h1>
-            <p className="text-gray-500">Manage your restaurant's public profile and name display.</p>
-          </div>
+          <ShieldCheck size={20} className="text-emerald-600" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-gray-50 p-6 rounded-lg border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Display Name</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              You can split your restaurant name into two parts. The primary name will be displayed in a large font, while the subtitle will appear underneath in a smaller font.
-            </p>
+        <form onSubmit={handleChangePassword} className="p-6 space-y-5">
+          {passwordSuccess && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{passwordSuccess}</span>
+            </div>
+          )}
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Primary Name (Large)
-                </label>
+          {passwordError && (
+            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-900 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+              <AlertCircle size={16} className="text-rose-600 shrink-0" />
+              <span>{passwordError}</span>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                Current Password <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
                 <input
-                  type="text"
+                  type={showCurrentPassword ? 'text' : 'password'}
                   required
-                  value={profile.name}
-                  onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                  placeholder="e.g., Chandrika"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subtitle (Small) <span className="text-gray-400 font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={profile.subtitle}
-                  onChange={(e) => setProfile(prev => ({ ...prev, subtitle: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                  placeholder="e.g., Family Restaurant"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Google Review Link <span className="text-gray-400 font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="url"
-                  value={profile.googleReviewLink}
-                  onChange={(e) => setProfile(prev => ({ ...prev, googleReviewLink: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                  placeholder="e.g., https://g.page/r/..."
-                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+                >
+                  {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
-            <div className="mt-8">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Live Preview</h3>
-              <div className="p-6 bg-white border border-gray-200 rounded-lg flex flex-col items-center justify-center min-h-[100px] text-center shadow-inner">
-                {profile.name ? (
-                  <>
-                    <div className="text-2xl md:text-3xl font-bold text-gray-800">{profile.name}</div>
-                    {profile.subtitle && (
-                      <div className="text-sm md:text-base text-gray-500 mt-1">{profile.subtitle}</div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-gray-400 italic">Enter a name to preview</div>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  New Password <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+                  >
+                    {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Confirm New Password <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-3 border-t border-gray-100">
             <button
               type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 bg-green-500 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-green-600 focus:ring-4 focus:ring-green-200 transition-all disabled:opacity-70"
+              disabled={passwordLoading}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-60 cursor-pointer"
             >
-              {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />}
-              {saving ? 'Saving...' : 'Save Settings'}
+              {passwordLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Lock className="w-4 h-4" />}
+              <span>{passwordLoading ? 'Updating Password...' : 'Update Password'}</span>
             </button>
           </div>
         </form>

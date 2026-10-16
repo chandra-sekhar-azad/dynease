@@ -134,19 +134,22 @@ export default function ServiceRequestModal({ isOpen, onClose }) {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Optional Note
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Extra ice, warm water, lemon..."
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  maxLength={120}
-                  className="w-full text-xs p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
-              </div>
+              {selectedType === 'OTHER' && (
+                <div className="animate-in fade-in duration-150">
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Optional Note
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Extra napkins, baby chair, warm water..."
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    maxLength={120}
+                    autoFocus
+                    className="w-full text-xs p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+              )}
 
               <div className="pt-2 flex gap-2">
                 <button

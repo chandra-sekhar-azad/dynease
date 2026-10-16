@@ -36,6 +36,7 @@ const restaurants = pgTable(
       .notNull()
       .default('MANUAL'),
     is_deleted: boolean('is_deleted').notNull().default(false),
+    rejection_reason: text('rejection_reason'),
     createdat: timestamp('createdat', { withTimezone: true })
       .notNull()
       .defaultNow(),

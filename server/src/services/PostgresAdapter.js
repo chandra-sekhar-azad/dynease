@@ -3,7 +3,7 @@
  */
 
 const { db, schema, pool } = require('../db/client');
-const { eq, and, sql, or } = require('drizzle-orm');
+const { eq, and, sql, or, isNull } = require('drizzle-orm');
 const {
   restaurants,
   users,
@@ -81,7 +81,7 @@ class PostgresAdapter {
       and(
         eq(menu_categories.restaurant_id, restaurantId),
         eq(menu_categories.menu_category_status, 'ACTIVE'),
-        eq(menu_categories.is_deleted, false)
+        isNull(menu_categories.deletedat)
       )
     ).orderBy(menu_categories.display_order, menu_categories.category);
 
@@ -91,7 +91,7 @@ class PostgresAdapter {
       restaurantId: r.restaurant_id,
       name: r.category,
       displayOrder: r.display_order,
-      isActive: r.menu_category_status === 'ACTIVE' && !r.is_deleted,
+      isActive: r.menu_category_status === 'ACTIVE' && !r.deletedat,
       description: r.description
     }));
   }
@@ -99,7 +99,7 @@ class PostgresAdapter {
   async getMenuItems(restaurantId, filter = {}) {
     const conditions = [
       eq(menu_categories_items.restaurant_id, restaurantId),
-      eq(menu_categories_items.is_deleted, false)
+      isNull(menu_categories_items.deletedat)
     ];
 
     if (filter.isAvailable !== undefined) {
@@ -236,21 +236,26 @@ class PostgresAdapter {
   }
 
   formatUser(r) {
+    const bcrypt = require('bcrypt');
     return {
       _id: r.id,
       id: r.id,
       restaurantId: r.restaurant_id,
       name: r.name,
       email: r.email,
-      password: r.password,
-      role: r.user_type === 'ADMIN' ? 'RESTAURANT_OWNER' : 'RESTAURANT_STAFF',
+      password: r.password_hash,
+      password_hash: r.password_hash,
+      role: r.user_type === 'SYSTEM_ADMIN' ? 'SUPER_ADMIN' : (r.user_type === 'ADMIN' ? 'RESTAURANT_OWNER' : 'RESTAURANT_STAFF'),
       userType: r.user_type,
       phone: r.phone_number,
       isActive: r.user_status === 'ACTIVE' && !r.is_deleted,
       userStatus: r.user_status,
       sessionVersion: r.sessionVersion,
       createdAt: r.createdat,
-      updatedAt: r.updatedat
+      updatedAt: r.updatedat,
+      comparePassword: async function(candidatePassword) {
+        return await bcrypt.compare(candidatePassword, r.password_hash);
+      }
     };
   }
 }

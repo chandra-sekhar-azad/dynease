@@ -1,17 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit, Search, X, Send, CheckCircle, Loader, Eye, EyeOff, AlertTriangle, Clock, CreditCard } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { 
+  Plus, Trash2, Edit, Search, X, Send, CheckCircle, Loader, Eye, EyeOff, 
+  AlertTriangle, Clock, CreditCard, Store, Layers, RefreshCw, 
+  Sparkles, Check, CheckCircle2
+} from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 export default function RestaurantsManagement() {
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'restaurants'; // 'restaurants' | 'billing' | 'plans'
+  const [activeTab, setActiveTab] = useState(
+    initialTab === 'billing' || initialTab === 'subscriptions' ? 'billing' :
+    initialTab === 'plans' ? 'plans' : 'restaurants'
+  );
+
   const [restaurants, setRestaurants] = useState([]);
   const [plans, setPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Modals state for Restaurant Directory
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [sendingCredentials, setSendingCredentials] = useState({});
   const [togglingStatus, setTogglingStatus] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Edit / Manage Plan & Billing Modal State
+  const [editingRestaurantBilling, setEditingRestaurantBilling] = useState(null);
+  const [editDaysRemaining, setEditDaysRemaining] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editPlan, setEditPlan] = useState('STARTER');
+  const [editStatus, setEditStatus] = useState('ACTIVE');
+  const [editNote, setEditNote] = useState('');
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
+
+  // Filters for Billing tab
+  const [selectedPlanFilter, setSelectedPlanFilter] = useState('ALL');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
+  const [onlyExpiringSoon, setOnlyExpiringSoon] = useState(false);
+
+  // Form data for Restaurant Directory
   const [editFormData, setEditFormData] = useState({
     name: '',
     subscriptionPlan: 'FREE',
@@ -32,34 +63,51 @@ export default function RestaurantsManagement() {
     ownerPassword: ''
   });
 
-  // Load actual data from MongoDB on mount
+  // Sync activeTab with URL params if tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
   useEffect(() => {
-    fetchRestaurants();
-    fetchPlans();
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'billing' || tabParam === 'subscriptions') {
+      setActiveTab('billing');
+    } else if (tabParam === 'plans') {
+      setActiveTab('plans');
+    } else if (tabParam === 'restaurants') {
+      setActiveTab('restaurants');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
-  const fetchRestaurants = async () => {
+  const fetchData = async () => {
+    setIsLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants`);
-      const data = await res.json();
-      if (data.success) {
-        setRestaurants(data.data.restaurants);
+      const [resRes, plansRes] = await Promise.all([
+        authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants`),
+        authFetch(`${import.meta.env.VITE_API_URL}/admin/plans`)
+      ]);
+      const resData = await resRes.json();
+      const plansData = await plansRes.json();
+
+      if (resData.success) {
+        setRestaurants(resData.data.restaurants || []);
+      }
+      if (plansData.success) {
+        setPlans(plansData.data.plans || []);
       }
     } catch (err) {
-      console.error("Failed to fetch restaurants", err);
+      console.error('Failed to fetch data', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const fetchPlans = async () => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/plans`);
-      const data = await res.json();
-      if (data.success) setPlans(data.data.plans);
-    } catch (err) {
-      console.error('Failed to fetch plans', err);
-    }
-  };
-
+  // ── Handlers for Restaurant Directory ──
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -68,9 +116,8 @@ export default function RestaurantsManagement() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
       
@@ -78,7 +125,7 @@ export default function RestaurantsManagement() {
       if (data.success) {
         setShowAddModal(false);
         setFormData({ restaurantName: '', ownerName: '', ownerPhone: '', ownerEmail: '', ownerPassword: '' });
-        fetchRestaurants(); // Refresh the table
+        fetchData();
         alert('Restaurant and Owner Account Created Successfully!');
       } else {
         alert(data.message || 'Error creating restaurant');
@@ -93,18 +140,102 @@ export default function RestaurantsManagement() {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this restaurant? This action cannot be undone.')) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${id}`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${id}`, {
         method: 'DELETE'
       });
       const data = await res.json();
       if (data.success) {
-        setRestaurants(restaurants.filter(r => r._id !== id));
+        fetchData();
+        alert('Restaurant deleted successfully');
       } else {
         alert(data.message || 'Error deleting restaurant');
       }
     } catch (err) {
+      alert('Network error.');
+    }
+  };
+
+  const handleSendCredentials = async (restaurantId) => {
+    setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'sending' }));
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurantId}/send-credentials`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'sent' }));
+        setTimeout(() => setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' })), 3000);
+      } else {
+        setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' }));
+        alert(data.message || 'Failed to send credentials via WhatsApp');
+      }
+    } catch (err) {
       console.error(err);
-      alert('Failed to delete restaurant');
+      setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' }));
+      alert('Network error while sending WhatsApp message.');
+    }
+  };
+
+  const handleToggleStatus = async (restaurant) => {
+    const newStatus = (restaurant.isActive || restaurant.status === 'ACTIVE') ? false : true;
+    setTogglingStatus(restaurant._id);
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurant._id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: restaurant.name,
+          isActive: newStatus,
+          subscriptionPlan: restaurant.selectedPlan || restaurant.subscriptionPlan
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchData();
+      } else {
+        alert(data.message || 'Failed to update status');
+      }
+    } catch (err) {
+      alert('Network error updating restaurant status');
+    } finally {
+      setTogglingStatus(null);
+    }
+  };
+
+  const handleApprovePlanRequest = async (requestId) => {
+    if (!window.confirm('Approve this subscription plan change request? The restaurant plan will be updated.')) return;
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/plan-requests/${requestId}/approve`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Plan change request approved successfully!');
+        fetchData();
+      } else {
+        alert(data.message || 'Failed to approve plan change request');
+      }
+    } catch (err) {
+      alert('Network error approving plan change request');
+    }
+  };
+
+  const handleRejectPlanRequest = async (requestId) => {
+    const reason = window.prompt('Enter reason for rejecting this plan change request:', 'Plan change request rejected');
+    if (!reason) return;
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/plan-requests/${requestId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Plan change request rejected.');
+        fetchData();
+      } else {
+        alert(data.message || 'Failed to reject plan change request');
+      }
+    } catch (err) {
+      alert('Network error rejecting plan change request');
     }
   };
 
@@ -113,85 +244,30 @@ export default function RestaurantsManagement() {
     setEditFormData({
       name: restaurant.name,
       subdomain: restaurant.subdomain || restaurant.slug || '',
-      subscriptionPlan: restaurant.selectedPlan || restaurant.subscriptionPlan || 'FREE',
+      subscriptionPlan: restaurant.selectedPlan || 'FREE',
       subscriptionStatus: restaurant.subscriptionStatus || 'ACTIVE',
       billingDaysRemaining: restaurant.daysRemaining !== undefined ? restaurant.daysRemaining : 0,
-      isActive: restaurant.status === 'ACTIVE' || restaurant.isActive === true,
-      ownerName: restaurant.ownerName || restaurant.ownerId?.name || '',
-      ownerEmail: restaurant.ownerEmail || restaurant.ownerId?.email || '',
-      ownerPhone: restaurant.ownerPhone || restaurant.ownerId?.phone || '',
+      isActive: restaurant.isActive || restaurant.status === 'ACTIVE',
+      ownerName: restaurant.ownerId?.name || '',
+      ownerEmail: restaurant.ownerId?.email || '',
+      ownerPhone: restaurant.ownerId?.phone || '',
       googleReviewLink: restaurant.googleReviewLink || ''
     });
     setShowEditModal(true);
-  };
-
-  const handleSendCredentials = async (restaurantId) => {
-    if (!window.confirm("Reset the owner's password and send new login credentials via WhatsApp?")) return;
-    setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'sending' }));
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurantId}/send-credentials`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'sent' }));
-        setTimeout(() => setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' })), 3000);
-      } else {
-        alert(data.message || 'Failed to send credentials');
-        setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' }));
-      }
-    } catch (err) {
-      alert('Network error.');
-      setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' }));
-    }
-  };
-
-  const handleToggleStatus = async (restaurant) => {
-    setTogglingStatus(restaurant._id);
-    try {
-      const newStatus = !(restaurant.isActive || restaurant.status === 'ACTIVE');
-      
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurant._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: restaurant.name,
-          subscriptionPlan: restaurant.selectedPlan || 'FREE',
-          isActive: newStatus
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        fetchRestaurants();
-      } else {
-        alert(data.message || 'Failed to toggle status');
-      }
-    } catch (err) {
-      alert('Network error while toggling status');
-    } finally {
-      setTogglingStatus(null);
-    }
-  };
-
-  const handleEditChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setEditFormData({ ...editFormData, [e.target.name]: value });
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${editingId}`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${editingId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editFormData)
       });
-      
       const data = await res.json();
       if (data.success) {
         setShowEditModal(false);
-        fetchRestaurants();
+        fetchData();
         alert('Restaurant updated successfully!');
       } else {
         alert(data.message || 'Error updating restaurant');
@@ -203,249 +279,802 @@ export default function RestaurantsManagement() {
     }
   };
 
-  const handleAutoApprove = async (id, payload) => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.success) {
-        fetchRestaurants();
-        alert('Renewal request approved successfully!');
-      } else {
-        alert(data.message || 'Error approving request');
-      }
-    } catch (err) {
-      alert('Network error.');
+
+  // ── Handlers for Subscription & Billing ──
+  const openBillingModal = (restaurant) => {
+    setEditingRestaurantBilling(restaurant);
+    const days = restaurant.daysRemaining !== undefined ? restaurant.daysRemaining : 0;
+    setEditDaysRemaining(days);
+    
+    if (restaurant.subscriptionEndDate) {
+      const d = new Date(restaurant.subscriptionEndDate);
+      setEditEndDate(d.toISOString().split('T')[0]);
+    } else {
+      const d = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      setEditEndDate(d.toISOString().split('T')[0]);
+    }
+
+    setEditPlan(restaurant.selectedPlan || 'STARTER');
+    setEditStatus(restaurant.subscriptionStatus || 'ACTIVE');
+    setEditNote('');
+  };
+
+  const handleBillingDaysChange = (newDays) => {
+    const days = Math.max(0, parseInt(newDays, 10) || 0);
+    setEditDaysRemaining(days);
+    const targetDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    setEditEndDate(targetDate.toISOString().split('T')[0]);
+    if (days > 0 && editStatus === 'EXPIRED') {
+      setEditStatus(editPlan === 'FREE' ? 'TRIAL' : 'ACTIVE');
+    } else if (days === 0) {
+      setEditStatus('EXPIRED');
     }
   };
 
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 relative">
-      <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-800">Restaurant Management</h2>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-        >
-          <Plus size={18} /> Add Restaurant
-        </button>
-      </div>
+  const handleBillingDateChange = (dateStr) => {
+    setEditEndDate(dateStr);
+    if (dateStr) {
+      const targetDate = new Date(dateStr);
+      const diff = targetDate - new Date();
+      const calculatedDays = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      setEditDaysRemaining(calculatedDays);
+      if (calculatedDays > 0 && editStatus === 'EXPIRED') {
+        setEditStatus(editPlan === 'FREE' ? 'TRIAL' : 'ACTIVE');
+      } else if (calculatedDays === 0) {
+        setEditStatus('EXPIRED');
+      }
+    }
+  };
 
-      <div className="p-4 border-b border-gray-200 flex gap-4 bg-gray-50">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Search restaurants..." 
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all text-gray-900 bg-white"
-          />
+  const handleSaveBilling = async (e) => {
+    e.preventDefault();
+    if (!editingRestaurantBilling) return;
+
+    setIsSavingBilling(true);
+    try {
+      const payload = {
+        daysRemaining: parseInt(editDaysRemaining, 10),
+        subscriptionEndDate: editEndDate ? new Date(editEndDate).toISOString() : undefined,
+        selectedPlan: editPlan,
+        subscriptionStatus: editStatus,
+        note: editNote || `Admin updated plan to ${editPlan} (${editDaysRemaining} days remaining)`
+      };
+
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${editingRestaurantBilling._id}/billing`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setEditingRestaurantBilling(null);
+        await fetchData();
+        alert('Subscription & Billing updated successfully!');
+      } else {
+        alert(data.message || 'Failed to update billing details');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while updating billing');
+    } finally {
+      setIsSavingBilling(false);
+    }
+  };
+
+  const handleDirectAddDays = async (restaurant, daysToAdd) => {
+    const current = restaurant.daysRemaining || 0;
+    const newDays = current + daysToAdd;
+    if (!window.confirm(`Extend ${restaurant.name} subscription by +${daysToAdd} days (total ${newDays} days remaining)?`)) return;
+
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurant._id}/billing`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          daysRemaining: newDays,
+          note: `Quick extension +${daysToAdd} days`
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchData();
+      } else {
+        alert(data.message || 'Error updating billing');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to extend billing');
+    }
+  };
+
+  // ── Metrics & Calculations ──
+  const activeSubsCount = restaurants.filter(r => r.subscriptionStatus === 'ACTIVE').length;
+  const trialSubsCount = restaurants.filter(r => r.subscriptionStatus === 'TRIAL').length;
+  const expiringSoonCount = restaurants.filter(r => r.daysRemaining <= 7 && r.daysRemaining > 0).length;
+  const expiredCount = restaurants.filter(r => r.subscriptionStatus === 'EXPIRED' || (r.daysRemaining === 0 && r.subscriptionEndDate)).length;
+  const pendingRequestsCount = restaurants.filter(r => r.renewalRequest?.status === 'PENDING').length;
+
+  const filteredBillingRestaurants = restaurants.filter(r => {
+    const matchesSearch = 
+      r.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.subdomain?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.ownerId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.ownerId?.phone?.includes(searchTerm) ||
+      r.ownerId?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesPlan = selectedPlanFilter === 'ALL' || r.selectedPlan === selectedPlanFilter;
+    const matchesStatus = selectedStatusFilter === 'ALL' || r.subscriptionStatus === selectedStatusFilter;
+    const matchesExpiring = !onlyExpiringSoon || (r.daysRemaining <= 7 && r.daysRemaining > 0);
+
+    return matchesSearch && matchesPlan && matchesStatus && matchesExpiring;
+  });
+
+  const filteredRestaurantsDirectory = restaurants.filter(r => {
+    const q = searchTerm.toLowerCase();
+    if (!q) return true;
+    return (
+      r.name?.toLowerCase().includes(q) ||
+      r.slug?.toLowerCase().includes(q) ||
+      r.subdomain?.toLowerCase().includes(q) ||
+      r.ownerId?.name?.toLowerCase().includes(q) ||
+      r.ownerId?.email?.toLowerCase().includes(q) ||
+      r.ownerId?.phone?.includes(q)
+    );
+  });
+
+  const planOptions = [
+    { id: 'STARTER', name: 'Starter', price: '₹999/mo', desc: 'Up to 5 tables • 3 staff' },
+    { id: 'GROWTH', name: 'Growth', price: '₹1,999/mo', desc: 'Up to 20 tables • 10 staff', popular: true },
+    { id: 'BUSINESS', name: 'Business', price: '₹3,499/mo', desc: 'Up to 40 tables • 30 staff • Multi-outlet' },
+    { id: 'PRO', name: 'Pro / Custom', price: 'Enterprise', desc: 'Unlimited tables & staff' },
+    { id: 'FREE', name: 'Free Trial', price: '₹0', desc: '14-day evaluation trial' }
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* ── Top Header & Tab Navigation ── */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+              <Store size={22} />
+            </span>
+            <h1 className="text-2xl font-bold font-serif text-gray-900 tracking-tight">
+              Restaurant Management
+            </h1>
+          </div>
+          <p className="text-sm text-gray-500">
+            Unified control center for restaurant profiles, subscription tracking, billing renewal, and platform plan tiers.
+          </p>
+        </div>
+
+        {/* View Mode Tabs (Merged Navigation) */}
+        <div className="flex items-center gap-2">
+          <div className="flex p-1 bg-gray-100 rounded-xl border border-gray-200">
+            <button
+              onClick={() => handleTabChange('restaurants')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'restaurants'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <Store size={14} />
+              <span>Restaurants</span>
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-gray-200 text-gray-700">
+                {restaurants.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('billing')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'billing'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <CreditCard size={14} />
+              <span>Subscription & Billing</span>
+              {expiringSoonCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white font-extrabold animate-pulse">
+                  {expiringSoonCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => handleTabChange('plans')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'plans'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <Layers size={14} />
+              <span>Plan Tiers</span>
+            </button>
+          </div>
+
+          <button
+            onClick={fetchData}
+            disabled={isLoading}
+            className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-all shadow-xs cursor-pointer disabled:opacity-60"
+            title="Refresh data"
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin text-emerald-600' : ''} />
+          </button>
         </div>
       </div>
-      
-      <div className="p-0 overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="p-4 font-semibold text-gray-600">Restaurant Name</th>
-              <th className="p-4 font-semibold text-gray-600">Owner</th>
-              <th className="p-4 font-semibold text-gray-600">Status</th>
-              <th className="p-4 font-semibold text-gray-600">Plan</th>
-              <th className="p-4 font-semibold text-gray-600 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {restaurants.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="p-8 text-center text-gray-500 font-medium">No restaurants found. Add one above!</td>
-              </tr>
-            ) : restaurants.map(res => {
-              const credStatus = sendingCredentials[res._id] || 'idle';
-              return (
-                <tr key={res._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                  <td className="p-4">
-                    <div className="font-bold text-gray-800">{res.name}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{res.slug}.dynease.in</div>
-                  </td>
-                  <td className="p-4">
-                    <div className="font-medium text-gray-700">{res.ownerId?.name || 'N/A'}</div>
-                    <div className="text-xs text-gray-400">{res.ownerId?.phone || res.ownerId?.email || ''}</div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center">
-                      <button
-                        onClick={() => handleToggleStatus(res)}
-                        disabled={togglingStatus === res._id}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                          (res.isActive || res.status === 'ACTIVE') ? 'bg-green-500' : 'bg-gray-300'
-                        } ${togglingStatus === res._id ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
-                      >
-                        <span className="sr-only">Toggle status</span>
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            (res.isActive || res.status === 'ACTIVE') ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                      <span className="ml-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        {res.isActive || res.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex flex-col items-start gap-1">
-                      <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${res.selectedPlan === 'PRO' ? 'bg-purple-100 text-purple-700' : res.selectedPlan === 'GROWTH' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {res.selectedPlan || 'FREE'}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {res.subscriptionStatus && (
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            res.subscriptionStatus === 'EXPIRED' ? 'bg-red-100 text-red-700' :
-                            res.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
-                            res.subscriptionStatus === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                          }`}>
-                            {res.subscriptionStatus}
-                          </span>
-                        )}
-                        {res.daysRemaining !== undefined && (
-                          <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5 ${
-                            res.daysRemaining === 0 || res.subscriptionStatus === 'EXPIRED'
-                              ? 'bg-rose-100 text-rose-700'
-                              : res.daysRemaining <= 3
-                              ? 'bg-red-100 text-red-800 animate-pulse'
-                              : res.daysRemaining <= 7
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-50 text-emerald-700'
-                          }`}>
-                            <Clock size={10} />
-                            <span>{res.daysRemaining}d</span>
-                          </span>
-                        )}
-                      </div>
-                      {res.renewalRequest?.status === 'PENDING' && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 flex items-center gap-1">
-                          <AlertTriangle size={10} /> Request: {res.renewalRequest.plan}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end items-center gap-2">
-                      {res.renewalRequest?.status === 'PENDING' && (
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Approve upgrade to ${res.renewalRequest.plan}?`)) {
-                              setEditFormData({
-                                name: res.name,
-                                subdomain: res.subdomain || res.slug || '',
-                                subscriptionPlan: res.renewalRequest.plan,
-                                isActive: res.isActive || res.status === 'ACTIVE',
-                                ownerName: res.ownerId?.name || '',
-                                ownerEmail: res.ownerId?.email || '',
-                                ownerPhone: res.ownerId?.phone || ''
-                              });
-                              setEditingId(res._id);
-                              // We can simulate an edit submit directly instead of opening modal
-                              handleAutoApprove(res._id, {
-                                name: res.name,
-                                subscriptionPlan: res.renewalRequest.plan,
-                                isActive: res.isActive || res.status === 'ACTIVE'
-                              });
-                            }
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-700 hover:bg-green-200 transition-all shadow-sm"
-                          title={`Approve ${res.renewalRequest.plan} renewal request`}
-                        >
-                          Approve
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleSendCredentials(res._id)}
-                        disabled={credStatus === 'sending'}
-                        title="Send login credentials via WhatsApp"
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${credStatus === 'sent' ? 'bg-green-100 text-green-700' : credStatus === 'sending' ? 'bg-blue-50 text-blue-400 cursor-wait' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-                      >
-                        {credStatus === 'sent' ? <><CheckCircle size={14} /> Sent!</> : credStatus === 'sending' ? <><Loader size={14} className="animate-spin" /> Sending...</> : <><Send size={14} /> Send Creds</>}
-                      </button>
-                      <button
-                        onClick={() => openEditModal(res)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all border border-emerald-200/80 cursor-pointer shadow-xs"
-                        title="Manage plan & subscription days"
-                      >
-                        <CreditCard size={13} />
-                        <span>Manage Plan</span>
-                      </button>
-                      <button onClick={() => openEditModal(res)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit"><Edit size={18} /></button>
-                      <button onClick={() => handleDelete(res._id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 size={18} /></button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Add Restaurant Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="text-xl font-bold text-gray-800">Add New Restaurant</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200 transition-colors">
-                <X size={20} />
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 1. RESTAURANTS DIRECTORY TAB                                  */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'restaurants' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  type="text" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search restaurants, owners, phones..." 
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-gray-900 bg-white"
+                />
+              </div>
+
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
+              >
+                <Plus size={16} /> Add Restaurant
               </button>
             </div>
             
-            <form className="p-6 space-y-4" onSubmit={handleSubmit}>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Restaurant Name</label>
-                <input type="text" name="restaurantName" value={formData.restaurantName} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="e.g., Paradise Biryani" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="p-4">Restaurant</th>
+                    <th className="p-4">Owner</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Subscription Plan</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredRestaurantsDirectory.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="p-12 text-center text-gray-400 font-medium">
+                        No restaurants found. Click "Add Restaurant" to provision a new tenant!
+                      </td>
+                    </tr>
+                  ) : filteredRestaurantsDirectory.map(res => {
+                    const credStatus = sendingCredentials[res._id] || 'idle';
+                    return (
+                      <tr key={res._id} className="hover:bg-gray-50/70 transition-colors">
+                        <td className="p-4">
+                          <div className="font-bold text-gray-900">{res.name}</div>
+                          <div className="text-xs text-gray-400 mt-0.5">{res.slug}.dynease.in</div>
+                        </td>
+                        <td className="p-4">
+                          <div className="font-medium text-gray-800">{res.ownerId?.name || 'N/A'}</div>
+                          <div className="text-xs text-gray-400">{res.ownerId?.phone || res.ownerId?.email || ''}</div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => handleToggleStatus(res)}
+                              disabled={togglingStatus === res._id}
+                              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+                                (res.isActive || res.status === 'ACTIVE') ? 'bg-emerald-600' : 'bg-gray-300'
+                              } ${togglingStatus === res._id ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                            >
+                              <span
+                                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                  (res.isActive || res.status === 'ACTIVE') ? 'translate-x-5' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                            <span className="ml-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                              {res.isActive || res.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex flex-col items-start gap-1">
+                            <span className={`px-2 py-0.5 rounded text-xs font-extrabold uppercase ${
+                              res.selectedPlan === 'PRO' ? 'bg-purple-100 text-purple-700' :
+                              res.selectedPlan === 'GROWTH' ? 'bg-emerald-100 text-emerald-800' :
+                              res.selectedPlan === 'BUSINESS' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {res.selectedPlan || 'FREE'}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {res.daysRemaining !== undefined && (
+                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5 ${
+                                  res.daysRemaining === 0 || res.subscriptionStatus === 'EXPIRED'
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : res.daysRemaining <= 3
+                                    ? 'bg-red-100 text-red-800 animate-pulse'
+                                    : res.daysRemaining <= 7
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-emerald-50 text-emerald-700'
+                                }`}>
+                                  <Clock size={10} />
+                                  <span>{res.daysRemaining}d left</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex justify-end items-center gap-2">
+                            <button
+                              onClick={() => handleSendCredentials(res._id)}
+                              disabled={credStatus === 'sending'}
+                              title="Send login credentials via WhatsApp"
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                credStatus === 'sent' ? 'bg-emerald-100 text-emerald-800' :
+                                credStatus === 'sending' ? 'bg-blue-50 text-blue-400 cursor-wait' :
+                                'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                              }`}
+                            >
+                              {credStatus === 'sent' ? <><CheckCircle size={13} /> Sent!</> : credStatus === 'sending' ? <><Loader size={13} className="animate-spin" /> Sending...</> : <><Send size={13} /> Send Creds</>}
+                            </button>
+                            
+                            <button
+                              onClick={() => openBillingModal(res)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-all border border-emerald-200 cursor-pointer shadow-xs"
+                              title="Manage subscription days & billing"
+                            >
+                              <CreditCard size={13} />
+                              <span>Billing</span>
+                            </button>
+
+                            <button onClick={() => openEditModal(res)} className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors" title="Edit Restaurant">
+                              <Edit size={16} />
+                            </button>
+
+                            <button onClick={() => handleDelete(res._id)} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 2. SUBSCRIPTION & BILLING TAB (MERGED)                        */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'billing' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {pendingRequestsCount > 0 && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <span className="p-2 bg-amber-100 text-amber-700 rounded-xl">
+                  <AlertTriangle size={20} />
+                </span>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Owner Name</label>
-                  <input type="text" name="ownerName" value={formData.ownerName} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="John Doe" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Owner Phone</label>
-                  <input type="tel" name="ownerPhone" value={formData.ownerPhone} onChange={handleChange} pattern="\d{10}" maxLength="10" required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="9876543210" />
+                  <h4 className="font-bold text-sm">Action Needed: {pendingRequestsCount} Pending Renewal Request{pendingRequestsCount > 1 ? 's' : ''}</h4>
+                  <p className="text-xs text-amber-700 mt-0.5">One or more restaurants have submitted renewal or upgrade requests awaiting approval.</p>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Owner Email</label>
-                <input type="email" name="ownerEmail" value={formData.ownerEmail} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="owner@restaurant.com" />
+            </div>
+          )}
+
+          {pendingRequestsCount > 0 && (
+            <div className="bg-white rounded-2xl border border-amber-200 p-5 shadow-xs space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                <CreditCard size={18} className="text-amber-700" />
+                <h3 className="font-bold text-gray-900 text-sm">Review Pending Plan Requests</h3>
               </div>
+              <div className="divide-y divide-gray-100">
+                {restaurants.filter(r => r.renewalRequest?.status === 'PENDING').map(r => (
+                  <div key={r._id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="font-bold text-gray-900 text-sm">{r.name}</div>
+                      <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                        <span>Requested Plan: <strong className="text-purple-700 bg-purple-50 px-2 py-0.5 rounded uppercase">{r.renewalRequest.plan}</strong></span>
+                        {r.renewalRequest.createdAt && (
+                          <span className="text-gray-400">({new Date(r.renewalRequest.createdAt).toLocaleDateString()})</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleApprovePlanRequest(r.renewalRequest.id || r.renewalRequest._id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                      >
+                        <Check size={14} /> Approve Plan
+                      </button>
+                      <button
+                        onClick={() => handleRejectPlanRequest(r.renewalRequest.id || r.renewalRequest._id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border border-rose-300 text-rose-700 hover:bg-rose-50 transition-all cursor-pointer"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* KPI Metrics Strip */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Temporary Password</label>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Active Subscriptions</p>
+                <p className="text-2xl font-black text-emerald-600 mt-1">{activeSubsCount}</p>
+              </div>
+              <span className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl">
+                <CheckCircle2 size={22} />
+              </span>
+            </div>
+
+            <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expiring in 7 Days</p>
+                <p className="text-2xl font-black text-amber-600 mt-1">{expiringSoonCount}</p>
+              </div>
+              <span className="p-2.5 bg-amber-50 text-amber-700 rounded-xl">
+                <Clock size={22} />
+              </span>
+            </div>
+
+            <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trial Plans</p>
+                <p className="text-2xl font-black text-blue-600 mt-1">{trialSubsCount}</p>
+              </div>
+              <span className="p-2.5 bg-blue-50 text-blue-700 rounded-xl">
+                <Sparkles size={22} />
+              </span>
+            </div>
+
+            <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expired / Grace</p>
+                <p className="text-2xl font-black text-rose-600 mt-1">{expiredCount}</p>
+              </div>
+              <span className="p-2.5 bg-rose-50 text-rose-700 rounded-xl">
+                <AlertTriangle size={22} />
+              </span>
+            </div>
+          </div>
+
+          {/* Billing Search & Filter Toolbar */}
+          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by restaurant name, owner, or domain..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedPlanFilter}
+                onChange={(e) => setSelectedPlanFilter(e.target.value)}
+                className="text-xs font-bold border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">All Plans</option>
+                <option value="STARTER">Starter</option>
+                <option value="GROWTH">Growth</option>
+                <option value="BUSINESS">Business</option>
+                <option value="PRO">Pro</option>
+                <option value="FREE">Free Trial</option>
+              </select>
+
+              <select
+                value={selectedStatusFilter}
+                onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                className="text-xs font-bold border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="TRIAL">Trial</option>
+                <option value="EXPIRED">Expired</option>
+              </select>
+
+              <button
+                onClick={() => setOnlyExpiringSoon(!onlyExpiringSoon)}
+                className={`text-xs font-bold px-3 py-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  onlyExpiringSoon
+                    ? 'bg-amber-100 text-amber-900 border-amber-300 ring-2 ring-amber-300/30'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Clock size={14} className={onlyExpiringSoon ? 'text-amber-700' : 'text-gray-400'} />
+                <span>Expiring Soon (≤ 7d)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Subscriptions & Billing Table */}
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="p-4">Restaurant</th>
+                    <th className="p-4">Plan</th>
+                    <th className="p-4">Days Remaining</th>
+                    <th className="p-4">Expiration Date</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 text-right">Billing Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredBillingRestaurants.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="p-12 text-center text-gray-400 font-medium">
+                        No restaurant subscriptions found matching the selected filters.
+                      </td>
+                    </tr>
+                  ) : filteredBillingRestaurants.map(r => (
+                    <tr key={r._id} className="hover:bg-gray-50/70 transition-colors">
+                      <td className="p-4">
+                        <div className="font-bold text-gray-900">{r.name}</div>
+                        <div className="text-xs text-gray-400">{r.subdomain || r.slug}.dynease.in</div>
+                      </td>
+
+                      <td className="p-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold uppercase ${
+                          r.selectedPlan === 'PRO' ? 'bg-purple-100 text-purple-700' :
+                          r.selectedPlan === 'GROWTH' ? 'bg-emerald-100 text-emerald-800' :
+                          r.selectedPlan === 'BUSINESS' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {r.selectedPlan || 'FREE'}
+                        </span>
+                        {r.renewalRequest?.status === 'PENDING' && (
+                          <div className="mt-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center gap-1">
+                            <AlertTriangle size={11} /> Request: {r.renewalRequest.plan}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="p-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold ${
+                          r.daysRemaining === 0 || r.subscriptionStatus === 'EXPIRED'
+                            ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                            : r.daysRemaining <= 3
+                            ? 'bg-red-100 text-red-800 border border-red-200 animate-pulse'
+                            : r.daysRemaining <= 7
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}>
+                          <Clock size={12} />
+                          <span>{r.daysRemaining !== undefined ? `${r.daysRemaining} days` : '0 days'}</span>
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-xs text-gray-600">
+                        {r.subscriptionEndDate ? new Date(r.subscriptionEndDate).toLocaleDateString('en-IN', {
+                          day: '2-digit', month: 'short', year: 'numeric'
+                        }) : 'Not Set'}
+                      </td>
+
+                      <td className="p-4">
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
+                          r.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' :
+                          r.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
+                          r.subscriptionStatus === 'EXPIRED' ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {r.subscriptionStatus || 'INACTIVE'}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-right">
+                        <div className="flex justify-end items-center gap-2">
+                          <button
+                            onClick={() => handleDirectAddDays(r, 30)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all border border-emerald-200 cursor-pointer"
+                            title="Quick extend subscription by 30 days"
+                          >
+                            +30 Days
+                          </button>
+
+                          <button
+                            onClick={() => openBillingModal(r)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-900 hover:bg-black text-white transition-all shadow-xs cursor-pointer"
+                          >
+                            Manage Plan
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 3. PLATFORM PLAN TIERS TAB                                    */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'plans' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs">
+            <h2 className="text-lg font-bold text-gray-900 font-serif mb-1">Dynease Official Plan Tiers</h2>
+            <p className="text-xs text-gray-500 mb-6">These are the subscription plans available across the platform for restaurants.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {plans.map((p) => (
+                <div key={p.planId} className={`rounded-2xl border p-5 flex flex-col justify-between transition-all ${
+                  p.isPopular ? 'border-emerald-400 bg-emerald-50/20 shadow-md ring-2 ring-emerald-400/20' : 'border-gray-200 bg-white shadow-xs'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                        {p.name}
+                      </span>
+                      {p.badge && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">
+                          {p.badge}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-3 mb-2">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-black text-gray-900">
+                          {p.monthlyDisplayPrice === 'Custom' ? 'Custom' : `₹${p.monthlyDisplayPrice}`}
+                        </span>
+                        <span className="text-xs text-gray-400 font-medium">/month</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">{p.description}</p>
+                    </div>
+
+                    <div className="border-t border-gray-100 my-4 pt-4 space-y-2 text-xs">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Check size={14} className="text-emerald-600 shrink-0" />
+                        <span>Up to <strong>{p.maxTables >= 9999 ? 'Unlimited' : p.maxTables}</strong> tables</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Check size={14} className="text-emerald-600 shrink-0" />
+                        <span>Up to <strong>{p.maxStaff >= 9999 ? 'Unlimited' : p.maxStaff}</strong> staff logins</span>
+                      </div>
+                      {p.features?.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2 text-gray-600">
+                          <Check size={14} className="text-emerald-600 shrink-0" />
+                          <span>{f}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100 text-center">
+                    <span className="text-xs font-bold text-emerald-700">Configured in Platform</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: Add Restaurant                                         */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setShowAddModal(false)}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Store className="text-emerald-600" size={20} /> Add New Restaurant
+            </h3>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Restaurant Name</label>
+                <input 
+                  type="text" 
+                  name="restaurantName"
+                  required
+                  value={formData.restaurantName}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  placeholder="e.g. Spice Symphony"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Owner Name</label>
+                <input 
+                  type="text" 
+                  name="ownerName"
+                  required
+                  value={formData.ownerName}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  placeholder="e.g. Rahul Sharma"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Owner Email</label>
+                <input 
+                  type="email" 
+                  name="ownerEmail"
+                  required
+                  value={formData.ownerEmail}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  placeholder="e.g. rahul@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Owner Phone (WhatsApp)</label>
+                <input 
+                  type="text" 
+                  name="ownerPhone"
+                  required
+                  value={formData.ownerPhone}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  placeholder="e.g. 9876543210"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Password</label>
                 <div className="relative">
                   <input 
-                    type={showPassword ? "text" : "password"} 
-                    name="ownerPassword" 
-                    value={formData.ownerPassword} 
-                    onChange={handleChange} 
-                    required 
-                    className="w-full p-3 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" 
-                    placeholder="••••••••" 
+                    type={showPassword ? 'text' : 'password'}
+                    name="ownerPassword"
+                    required
+                    value={formData.ownerPassword}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500 focus:outline-none pr-10"
+                    placeholder="Min 6 characters"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">
+              <div className="pt-2 flex justify-end gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50"
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={isLoading} className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-200 transition-colors disabled:opacity-50">
-                  {isLoading ? 'Creating...' : 'Create Restaurant'}
+                <button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5"
+                >
+                  {isLoading && <Loader size={14} className="animate-spin" />}
+                  <span>Provision Restaurant</span>
                 </button>
               </div>
             </form>
@@ -453,105 +1082,214 @@ export default function RestaurantsManagement() {
         </div>
       )}
 
-      {/* Edit Restaurant Modal */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: Edit Restaurant Directory                              */}
+      {/* ───────────────────────────────────────────────────────────── */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="text-xl font-bold text-gray-800">Edit Restaurant</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-200 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setShowEditModal(false)}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Edit Restaurant Details</h3>
             
-            <form className="p-6 space-y-4" onSubmit={handleEditSubmit}>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Restaurant Name</label>
-                  <input type="text" name="name" value={editFormData.name} onChange={handleEditChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Subdomain</label>
-                  <input type="text" name="subdomain" value={editFormData.subdomain} onChange={handleEditChange} required className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Owner Name</label>
-                  <input type="text" name="ownerName" value={editFormData.ownerName} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Owner Phone</label>
-                  <input type="tel" name="ownerPhone" value={editFormData.ownerPhone} onChange={handleEditChange} pattern="\d{10}" maxLength="10" className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
-                </div>
-              </div>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Owner Email</label>
-                <input type="email" name="ownerEmail" value={editFormData.ownerEmail} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Google Review Link <span className="text-gray-400 font-normal">(Optional)</span></label>
-                <input type="url" name="googleReviewLink" value={editFormData.googleReviewLink} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" placeholder="https://g.page/r/..." />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Subscription Plan</label>
-                  <select name="subscriptionPlan" value={editFormData.subscriptionPlan} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 text-gray-900 bg-white">
-                    {plans.length > 0 ? plans.map(plan => (
-                      <option key={plan._id} value={plan.name}>{plan.name} — Rs.{plan.price}/mo</option>
-                    )) : (
-                      <>
-                        <option value="FREE">FREE — Rs.0/mo</option>
-                        <option value="GROWTH">GROWTH — Rs.1499/mo</option>
-                        <option value="PRO">PRO — Rs.2499/mo</option>
-                      </>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Subscription Status</label>
-                  <select name="subscriptionStatus" value={editFormData.subscriptionStatus} onChange={handleEditChange} className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 text-gray-900 bg-white">
-                    <option value="ACTIVE">ACTIVE (Paid)</option>
-                    <option value="TRIAL">TRIAL (Free)</option>
-                    <option value="EXPIRED">EXPIRED (Blocked)</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Billing Days Remaining field */}
-              <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-bold text-gray-800">Billing Days Remaining</label>
-                  <span className="text-xs font-extrabold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-                    {editFormData.billingDaysRemaining} days
-                  </span>
-                </div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Restaurant Name</label>
                 <input 
-                  type="number" 
-                  name="billingDaysRemaining" 
-                  min="0"
-                  max="1000"
-                  value={editFormData.billingDaysRemaining} 
-                  onChange={handleEditChange} 
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 text-gray-900 bg-white font-bold" 
-                  placeholder="e.g. 30"
+                  type="text" 
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500"
                 />
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: (parseInt(editFormData.billingDaysRemaining, 10) || 0) + 7 })} className="px-2 py-1 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-100">+7d</button>
-                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: (parseInt(editFormData.billingDaysRemaining, 10) || 0) + 14 })} className="px-2 py-1 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-100">+14d</button>
-                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: (parseInt(editFormData.billingDaysRemaining, 10) || 0) + 30 })} className="px-2 py-1 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-100">+30d</button>
-                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: (parseInt(editFormData.billingDaysRemaining, 10) || 0) + 60 })} className="px-2 py-1 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-100">+60d</button>
-                  <button type="button" onClick={() => setEditFormData({ ...editFormData, billingDaysRemaining: 0, subscriptionStatus: 'EXPIRED' })} className="px-2 py-1 text-xs font-semibold rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100">0d (Expire)</button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Subdomain</label>
+                <input 
+                  type="text" 
+                  disabled
+                  value={editFormData.subdomain}
+                  className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm text-gray-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Owner Name</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.ownerName}
+                    onChange={(e) => setEditFormData({ ...editFormData, ownerName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Owner Phone</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.ownerPhone}
+                    onChange={(e) => setEditFormData({ ...editFormData, ownerPhone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500"
+                  />
                 </div>
               </div>
 
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">
+              <div className="pt-2 flex justify-end gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-bold"
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={isLoading} className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-200 transition-colors disabled:opacity-50">
-                  {isLoading ? 'Saving...' : 'Save Changes'}
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: Manage Subscription & Billing                          */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {editingRestaurantBilling && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl relative border border-gray-100">
+            <button 
+              onClick={() => setEditingRestaurantBilling(null)}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 p-1"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-1">
+              <span className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+                <CreditCard size={20} />
+              </span>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Manage Subscription & Billing</h3>
+                <p className="text-xs text-gray-400">{editingRestaurantBilling.name} ({editingRestaurantBilling.subdomain}.dynease.in)</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveBilling} className="mt-5 space-y-4">
+              {editingRestaurantBilling.renewalRequest?.status === 'PENDING' && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-bold text-amber-800 flex items-center gap-1">
+                      <AlertTriangle size={13} />
+                      Pending Request: {editingRestaurantBilling.renewalRequest.plan} Plan
+                    </div>
+                    <div className="text-[11px] text-amber-700 mt-0.5">
+                      Requested {editingRestaurantBilling.renewalRequest.requestedAt ? new Date(editingRestaurantBilling.renewalRequest.requestedAt).toLocaleDateString() : 'recently'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditPlan(editingRestaurantBilling.renewalRequest.plan);
+                      handleBillingDaysChange(30);
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg cursor-pointer"
+                  >
+                    Apply Request
+                  </button>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Subscription Plan</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {planOptions.map(opt => (
+                    <button
+                      type="button"
+                      key={opt.id}
+                      onClick={() => setEditPlan(opt.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        editPlan === opt.id
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-600/20'
+                          : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      <div className="text-xs font-black">{opt.name}</div>
+                      <div className="text-[10px] text-gray-500 font-semibold mt-0.5">{opt.price}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Days Remaining</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editDaysRemaining}
+                    onChange={(e) => handleBillingDaysChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Subscription End Date</label>
+                  <input
+                    type="date"
+                    value={editEndDate}
+                    onChange={(e) => handleBillingDateChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Subscription Status</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="TRIAL">TRIAL</option>
+                  <option value="EXPIRED">EXPIRED</option>
+                  <option value="SUSPENDED">SUSPENDED</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Admin Action Note</label>
+                <input
+                  type="text"
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  placeholder="e.g. Received offline payment, extended 30 days"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingRestaurantBilling(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingBilling}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  {isSavingBilling && <Loader size={14} className="animate-spin" />}
+                  <span>Save Billing Details</span>
                 </button>
               </div>
             </form>

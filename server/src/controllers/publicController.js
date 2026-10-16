@@ -1,14 +1,18 @@
-const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
-const TenantDatabaseManager = require('../services/TenantDatabaseManager');
-
-// Helper: get tenant DB from req (already resolved by tenantResolver middleware)
-const requireTenantDb = (req, res) => {
-  if (!req.tenantDb || !req.tenantRegistry) {
-    res.status(404).json({ success: false, message: 'Restaurant not found or not active.' });
-    return null;
-  }
-  return { tenantDb: req.tenantDb, registry: req.tenantRegistry };
-};
+const crypto = require('crypto');
+const { db, schema } = require('../db/client');
+const { eq, and, or, sql, desc, inArray, isNull } = require('drizzle-orm');
+const {
+  restaurants,
+  tables,
+  menu_categories,
+  menu_categories_items,
+  order_details,
+  order_items,
+  leads,
+  service_requests,
+  ads,
+  audit_log
+} = schema;
 
 const inferCategoryType = (name, explicitType) => {
   if (explicitType && explicitType !== 'all') return explicitType.toLowerCase();
@@ -20,56 +24,62 @@ const inferCategoryType = (name, explicitType) => {
 };
 
 /**
- * GET /api/public/qr/:token
+ * GET /api/public/qr/:qrToken
  * Resolves a QR token → restaurant + table info
  */
 exports.getTableByQR = async (req, res, next) => {
   try {
     const { qrToken } = req.params;
-    
-    const info = requireTenantDb(req, res);
-    if (!info) return;
-    const { tenantDb, registry } = info;
 
-    const Table = tenantDb.model('Table');
-    const table = await Table.findOne({ qrToken, status: 'ACTIVE' });
+    const [table] = await db.select().from(tables).where(
+      and(
+        eq(tables.qr_token, qrToken),
+        eq(tables.table_status, 'ACTIVE'),
+        eq(tables.is_deleted, false)
+      )
+    ).limit(1);
+
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         code: 'INVALID_QR',
-        message: 'This table QR code is invalid or inactive.' 
+        message: 'This table QR code is invalid or inactive.'
       });
     }
 
-    const RestaurantProfile = tenantDb.model('RestaurantProfile');
-    const profile = await RestaurantProfile.findOne({ restaurantId: registry.restaurantId });
-    
-    if (!profile || !profile.isActive) {
-      return res.status(403).json({ 
-        success: false, 
+    const [restaurant] = await db.select().from(restaurants).where(
+      and(
+        eq(restaurants.id, table.restaurant_id),
+        eq(restaurants.is_deleted, false)
+      )
+    ).limit(1);
+
+    if (!restaurant || restaurant.restaurant_status !== 'ACTIVE') {
+      return res.status(403).json({
+        success: false,
         code: 'RESTAURANT_UNAVAILABLE',
-        message: 'This restaurant is currently unavailable.' 
+        message: 'This restaurant is currently unavailable.'
       });
     }
 
-    res.status(200).json({ 
-      success: true, 
-      data: { 
-        restaurant: { 
-          id: registry.restaurantId,
-          name: profile.name,
-          slug: registry.subdomain,
-          logo: profile.logo?.secure_url || null,
-          taxPercent: profile.taxInfo?.taxPercentage || 0,
-          googleReviewLink: profile.googleReviewLink || null
+    res.status(200).json({
+      success: true,
+      data: {
+        restaurant: {
+          id: restaurant.id,
+          name: restaurant.restaurant_name || restaurant.name,
+          slug: restaurant.domain,
+          logo: null,
+          taxPercent: 0,
+          googleReviewLink: null
         },
-        table: { 
-          id: table._id, 
-          tableNumber: table.tableNumber, 
-          tableName: table.tableName || null
+        table: {
+          id: table.id,
+          tableNumber: table.table_code,
+          tableName: table.table_code
         },
         session: { qrToken }
-      } 
+      }
     });
   } catch (error) {
     next(error);
@@ -83,105 +93,28 @@ exports.getTableByQR = async (req, res, next) => {
 exports.getTableByNumber = async (req, res, next) => {
   try {
     const { tableNumber } = req.params;
-    
-    const info = requireTenantDb(req, res);
-    if (!info) return;
-    const { tenantDb, registry } = info;
+    const restaurant = req.restaurant || req.tenantRegistry;
 
-    const Table = tenantDb.model('Table');
-    const table = await Table.findOne({ tableNumber, status: 'ACTIVE' });
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'Restaurant not found or not active.' });
+    }
+
+    const restaurantId = restaurant.id || restaurant.restaurantId;
+
+    const [table] = await db.select().from(tables).where(
+      and(
+        eq(tables.table_code, tableNumber),
+        eq(tables.restaurant_id, restaurantId),
+        eq(tables.table_status, 'ACTIVE'),
+        eq(tables.is_deleted, false)
+      )
+    ).limit(1);
+
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         code: 'INVALID_TABLE',
-        message: 'This table number is invalid or inactive.' 
-      });
-    }
-
-    const RestaurantProfile = tenantDb.model('RestaurantProfile');
-    const profile = await RestaurantProfile.findOne({ restaurantId: registry.restaurantId });
-    
-    if (!profile || !profile.isActive) {
-      return res.status(403).json({ 
-        success: false, 
-        code: 'RESTAURANT_UNAVAILABLE',
-        message: 'This restaurant is currently unavailable.' 
-      });
-    }
-
-    res.status(200).json({ 
-      success: true, 
-      data: { 
-        restaurant: { 
-          id: registry.restaurantId,
-          name: profile.name,
-          subtitle: profile.subtitle || null,
-          slug: registry.subdomain,
-          logo: profile.logo?.secure_url || null,
-          taxPercent: profile.taxInfo?.taxPercentage || 0,
-          googleReviewLink: profile.googleReviewLink || null
-        },
-        table: { 
-          id: table._id, 
-          tableNumber: table.tableNumber, 
-          tableName: table.tableName || null
-        },
-        session: { qrToken: table.qrToken || tableNumber } // fallback to tableNumber if no qrToken
-      } 
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * GET /api/public/menu
- * Returns the restaurant menu grouped by category
- */
-exports.getMenu = async (req, res, next) => {
-  try {
-    const info = requireTenantDb(req, res);
-    if (!info) return;
-    const { tenantDb, registry } = info;
-
-    const RestaurantProfile = tenantDb.model('RestaurantProfile');
-    const profile = await RestaurantProfile.findOne({ restaurantId: registry.restaurantId });
-    
-    if (!profile || !profile.isActive) {
-      return res.status(404).json({ success: false, message: 'Restaurant not found or inactive.' });
-    }
-
-    const MenuItem = tenantDb.model('MenuItem');
-    const menuItems = await MenuItem.find({ isAvailable: true }).sort({ category: 1, name: 1 });
-    
-    const Category = tenantDb.model('Category');
-    const categoryDocs = await Category.find({ isActive: true }).sort({ displayOrder: 1, name: 1 });
-    
-    // Create base categories list
-    const categories = categoryDocs.map(c => ({
-      name: c.name,
-      type: inferCategoryType(c.name, c.type),
-      image: c.image?.secure_url || null,
-      items: []
-    }));
-    
-    // Add items to categories, also handle items that might not have a category document
-    for (const item of menuItems) {
-      let targetCat = categories.find(c => c.name === item.category);
-      if (!targetCat) {
-        targetCat = { name: item.category, type: inferCategoryType(item.category, 'all'), items: [] };
-        categories.push(targetCat);
-      }
-      targetCat.items.push({
-        id: item._id,
-        name: item.name,
-        description: item.description,
-        price: item.price,
-        imageUrl: item.image?.secure_url || null,
-        isAvailable: item.isAvailable,
-        dietaryPreference: item.dietaryPreference,
-        preparationTime: item.preparationTime,
-        quantities: item.quantities || []
+        message: 'This table number is invalid or inactive.'
       });
     }
 
@@ -189,13 +122,104 @@ exports.getMenu = async (req, res, next) => {
       success: true,
       data: {
         restaurant: {
-          id: registry.restaurantId,
-          name: profile.name,
-          subtitle: profile.subtitle || null,
-          slug: registry.subdomain,
-          logo: profile.logo?.secure_url || null,
-          taxPercent: profile.taxInfo?.taxPercentage || 0,
-          googleReviewLink: profile.googleReviewLink || null
+          id: restaurantId,
+          name: restaurant.restaurantName || restaurant.name,
+          subtitle: null,
+          slug: restaurant.domain || restaurant.slug || restaurant.subdomain,
+          logo: null,
+          taxPercent: 0,
+          googleReviewLink: null
+        },
+        table: {
+          id: table.id,
+          tableNumber: table.table_code,
+          tableName: table.table_code
+        },
+        session: { qrToken: table.qr_token || tableNumber }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Helper to build category and menu items list
+ */
+async function fetchMenuForRestaurant(restaurantId) {
+  const categoryDocs = await db.select().from(menu_categories).where(
+    and(
+      eq(menu_categories.restaurant_id, restaurantId),
+      eq(menu_categories.menu_category_status, 'ACTIVE'),
+      isNull(menu_categories.deletedat)
+    )
+  ).orderBy(menu_categories.display_order, menu_categories.category);
+
+  const menuItems = await db.select().from(menu_categories_items).where(
+    and(
+      eq(menu_categories_items.restaurant_id, restaurantId),
+      eq(menu_categories_items.menu_item_status, 'AVAILABLE'),
+      isNull(menu_categories_items.deletedat)
+    )
+  ).orderBy(menu_categories_items.display_order, menu_categories_items.name);
+
+  const categoriesMap = new Map();
+  for (const c of categoryDocs) {
+    categoriesMap.set(c.id, {
+      name: c.category,
+      type: inferCategoryType(c.category, 'all'),
+      image: null,
+      items: []
+    });
+  }
+
+  for (const item of menuItems) {
+    let targetCat = categoriesMap.get(item.category_id);
+    if (!targetCat) {
+      targetCat = { name: 'General', type: 'all', image: null, items: [] };
+      categoriesMap.set(item.category_id || 'general', targetCat);
+    }
+    targetCat.items.push({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      price: parseFloat(item.price),
+      imageUrl: null,
+      isAvailable: item.menu_item_status === 'AVAILABLE',
+      dietaryPreference: item.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
+      preparationTime: 15,
+      quantities: item.item_size ? [{ size: item.item_size, price: parseFloat(item.price) }] : []
+    });
+  }
+
+  return Array.from(categoriesMap.values());
+}
+
+/**
+ * GET /api/public/menu
+ * Returns the restaurant menu grouped by category
+ */
+exports.getMenu = async (req, res, next) => {
+  try {
+    const restaurant = req.restaurant || req.tenantRegistry;
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'Restaurant not found or inactive.' });
+    }
+
+    const restaurantId = restaurant.id || restaurant.restaurantId;
+    const categories = await fetchMenuForRestaurant(restaurantId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        restaurant: {
+          id: restaurantId,
+          name: restaurant.restaurantName || restaurant.name,
+          subtitle: null,
+          slug: restaurant.domain || restaurant.slug || restaurant.subdomain,
+          logo: null,
+          taxPercent: 0,
+          googleReviewLink: null
         },
         categories
       }
@@ -212,71 +236,36 @@ exports.getMenu = async (req, res, next) => {
 exports.getRestaurantMenu = async (req, res, next) => {
   try {
     const { slug } = req.params;
-    
-    let tenantDb = req.tenantDb;
-    let registry = req.tenantRegistry;
+    let restaurant = req.restaurant || req.tenantRegistry;
 
-    // If not resolved via subdomain, try resolving via slug
-    if (!tenantDb) {
-      registry = await RestaurantRegistry.findOne({ subdomain: slug, status: 'ACTIVE' });
-      if (!registry) {
+    if (!restaurant) {
+      const [found] = await db.select().from(restaurants).where(
+        and(
+          eq(sql`LOWER(${restaurants.domain})`, slug.toLowerCase()),
+          eq(restaurants.is_deleted, false)
+        )
+      ).limit(1);
+
+      if (!found || found.restaurant_status !== 'ACTIVE') {
         return res.status(404).json({ success: false, message: 'Restaurant not found or inactive.' });
       }
-      tenantDb = await TenantDatabaseManager.getConnection(registry.databaseName);
+      restaurant = found;
     }
 
-    const RestaurantProfile = tenantDb.model('RestaurantProfile');
-    const profile = await RestaurantProfile.findOne({ restaurantId: registry.restaurantId });
-    
-    if (!profile || !profile.isActive) {
-      return res.status(404).json({ success: false, message: 'Restaurant not found or inactive.' });
-    }
-
-    const MenuItem = tenantDb.model('MenuItem');
-    const menuItems = await MenuItem.find({ isAvailable: true }).sort({ category: 1, name: 1 });
-    
-    const Category = tenantDb.model('Category');
-    const categoryDocs = await Category.find({ isActive: true }).sort({ displayOrder: 1, name: 1 });
-    
-    // Create base categories list
-    const categories = categoryDocs.map(c => ({
-      name: c.name,
-      type: inferCategoryType(c.name, c.type),
-      image: c.image?.secure_url || null,
-      items: []
-    }));
-    
-    // Add items to categories, also handle items that might not have a category document
-    for (const item of menuItems) {
-      let targetCat = categories.find(c => c.name === item.category);
-      if (!targetCat) {
-        targetCat = { name: item.category, type: inferCategoryType(item.category, 'all'), items: [] };
-        categories.push(targetCat);
-      }
-      targetCat.items.push({
-        id: item._id,
-        name: item.name,
-        description: item.description,
-        price: item.price,
-        imageUrl: item.image?.secure_url || null,
-        isAvailable: item.isAvailable,
-        dietaryPreference: item.dietaryPreference,
-        preparationTime: item.preparationTime,
-        quantities: item.quantities || []
-      });
-    }
+    const restaurantId = restaurant.id || restaurant.restaurantId;
+    const categories = await fetchMenuForRestaurant(restaurantId);
 
     res.status(200).json({
       success: true,
       data: {
         restaurant: {
-          id: registry.restaurantId,
-          name: profile.name,
-          subtitle: profile.subtitle || null,
-          slug: registry.subdomain,
-          logo: profile.logo?.secure_url || null,
-          taxPercent: profile.taxInfo?.taxPercentage || 0,
-          googleReviewLink: profile.googleReviewLink || null
+          id: restaurantId,
+          name: restaurant.restaurant_name || restaurant.restaurantName || restaurant.name,
+          subtitle: null,
+          slug: restaurant.domain || restaurant.slug || restaurant.subdomain,
+          logo: null,
+          taxPercent: 0,
+          googleReviewLink: null
         },
         categories
       }
@@ -288,17 +277,12 @@ exports.getRestaurantMenu = async (req, res, next) => {
 
 /**
  * POST /api/public/orders
- * Create a customer order - NEVER trusts frontend prices
+ * Create a customer order
  */
 exports.createOrder = async (req, res, next) => {
   try {
-    const info = requireTenantDb(req, res);
-    if (!info) return;
-    const { tenantDb, registry } = info;
-
     const { tableId, customerName, customerPhone, items } = req.body;
 
-    // --- Validation ---
     if (!tableId) {
       return res.status(400).json({ success: false, message: 'Table is required.' });
     }
@@ -311,152 +295,74 @@ exports.createOrder = async (req, res, next) => {
       }
     }
 
-    // --- Validate table ---
-    const Table = tenantDb.model('Table');
-    const table = await Table.findById(tableId);
-    if (!table || table.status !== 'ACTIVE') {
+    const [table] = await db.select().from(tables).where(
+      and(
+        eq(tables.id, tableId),
+        eq(tables.table_status, 'ACTIVE'),
+        eq(tables.is_deleted, false)
+      )
+    ).limit(1);
+
+    if (!table) {
       return res.status(400).json({ success: false, message: 'Invalid or inactive table.' });
     }
 
-    // --- Validate menu items and compute prices server-side ---
-    const MenuItem = tenantDb.model('MenuItem');
-    const orderItems = [];
-    let subtotal = 0;
+    const restaurantId = table.restaurant_id;
+    const OrderService = require('../services/OrderService');
 
-    for (const reqItem of items) {
-      const menuItem = await MenuItem.findById(reqItem.menuItemId);
-      if (!menuItem) {
-        return res.status(400).json({ success: false, message: `Menu item not found: ${reqItem.menuItemId}` });
-      }
-      if (!menuItem.isAvailable) {
-        return res.status(400).json({ success: false, message: `Item is currently unavailable: ${menuItem.name}` });
-      }
-      const qty = parseInt(reqItem.quantity, 10);
-      if (isNaN(qty) || qty < 1 || qty > 50) {
-        return res.status(400).json({ success: false, message: `Invalid quantity for ${menuItem.name}` });
-      }
-      let unitPrice = menuItem.price;
-      let matchedSize = null;
-      if (reqItem.size && Array.isArray(menuItem.quantities) && menuItem.quantities.length > 0) {
-        const found = menuItem.quantities.find(
-          q => q.size && q.size.trim().toLowerCase() === String(reqItem.size).trim().toLowerCase()
-        );
-        if (found) {
-          unitPrice = found.price;
-          matchedSize = found.size;
-        }
-      }
-
-      const lineSubtotal = parseFloat((unitPrice * qty).toFixed(2));
-      subtotal += lineSubtotal;
-      orderItems.push({
-        menuItemId: menuItem._id,
-        itemName: matchedSize ? `${menuItem.name} (${matchedSize})` : menuItem.name,       // snapshot
-        unitPrice: unitPrice,     // snapshot
-        quantity: qty,
-        size: matchedSize,
-        subtotal: lineSubtotal
-      });
-    }
-
-    subtotal = parseFloat(subtotal.toFixed(2));
-
-    // Get restaurant tax rate
-    const RestaurantProfile = tenantDb.model('RestaurantProfile');
-    const profile = await RestaurantProfile.findOne({ restaurantId: registry.restaurantId });
-    const taxPercent = profile?.taxInfo?.taxPercentage || 0;
-    const taxAmount = parseFloat(((subtotal * taxPercent) / 100).toFixed(2));
-    const total = parseFloat((subtotal + taxAmount).toFixed(2));
-
-    // --- Generate order number ---
-    const Order = tenantDb.model('Order');
-    const orderCount = await Order.countDocuments({ restaurantId: registry.restaurantId });
-    const orderNumber = `ORD-${String(orderCount + 1001).padStart(4, '0')}`;
-
-    // --- Create order ---
-    const order = await Order.create({
-      orderNumber,
-      restaurantId: registry.restaurantId,
-      tableId: table._id,
-      tableNumber: table.tableNumber,
-      customerName: customerName?.trim() || 'Guest',
-      customerPhone: customerPhone?.trim() || null,
-      items: orderItems,
-      subtotal,
-      taxPercent,
-      taxAmount,
-      discount: 0,
-      total,
-      status: 'PENDING',
-      paymentStatus: 'PENDING'
+    const result = await OrderService.createOrder({
+      restaurant_id: restaurantId,
+      table_id: table.id,
+      customer_name: customerName?.trim() || 'Guest',
+      customer_phone: customerPhone?.trim() || null,
+      items: items.map(i => ({
+        menu_item_id: i.menuItemId,
+        quantity: parseInt(i.quantity, 10),
+        customizations: i.size || ''
+      }))
     });
 
-    // --- Dynamic Waiter Assignment ---
+    const order = result.order;
+    const orderItemsList = result.items;
+
+    // Dynamic Waiter Assignment
     const WaiterAssignmentService = require('../services/waiterAssignmentService');
     const assignment = await WaiterAssignmentService.assignWaiterForOrder(
-      tenantDb,
-      registry.restaurantId,
+      null,
+      restaurantId,
       table,
-      order._id
+      order.id
     );
-
-    order.assignedWaiterId = assignment.assignedWaiterId;
-    order.assignmentType = assignment.assignmentType;
-    order.assignmentStatus = assignment.assignmentStatus;
-    order.assignedAt = assignment.assignedAt;
-    order.assignmentTimeoutAt = assignment.assignmentTimeoutAt;
-    await order.save();
-
-    // Mark table as occupied
-    await Table.findByIdAndUpdate(table._id, {
-      isOccupied: true,
-      lastOrderId: order._id
-    });
 
     const io = req.app.get('io');
     if (io) {
-      io.to(`restaurant:${registry.restaurantId}`).emit('table_updated', {
-        tableId: table._id,
-        isOccupied: true,
-        lastOrderId: order._id,
-        primaryWaiterId: table.primaryWaiterId
-      });
-
       const payload = {
-        id: order._id,
-        _id: order._id,
-        orderNumber: order.orderNumber,
-        tableId: order.tableId,
-        tableNumber: order.tableNumber,
-        items: order.items,
-        total: order.total,
-        status: order.status,
-        assignedWaiterId: order.assignedWaiterId,
-        assignmentType: order.assignmentType,
-        assignmentStatus: order.assignmentStatus,
-        assignmentTimeoutAt: order.assignmentTimeoutAt,
-        createdAt: order.createdAt
+        id: order.id,
+        _id: order.id,
+        orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+        tableId: table.id,
+        tableNumber: table.table_code,
+        items: orderItemsList.map(oi => ({
+          id: oi.id,
+          itemName: oi.item_name,
+          unitPrice: parseFloat(oi.unit_price),
+          quantity: oi.quantity,
+          total: parseFloat(oi.total)
+        })),
+        total: parseFloat(order.final_amount || order.total_amount || 0),
+        status: order.order_status,
+        assignedWaiterId: assignment?.assignedWaiterId || null,
+        assignmentType: assignment?.assignmentType || 'DYNAMIC',
+        assignmentStatus: assignment?.assignmentStatus || 'ASSIGNED',
+        createdAt: order.createdat || order.date
       };
 
-      // Emit to kitchen
-      io.to(`kitchen:${registry.restaurantId}`).emit('new_order', payload);
+      io.to(`kitchen:${restaurantId}`).emit('new_order', payload);
+      io.to(`restaurant:${restaurantId}`).emit('new_order', payload);
+      io.to(`waiter:${restaurantId}`).emit('new_order', payload);
 
-      // Emit to restaurant admin/manager
-      io.to(`restaurant:${registry.restaurantId}`).emit('new_order', payload);
-
-      // Emit to all waiters
-      io.to(`waiter:${registry.restaurantId}`).emit('new_order', payload);
-
-      // Emit directly to assigned waiter room
-      if (order.assignedWaiterId) {
-        io.to(`waiter_user:${order.assignedWaiterId.toString()}`).emit('assigned_order', payload);
-      } else {
-        // Notify managers if order is unassigned
-        io.to(`restaurant:${registry.restaurantId}`).emit('unassigned_order_alert', {
-          orderNumber: order.orderNumber,
-          tableNumber: order.tableNumber,
-          reason: assignment.reason
-        });
+      if (assignment?.assignedWaiterId) {
+        io.to(`waiter_user:${assignment.assignedWaiterId.toString()}`).emit('assigned_order', payload);
       }
     }
 
@@ -464,15 +370,22 @@ exports.createOrder = async (req, res, next) => {
       success: true,
       data: {
         order: {
-          id: order._id,
-          orderNumber: order.orderNumber,
-          tableNumber: order.tableNumber,
-          items: order.items,
-          subtotal: order.subtotal,
-          taxAmount: order.taxAmount,
-          total: order.total,
-          status: order.status,
-          createdAt: order.createdAt
+          id: order.id,
+          _id: order.id,
+          orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+          tableNumber: table.table_code,
+          items: orderItemsList.map(oi => ({
+            id: oi.id,
+            itemName: oi.item_name,
+            unitPrice: parseFloat(oi.unit_price),
+            quantity: oi.quantity,
+            total: parseFloat(oi.total)
+          })),
+          subtotal: parseFloat(order.total_amount || 0),
+          taxAmount: parseFloat(order.tax_amount || 0),
+          total: parseFloat(order.final_amount || order.total_amount || 0),
+          status: order.order_status,
+          createdAt: order.createdat || order.date
         }
       }
     });
@@ -483,75 +396,81 @@ exports.createOrder = async (req, res, next) => {
 
 /**
  * GET /api/public/orders
- * Fetch customer orders by orderIds and/or tableId
+ * Fetch customer orders by orderIds and/or tableId and/or phone
  */
 exports.getCustomerOrders = async (req, res, next) => {
   try {
-    const info = requireTenantDb(req, res);
-    if (!info) return;
-    const { tenantDb } = info;
-
-    const { orderIds, tableId } = req.query;
-    const mongoose = require('mongoose');
-    const Order = tenantDb.model('Order');
-
+    const { orderIds, tableId, phone } = req.query;
     const conditions = [];
 
-    // Parse orderIds if provided (comma-separated or array)
     if (orderIds) {
       const rawIds = Array.isArray(orderIds)
         ? orderIds
         : String(orderIds).split(',').map(s => s.trim()).filter(Boolean);
 
-      const validIds = rawIds
-        .filter(id => mongoose.Types.ObjectId.isValid(id))
-        .map(id => new mongoose.Types.ObjectId(id));
-
-      if (validIds.length > 0) {
-        conditions.push({ _id: { $in: validIds } });
+      if (rawIds.length > 0) {
+        conditions.push(inArray(order_details.id, rawIds));
       }
     }
 
-    // Parse tableId if provided
-    if (tableId && mongoose.Types.ObjectId.isValid(tableId)) {
-      // Find orders for this table in the last 24 hours
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      conditions.push({
-        tableId: new mongoose.Types.ObjectId(tableId),
-        createdAt: { $gte: twentyFourHoursAgo }
-      });
+    if (tableId) {
+      conditions.push(eq(order_details.table_id, tableId));
+    }
+
+    if (phone) {
+      const trimmedPhone = String(phone).trim();
+      const matchingLeads = await db.select({ id: leads.id }).from(leads).where(
+        eq(leads.number, trimmedPhone)
+      );
+      if (matchingLeads.length > 0) {
+        conditions.push(inArray(order_details.lead_id, matchingLeads.map(l => l.id)));
+      }
     }
 
     if (conditions.length === 0) {
       return res.status(200).json({ success: true, data: { orders: [] } });
     }
 
-    const query = conditions.length === 1 ? conditions[0] : { $or: conditions };
+    const orders = await db.select().from(order_details)
+      .where(or(...conditions))
+      .orderBy(desc(order_details.date))
+      .limit(50);
 
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
-      .lean();
+    const formattedOrders = [];
+    for (const ord of orders) {
+      const items = await db.select().from(order_items).where(
+        eq(order_items.order_id, ord.id)
+      );
 
-    const formattedOrders = orders.map(order => ({
-      id: order._id.toString(),
-      _id: order._id.toString(),
-      orderNumber: order.orderNumber,
-      restaurantId: order.restaurantId,
-      tableId: order.tableId,
-      tableNumber: order.tableNumber,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      items: order.items,
-      subtotal: order.subtotal,
-      taxPercent: order.taxPercent,
-      taxAmount: order.taxAmount,
-      discount: order.discount,
-      total: order.total,
-      status: order.status,
-      paymentStatus: order.paymentStatus,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt
-    }));
+      const [tbl] = ord.table_id ? await db.select().from(tables).where(eq(tables.id, ord.table_id)).limit(1) : [null];
+
+      formattedOrders.push({
+        id: ord.id,
+        _id: ord.id,
+        orderNumber: ord.order_number || `ORD-${ord.id.slice(0, 8).toUpperCase()}`,
+        restaurantId: ord.restaurant_id,
+        tableId: ord.table_id,
+        tableNumber: tbl?.table_code || 'Table',
+        customerName: ord.customer_name || 'Guest',
+        customerPhone: ord.customer_phone || null,
+        items: items.map(oi => ({
+          id: oi.id,
+          itemName: oi.item_name,
+          unitPrice: parseFloat(oi.unit_price),
+          quantity: oi.quantity,
+          total: parseFloat(oi.total)
+        })),
+        subtotal: parseFloat(ord.total_amount || 0),
+        taxPercent: 0,
+        taxAmount: parseFloat(ord.tax_amount || 0),
+        discount: parseFloat(ord.discount_amount || 0),
+        total: parseFloat(ord.final_amount || ord.total_amount || 0),
+        status: ord.order_status,
+        paymentStatus: ord.payment_status || 'PENDING',
+        createdAt: ord.date || ord.createdat,
+        updatedAt: ord.updatedat
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -568,17 +487,50 @@ exports.getCustomerOrders = async (req, res, next) => {
  */
 exports.getOrder = async (req, res, next) => {
   try {
-    const info = requireTenantDb(req, res);
-    if (!info) return;
-    const { tenantDb } = info;
+    const { orderId } = req.params;
 
-    const Order = tenantDb.model('Order');
-    const order = await Order.findById(req.params.orderId);
+    const [order] = await db.select().from(order_details).where(
+      eq(order_details.id, orderId)
+    ).limit(1);
+
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found.' });
     }
 
-    res.status(200).json({ success: true, data: { order } });
+    const items = await db.select().from(order_items).where(
+      eq(order_items.order_id, orderId)
+    );
+
+    const [tbl] = order.table_id ? await db.select().from(tables).where(eq(tables.id, order.table_id)).limit(1) : [null];
+
+    const formattedOrder = {
+      id: order.id,
+      _id: order.id,
+      orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+      restaurantId: order.restaurant_id,
+      tableId: order.table_id,
+      tableNumber: tbl?.table_code || 'Table',
+      customerName: order.customer_name || 'Guest',
+      customerPhone: order.customer_phone || null,
+      items: items.map(oi => ({
+        id: oi.id,
+        itemName: oi.item_name,
+        unitPrice: parseFloat(oi.unit_price),
+        quantity: oi.quantity,
+        total: parseFloat(oi.total)
+      })),
+      subtotal: parseFloat(order.total_amount || 0),
+      taxPercent: 0,
+      taxAmount: parseFloat(order.tax_amount || 0),
+      discount: parseFloat(order.discount_amount || 0),
+      total: parseFloat(order.final_amount || order.total_amount || 0),
+      status: order.order_status,
+      paymentStatus: order.payment_status || 'PENDING',
+      createdAt: order.date || order.createdat,
+      updatedAt: order.updatedat
+    };
+
+    res.status(200).json({ success: true, data: { order: formattedOrder } });
   } catch (error) {
     next(error);
   }
@@ -590,78 +542,102 @@ exports.getOrder = async (req, res, next) => {
  */
 exports.createServiceRequest = async (req, res, next) => {
   try {
-    const info = requireTenantDb(req, res);
-    if (!info) return;
-    const { tenantDb, registry } = info;
-
     const { tableId, type, note } = req.body;
     if (!tableId) {
       return res.status(400).json({ success: false, message: 'tableId is required.' });
     }
 
-    const Table = tenantDb.model('Table');
-    const table = await Table.findById(tableId);
-    if (!table || table.status !== 'ACTIVE') {
+    const [table] = await db.select().from(tables).where(
+      and(
+        eq(tables.id, tableId),
+        eq(tables.table_status, 'ACTIVE'),
+        eq(tables.is_deleted, false)
+      )
+    ).limit(1);
+
+    if (!table) {
       return res.status(400).json({ success: false, message: 'Invalid or inactive table.' });
     }
 
-    const ServiceRequest = tenantDb.model('ServiceRequest');
-    const serviceRequest = await ServiceRequest.create({
-      restaurantId: registry.restaurantId,
-      tableId: table._id,
-      tableNumber: table.tableNumber,
-      type: type || 'CALL_WAITER',
-      note: note || '',
-      status: 'OPEN',
-      assignedWaiterId: table.primaryWaiterId || null
-    });
+    const [serviceRequest] = await db.insert(service_requests).values({
+      restaurant_id: table.restaurant_id,
+      table_id: table.id,
+      request_type: type || 'CALL_WAITER',
+      request_status: 'OPEN',
+      details: {
+        note: note || '',
+        tableNumber: table.table_code
+      }
+    }).returning();
 
     const io = req.app.get('io');
     if (io) {
       const payload = {
-        id: serviceRequest._id,
-        _id: serviceRequest._id,
-        tableId: table._id,
-        tableNumber: table.tableNumber,
-        type: serviceRequest.type,
-        note: serviceRequest.note,
-        status: serviceRequest.status,
-        assignedWaiterId: serviceRequest.assignedWaiterId,
-        createdAt: serviceRequest.createdAt
+        id: serviceRequest.id,
+        _id: serviceRequest.id,
+        tableId: table.id,
+        tableNumber: table.table_code,
+        type: serviceRequest.request_type,
+        note: note || '',
+        status: serviceRequest.request_status,
+        createdAt: serviceRequest.createdat
       };
 
-      io.to(`restaurant:${registry.restaurantId}`).emit('new_service_request', payload);
-      io.to(`waiter:${registry.restaurantId}`).emit('new_service_request', payload);
-      if (serviceRequest.assignedWaiterId) {
-        io.to(`waiter_user:${serviceRequest.assignedWaiterId.toString()}`).emit('assigned_service_request', payload);
-      }
+      io.to(`restaurant:${table.restaurant_id}`).emit('new_service_request', payload);
+      io.to(`waiter:${table.restaurant_id}`).emit('new_service_request', payload);
     }
 
     res.status(201).json({
       success: true,
       message: 'Service request created successfully',
-      data: { serviceRequest }
+      data: {
+        serviceRequest: {
+          id: serviceRequest.id,
+          _id: serviceRequest.id,
+          tableId: table.id,
+          tableNumber: table.table_code,
+          type: serviceRequest.request_type,
+          note: note || '',
+          status: serviceRequest.request_status,
+          createdAt: serviceRequest.createdat
+        }
+      }
     });
   } catch (error) {
     next(error);
   }
 };
 
-const Ad = require('../models/platform/Ad');
-
+/**
+ * GET /api/public/banners or /api/public/ads
+ */
 exports.getBanners = async (req, res, next) => {
   try {
-    const banners = await Ad.find({
-      status: { $regex: /^active$/i }
-    }).sort('-createdAt');
+    const bannerRows = await db.select().from(ads).where(
+      isNull(ads.deletedat)
+    ).orderBy(desc(ads.createdat));
+
+    const banners = bannerRows.map(b => ({
+      _id: b.id,
+      id: b.id,
+      title: b.name || 'Special Offer',
+      subtitle: b.description || '',
+      imageUrl: b.image || b.ad_image_url || '',
+      targetUrl: b.url || '',
+      isActive: b.ad_status !== false && b.is_active !== false,
+      status: 'active',
+      createdAt: b.createdat
+    }));
+
     res.status(200).json({ success: true, data: { banners, ads: banners } });
   } catch (error) {
     next(error);
   }
 };
 
-const AdvertisementInquiry = require('../models/platform/AdvertisementInquiry');
-
+/**
+ * POST /api/public/advertise
+ */
 exports.createAdInquiry = async (req, res, next) => {
   try {
     const { name, mobileNumber, businessName, email, city, message } = req.body;
@@ -672,14 +648,22 @@ exports.createAdInquiry = async (req, res, next) => {
       });
     }
 
-    const inquiry = await AdvertisementInquiry.create({
+    const inquiry = {
+      id: crypto.randomUUID(),
       name,
       mobileNumber,
       businessName,
       email: email || '',
       city: city || '',
       message: message || '',
-      status: 'NEW'
+      status: 'NEW',
+      createdAt: new Date()
+    };
+
+    await db.insert(audit_log).values({
+      action: 'AD_INQUIRY',
+      entity_type: 'AD_INQUIRY',
+      details: inquiry
     });
 
     res.status(201).json({
@@ -691,4 +675,3 @@ exports.createAdInquiry = async (req, res, next) => {
     next(error);
   }
 };
-

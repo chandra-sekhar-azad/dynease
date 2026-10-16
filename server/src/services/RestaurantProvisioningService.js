@@ -1,163 +1,128 @@
-const crypto = require('crypto');
-const RestaurantRegistry = require('../models/platform/RestaurantRegistry');
-const TenantDatabaseManager = require('./TenantDatabaseManager');
+const { db, schema } = require('../db/client');
+const { eq, and, sql } = require('drizzle-orm');
+const { restaurants, users, plans } = schema;
+const { getPlan } = require('../config/plans');
+const { logAudit } = require('./AuditService');
 
 class RestaurantProvisioningService {
-  
-  /**
-   * Generates an immutable, URL-safe restaurant ID
-   */
-  generateRestaurantId() {
-    return `rest_${crypto.randomBytes(4).toString('hex')}`;
-  }
-
-  /**
-   * Determines the database name from the restaurant subdomain
-   */
-  getDatabaseName(subdomain) {
-    // Replace any remaining non-alphanumeric characters with underscores
-    const safeSubdomain = subdomain.replace(/[^a-z0-9]/g, '_');
-    return `dynease_${safeSubdomain}`;
-  }
-
   /**
    * Main idempotent workflow to provision a new restaurant from a registration
+   * Uses the single shared Supabase PostgreSQL database via Drizzle ORM.
    */
   async provisionRestaurant(registration) {
-    console.log(`[Provisioning] Starting provisioning for ${registration.restaurantName}`);
-    
-    // Check if registry already exists (Idempotency)
-    let registry = await RestaurantRegistry.findOne({ subdomain: registration.subdomain });
-    
-    let restaurantId;
-    let databaseName;
+    const subdomain = (registration.subdomain || '').toLowerCase().trim();
+    console.log(`[Provisioning] Starting PostgreSQL provisioning for ${registration.restaurantName} (domain: ${subdomain})`);
 
-    if (registry) {
-      if (registry.databaseProvisioned) {
-        console.log(`[Provisioning] Database already provisioned for ${registration.subdomain}`);
-        return registry;
-      }
-      restaurantId = registry.restaurantId;
-      databaseName = registry.databaseName;
-      registry.status = 'PROVISIONING';
-      await registry.save();
-    } else {
-      restaurantId = this.generateRestaurantId();
-      databaseName = this.getDatabaseName(registration.subdomain);
-      
-      const { getPlan } = require('../config/plans');
-      const canonicalPlan = getPlan(registration.selectedPlan) || getPlan('STARTER');
-      const billingCycle = registration.billingCycle || 'monthly';
-      const startDate = new Date();
-      const endDate = new Date(startDate);
+    return await db.transaction(async (tx) => {
+      // 1. Check if restaurant already exists by domain (case-insensitive)
+      let [existingRestaurant] = await tx.select().from(restaurants).where(
+        and(
+          eq(sql`LOWER(${restaurants.domain})`, subdomain),
+          eq(restaurants.is_deleted, false)
+        )
+      ).limit(1);
 
-      // Default trial period: 14 days, with Starter plan default
-      let subStatus = 'TRIAL';
-      if (canonicalPlan.planId === 'STARTER') {
-        subStatus = 'TRIAL';
-        endDate.setDate(endDate.getDate() + 14);
+      let restaurantRecord;
+      if (existingRestaurant) {
+        // If already active, return existing
+        if (existingRestaurant.restaurant_status === 'ACTIVE') {
+          console.log(`[Provisioning] Restaurant already provisioned and active for ${subdomain}`);
+          restaurantRecord = existingRestaurant;
+        } else {
+          // Update status to ACTIVE
+          const [updated] = await tx.update(restaurants).set({
+            restaurant_status: 'ACTIVE',
+            updatedat: new Date()
+          }).where(eq(restaurants.id, existingRestaurant.id)).returning();
+          restaurantRecord = updated;
+        }
       } else {
-        // For Growth, Business, Pro requested upon registration
-        subStatus = 'TRIAL';
-        endDate.setDate(endDate.getDate() + 14); // 14-day trial before first paid cycle
+        // Resolve plan
+        const canonicalPlan = getPlan(registration.selectedPlan) || getPlan('STARTER');
+        let planId = null;
+        if (canonicalPlan) {
+          const [dbPlan] = await tx.select().from(plans).where(
+            eq(sql`UPPER(${plans.name})`, canonicalPlan.planId.toUpperCase())
+          ).limit(1);
+          if (dbPlan) planId = dbPlan.id;
+        }
+
+        // Create new restaurant record in PostgreSQL
+        const [newRest] = await tx.insert(restaurants).values({
+          name: registration.restaurantName,
+          restaurant_name: registration.restaurantName,
+          domain: subdomain,
+          phone_number: registration.ownerPhone || null,
+          restaurant_status: 'ACTIVE',
+          plan_id: planId,
+          table_allocation_mode: 'MANUAL',
+          is_deleted: false
+        }).returning();
+        restaurantRecord = newRest;
       }
 
-      // Create Registry Record
-      registry = new RestaurantRegistry({
-        restaurantId,
-        restaurantName: registration.restaurantName,
-        slug: registration.subdomain,
-        subdomain: registration.subdomain,
-        databaseName,
-        ownerEmail: registration.ownerEmail || `${registration.subdomain}@temp.com`,
+      // 2. Create or update the owner account in users table
+      const ownerEmail = (registration.ownerEmail || `${subdomain}@temp.com`).toLowerCase().trim();
+      const [existingUser] = await tx.select().from(users).where(
+        and(
+          eq(sql`LOWER(${users.email})`, ownerEmail),
+          eq(users.is_deleted, false)
+        )
+      ).limit(1);
+
+      let ownerRecord;
+      if (existingUser) {
+        const [updatedUser] = await tx.update(users).set({
+          restaurant_id: restaurantRecord.id,
+          user_type: 'ADMIN',
+          user_status: 'ACTIVE',
+          phone_number: registration.ownerPhone || existingUser.phone_number,
+          updatedat: new Date()
+        }).where(eq(users.id, existingUser.id)).returning();
+        ownerRecord = updatedUser;
+      } else {
+        const [newUser] = await tx.insert(users).values({
+          name: registration.ownerName || 'Restaurant Owner',
+          email: ownerEmail,
+          phone_number: registration.ownerPhone || null,
+          password_hash: registration.ownerPassword, // Already hashed
+          restaurant_id: restaurantRecord.id,
+          user_type: 'ADMIN',
+          user_status: 'ACTIVE',
+          sessionVersion: 0,
+          is_deleted: false
+        }).returning();
+        ownerRecord = newUser;
+      }
+
+      await logAudit({
+        restaurant_id: restaurantRecord.id,
+        user_id: ownerRecord.id,
+        action: 'RESTAURANT_PROVISIONED',
+        entity_type: 'RESTAURANT',
+        entity_id: restaurantRecord.id,
+        details: { subdomain, ownerEmail }
+      }, tx).catch(() => {});
+
+      console.log(`[Provisioning] Successfully provisioned ${registration.restaurantName} in PostgreSQL`);
+
+      return {
+        id: restaurantRecord.id,
+        _id: restaurantRecord.id,
+        restaurantId: restaurantRecord.id,
+        restaurantName: restaurantRecord.name,
+        name: restaurantRecord.name,
+        subdomain: restaurantRecord.domain,
+        slug: restaurantRecord.domain,
+        domain: restaurantRecord.domain,
+        status: restaurantRecord.restaurant_status,
+        ownerEmail,
         ownerName: registration.ownerName,
         ownerPhone: registration.ownerPhone,
-        status: 'PROVISIONING',
-        selectedPlan: canonicalPlan.planId,
-        billingCycle,
-        subscriptionStatus: subStatus,
-        subscriptionStartDate: startDate,
-        subscriptionEndDate: endDate,
-        activatedAt: startDate,
-        approvedAt: startDate
-      });
-      await registry.save();
-    }
-
-    try {
-      // Create Database & Collections
-      const tenantDb = await TenantDatabaseManager.getConnection(databaseName);
-      
-      // Get models for this tenant
-      const User = tenantDb.model('User');
-      const RestaurantProfile = tenantDb.model('RestaurantProfile');
-
-      // Create Restaurant Profile (upsert for idempotency)
-      await RestaurantProfile.findOneAndUpdate(
-        { restaurantId },
-        {
-          restaurantId,
-          name: registration.restaurantName,
-          slug: registration.subdomain,
-          type: registration.restaurantType || 'Restaurant',
-          phone: registration.ownerPhone,
-          isActive: true
-        },
-        { upsert: true, new: true }
-      );
-
-      // Create Owner Account (upsert for idempotency)
-      // Since we don't have the original plaintext password, we assume ownerPassword is encrypted.
-      // Wait, the registration model stores it temporarily.
-      await User.findOneAndUpdate(
-        { email: registry.ownerEmail },
-        {
-          name: registration.ownerName || 'Restaurant Owner',
-          email: registry.ownerEmail,
-          password: registration.ownerPassword, // Already hashed from registration
-          role: 'RESTAURANT_OWNER',
-          phone: registration.ownerPhone,
-          restaurantId,
-          isActive: true,
-          emailVerified: true
-        },
-        { upsert: true, new: true }
-      );
-
-      // Create Owner Account in Global Platform DB (so they exist in 'users' collection)
-      const GlobalUser = require('../models/User');
-      await GlobalUser.findOneAndUpdate(
-        { email: registry.ownerEmail },
-        {
-          name: registration.ownerName || 'Restaurant Owner',
-          email: registry.ownerEmail,
-          password: registration.ownerPassword, // Already hashed
-          role: 'RESTAURANT_OWNER',
-          phone: registration.ownerPhone,
-          isActive: true,
-          emailVerified: true
-        },
-        { upsert: true, new: true }
-      );
-
-      // Mark Provisioning Complete
-      registry.databaseProvisioned = true;
-      registry.databaseProvisionedAt = new Date();
-      registry.status = 'ACTIVE';
-      await registry.save();
-
-      // Sync PlatformSubscription
-      const SubscriptionService = require('./SubscriptionService');
-      await SubscriptionService.getSubscriptionForRestaurant(registry.restaurantId, registry.subdomain);
-
-      console.log(`[Provisioning] Successfully provisioned ${registration.restaurantName}`);
-      return registry;
-    } catch (err) {
-      console.error(`[Provisioning] Failed for ${registration.subdomain}:`, err);
-      registry.status = 'PROVISIONING_FAILED';
-      await registry.save();
-      throw err;
-    }
+        databaseProvisioned: true,
+        databaseProvisionedAt: new Date()
+      };
+    });
   }
 }
 

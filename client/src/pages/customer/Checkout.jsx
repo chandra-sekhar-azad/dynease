@@ -52,6 +52,9 @@ export default function Checkout() {
       if (data.success) {
         clearCart();
         addOrderId(data.data.order.id);
+        if (phone.trim()) {
+          try { localStorage.setItem('customerPhone', phone.trim()); } catch (e) {}
+        }
         navigate(`/order/${data.data.order.id}`, { state: { order: data.data.order } });
       } else {
         setError(data.message || 'Failed to place order. Please try again.');

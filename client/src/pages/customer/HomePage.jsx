@@ -689,7 +689,7 @@ export default function HomePage({ forcedSlug }) {
           })()}
 
           {/* Dietary Buttons */}
-          <div className="px-4 pt-3 pb-1">
+          <div className="px-4 pt-3 pb-3">
             <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
               {[
                 { id: 'ALL', label: 'All' },
@@ -720,7 +720,7 @@ export default function HomePage({ forcedSlug }) {
           </div>
 
           {/* Size Filter Buttons (Half, Full, Small, Medium, Large, Jumbo) */}
-          <div className="px-4 pb-2">
+          <div className="px-4 pb-3.5">
             {renderSizeFilterButtons()}
           </div>
 
@@ -832,9 +832,9 @@ export default function HomePage({ forcedSlug }) {
       ) : (
         <div className="bg-[var(--color-background)] pb-6">
           {/* Filters in category view */}
-          <div className="bg-white px-4 py-2.5 sticky top-[57px] z-10 border-b border-[var(--color-border)] space-y-1.5">
+          <div className="bg-white px-4 pt-2.5 pb-3.5 sticky top-[57px] z-10 border-b border-[var(--color-border)] space-y-2">
             {/* Dietary buttons */}
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide py-0.5">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 mb-1">
               {[
                 { value: 'ALL', label: 'All' },
                 { value: 'VEG', label: 'Veg' },
