@@ -34,18 +34,18 @@ function loadEnv() {
     if (loaded && (file === '.env.production' || !isProduction)) break;
   }
 
-  // Ensure DATABASE_URL and SUPABASE_URL are synced if either is provided
-  if (!process.env.DATABASE_URL && process.env.SUPABASE_URL) {
-    process.env.DATABASE_URL = process.env.SUPABASE_URL;
+  // Ensure DATABASE_URL and DATABASE_URL are synced if either is provided
+  if (!process.env.DATABASE_URL && process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = process.env.DATABASE_URL;
   }
-  if (!process.env.SUPABASE_URL && process.env.DATABASE_URL) {
-    process.env.SUPABASE_URL = process.env.DATABASE_URL;
+  if (!process.env.DATABASE_URL && process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = process.env.DATABASE_URL;
   }
 
   // Fallback production Supabase URL if running in cloud production where .env was not uploaded to Git
-  if (!process.env.SUPABASE_URL) {
-    process.env.SUPABASE_URL = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = process.env.SUPABASE_URL;
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = process.env.DATABASE_URL;
   }
 }
 

@@ -4,10 +4,10 @@ const { Pool } = require('pg');
 const { drizzle } = require('drizzle-orm/node-postgres');
 const schema = require('./schema');
 
-const connectionString = process.env.SUPABASE_URL || process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error('[Database] FATAL: SUPABASE_URL or DATABASE_URL environment variable is missing.');
+  console.error('[Database] FATAL: DATABASE_URL or DATABASE_URL environment variable is missing.');
   throw new Error('Missing database connection string in environment variables');
 }
 
