@@ -6,6 +6,8 @@ const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
+const shiftRoutes = require('./routes/shiftRoutes');
+const rosterRoutes = require('./routes/rosterRoutes');
 const tableRoutes = require('./routes/tableRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const staffRoutes = require('./routes/staffRoutes');
@@ -66,6 +68,8 @@ app.use('/api/auth', tenantResolver, authRoutes);
 app.use('/api/restaurant', tenantResolver, restaurantRoutes);
 app.use('/api/restaurant/tables', tenantResolver, tableRoutes);
 app.use('/api/restaurant/staff', tenantResolver, staffRoutes);
+app.use('/api/restaurant/shifts', tenantResolver, shiftRoutes);
+app.use('/api/restaurant/rosters', tenantResolver, rosterRoutes);
 app.use('/api/public', tenantResolver, publicRoutes);
 
 // Serve React App for any unknown non-api routes (SPA fallback)

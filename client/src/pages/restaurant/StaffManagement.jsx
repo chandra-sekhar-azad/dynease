@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, X, Check, Search, Eye, EyeOff } from 'lucide-react';
+import { useSocketEvents } from '../../lib/socket';
 
 export default function StaffManagement() {
   const [staffList, setStaffList] = useState([]);
@@ -72,6 +73,14 @@ export default function StaffManagement() {
       console.error(err);
     }
   };
+
+  // Realtime: reflect staff changes made from another admin session/tab.
+  useSocketEvents({
+    staff_updated: () => {
+      fetchStaff();
+      fetchTables();
+    },
+  });
 
   const handleChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;

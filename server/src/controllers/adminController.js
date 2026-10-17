@@ -7,6 +7,8 @@ const RestaurantProvisioningService = require('../services/RestaurantProvisionin
 const LifecycleService = require('../services/LifecycleService');
 const whatsapp = require('../utils/whatsapp');
 const { getPublicPlans, getPlan } = require('../config/plans');
+const { uploadToCloudinary } = require('../utils/cloudinary');
+const RealtimeService = require('../services/RealtimeService');
 
 // ──────────────────────────────────────────
 //  RESTAURANT MANAGEMENT
@@ -73,15 +75,34 @@ exports.createRestaurant = async (req, res, next) => {
 
 exports.getAllRestaurants = async (req, res, next) => {
   try {
+    const { status, search } = req.query;
+
     // Only return ACTIVE, PAUSED, and INACTIVE restaurants.
-    // PENDING requests are isolated to the Registration Requests tab.
-    const rows = await db.select().from(restaurants)
-      .where(
-        and(
-          ne(restaurants.restaurant_status, 'PENDING'),
-          eq(restaurants.is_deleted, false)
+    // PENDING and REJECTED requests are isolated to the Registration Requests tab.
+    const conditions = [
+      eq(restaurants.is_deleted, false)
+    ];
+
+    if (status && ['ACTIVE', 'PAUSED', 'INACTIVE'].includes(status.toUpperCase())) {
+      conditions.push(eq(restaurants.restaurant_status, status.toUpperCase()));
+    } else {
+      conditions.push(ne(restaurants.restaurant_status, 'PENDING'));
+      conditions.push(ne(restaurants.restaurant_status, 'REJECTED'));
+    }
+
+    if (search && search.trim()) {
+      const q = `%${search.trim().toLowerCase()}%`;
+      conditions.push(
+        or(
+          sql`LOWER(${restaurants.name}) LIKE ${q}`,
+          sql`LOWER(${restaurants.domain}) LIKE ${q}`,
+          sql`LOWER(${restaurants.phone_number}) LIKE ${q}`
         )
-      )
+      );
+    }
+
+    const rows = await db.select().from(restaurants)
+      .where(and(...conditions))
       .orderBy(desc(restaurants.createdat));
 
     // Fetch all owners
@@ -473,6 +494,13 @@ exports.approveRequest = async (req, res, next) => {
       and(eq(users.restaurant_id, id), eq(users.user_type, 'ADMIN'))
     ).limit(1);
 
+    RealtimeService.adminEvent('restaurant_updated', {
+      id,
+      status: 'ACTIVE',
+      name: restaurant.name,
+      domain: restaurant.domain
+    });
+
     const targetPhone = owner?.phone_number || restaurant.phone_number;
     if (targetPhone) {
       try {
@@ -534,6 +562,8 @@ exports.rejectRequest = async (req, res, next) => {
       });
     });
 
+    RealtimeService.adminEvent('restaurant_updated', { id, status: 'REJECTED', name: restaurant.name });
+
     res.status(200).json({ success: true, message: 'Restaurant request rejected successfully' });
   } catch (error) {
     next(error);
@@ -544,6 +574,7 @@ exports.suspendRestaurant = async (req, res, next) => {
   try {
     const { id } = req.params;
     await LifecycleService.pauseRestaurant(id);
+    RealtimeService.adminEvent('restaurant_updated', { id, status: 'SUSPENDED' });
     res.status(200).json({ success: true, message: 'Restaurant suspended successfully' });
   } catch (error) {
     next(error);
@@ -784,6 +815,13 @@ exports.approvePlanRequest = async (req, res, next) => {
       });
     });
 
+    RealtimeService.adminEvent('plan_request_updated', {
+      id,
+      status: 'APPROVED',
+      restaurantId: request.restaurant_id,
+      planId: request.plan_id
+    });
+
     res.status(200).json({ success: true, message: 'Plan request approved and restaurant plan updated.' });
   } catch (error) {
     next(error);
@@ -826,6 +864,13 @@ exports.rejectPlanRequest = async (req, res, next) => {
       });
     });
 
+    RealtimeService.adminEvent('plan_request_updated', {
+      id,
+      status: 'REJECTED',
+      restaurantId: request.restaurant_id,
+      planId: request.plan_id
+    });
+
     res.status(200).json({ success: true, message: 'Plan request rejected.' });
   } catch (error) {
     next(error);
@@ -839,7 +884,22 @@ exports.rejectPlanRequest = async (req, res, next) => {
 exports.getAds = async (req, res, next) => {
   try {
     const adList = await db.select().from(ads).orderBy(ads.display_order, desc(ads.createdat));
-    res.status(200).json({ success: true, data: { ads: adList } });
+
+    const mapped = adList.map((b) => ({
+      _id: b.id,
+      id: b.id,
+      title: b.name || '',
+      subtitle: b.description || '',
+      imageUrl: b.image || '',
+      targetUrl: b.url || '',
+      display_order: b.display_order,
+      isActive: b.ad_status !== false,
+      status: b.ad_status === false ? 'Inactive' : 'Active',
+      createdAt: b.createdat,
+      updatedAt: b.updatedat,
+    }));
+
+    res.status(200).json({ success: true, data: { ads: mapped } });
   } catch (error) {
     next(error);
   }
@@ -857,6 +917,13 @@ exports.createAd = async (req, res, next) => {
     const bannerImage = (image || imageUrl || '').trim();
     const bannerUrl = (url || targetUrl || '').trim();
 
+    // If an image file was uploaded, store it on Cloudinary
+    let storedImage = bannerImage;
+    if (req.file && req.file.buffer) {
+      const uploadResult = await uploadToCloudinary(req.file.buffer, 'dynease/banners');
+      storedImage = uploadResult.secure_url;
+    }
+
     // Validate URLs if provided
     if (bannerUrl && !bannerUrl.startsWith('http://') && !bannerUrl.startsWith('https://') && !bannerUrl.startsWith('/')) {
       return res.status(400).json({ success: false, message: 'Redirect URL must start with https://, http://, or /' });
@@ -867,11 +934,13 @@ exports.createAd = async (req, res, next) => {
     const [ad] = await db.insert(ads).values({
       name: bannerName,
       description: (description || subtitle || '').trim(),
-      image: bannerImage,
+      image: storedImage,
       url: bannerUrl,
       display_order: parseInt(display_order, 10) || 0,
       ad_status: isActive
     }).returning();
+
+    RealtimeService.bannersUpdated({ action: 'created', id: ad.id });
 
     res.status(201).json({ success: true, message: 'Banner created successfully', data: { ad } });
   } catch (error) {
@@ -892,7 +961,13 @@ exports.updateAd = async (req, res, next) => {
     const updateData = { updatedat: new Date() };
     if (name !== undefined || title !== undefined) updateData.name = (name || title || '').trim();
     if (description !== undefined || subtitle !== undefined) updateData.description = (description || subtitle || '').trim();
-    if (image !== undefined || imageUrl !== undefined) updateData.image = (image || imageUrl || '').trim();
+    if (req.file && req.file.buffer) {
+      // Uploaded file takes precedence over any image URL string
+      const uploadResult = await uploadToCloudinary(req.file.buffer, 'dynease/banners');
+      updateData.image = uploadResult.secure_url;
+    } else if (image !== undefined || imageUrl !== undefined) {
+      updateData.image = (image || imageUrl || '').trim();
+    }
     if (url !== undefined || targetUrl !== undefined) {
       const bannerUrl = (url || targetUrl || '').trim();
       if (bannerUrl && !bannerUrl.startsWith('http://') && !bannerUrl.startsWith('https://') && !bannerUrl.startsWith('/')) {
@@ -909,6 +984,8 @@ exports.updateAd = async (req, res, next) => {
 
     const [ad] = await db.update(ads).set(updateData).where(eq(ads.id, id)).returning();
 
+    RealtimeService.bannersUpdated({ action: 'updated', id: ad.id });
+
     res.status(200).json({ success: true, message: 'Banner updated successfully', data: { ad } });
   } catch (error) {
     next(error);
@@ -919,6 +996,7 @@ exports.deleteAd = async (req, res, next) => {
   try {
     const { id } = req.params;
     await db.delete(ads).where(eq(ads.id, id));
+    RealtimeService.bannersUpdated({ action: 'deleted', id });
     res.status(200).json({ success: true, message: 'Banner deleted successfully' });
   } catch (error) {
     next(error);
@@ -966,6 +1044,8 @@ exports.createAdInquiry = async (req, res, next) => {
       details: inquiry
     });
 
+    RealtimeService.adminEvent('ad_inquiry', inquiry);
+
     res.status(201).json({
       success: true,
       message: 'Advertisement inquiry submitted successfully',
@@ -982,164 +1062,6 @@ exports.updateAdInquiryStatus = async (req, res, next) => {
 
 exports.deleteAdInquiry = async (req, res, next) => {
   res.status(200).json({ success: true, message: 'Inquiry deleted successfully' });
-};
-
-// ──────────────────────────────────────────
-//  SYSTEM ADMIN PROFILE & SETTINGS
-// ──────────────────────────────────────────
-
-exports.getAdminProfile = async (req, res, next) => {
-  try {
-    const [adminUser] = await db.select().from(users).where(
-      and(eq(users.id, req.user.id), eq(users.is_deleted, false))
-    ).limit(1);
-
-    if (!adminUser) {
-      return res.status(404).json({ success: false, message: 'Admin user not found' });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: {
-        user: {
-          id: adminUser.id,
-          _id: adminUser.id,
-          name: adminUser.name,
-          email: adminUser.email,
-          phone: adminUser.phone_number,
-          role: 'SUPER_ADMIN',
-          userType: adminUser.user_type,
-          createdAt: adminUser.createdat
-        }
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.updateAdminProfile = async (req, res, next) => {
-  try {
-    const { name, email, phone } = req.body;
-
-    const [adminUser] = await db.select().from(users).where(
-      and(eq(users.id, req.user.id), eq(users.is_deleted, false))
-    ).limit(1);
-
-    if (!adminUser) {
-      return res.status(404).json({ success: false, message: 'Admin user not found' });
-    }
-
-    const updateData = { updatedat: new Date() };
-
-    if (name?.trim()) updateData.name = name.trim();
-    if (phone !== undefined) updateData.phone_number = phone ? phone.trim() : null;
-
-    if (email?.trim()) {
-      const cleanEmail = email.toLowerCase().trim();
-      // Check duplicate email
-      const [duplicate] = await db.select().from(users).where(
-        and(
-          eq(sql`LOWER(${users.email})`, cleanEmail),
-          ne(users.id, req.user.id),
-          eq(users.is_deleted, false)
-        )
-      ).limit(1);
-
-      if (duplicate) {
-        return res.status(409).json({ success: false, message: 'This email is already in use by another account.' });
-      }
-      updateData.email = cleanEmail;
-    }
-
-    // Explicitly disallow any modification of role or user_type
-    delete req.body.user_type;
-    delete req.body.role;
-    delete req.body.userType;
-    delete req.body.restaurant_id;
-
-    const [updated] = await db.update(users).set(updateData).where(eq(users.id, req.user.id)).returning();
-
-    await db.insert(audit_log).values({
-      user_id: req.user.id,
-      action: 'UPDATE_ADMIN_PROFILE',
-      entity_type: 'USER',
-      entity_id: req.user.id,
-      details: { updatedFields: Object.keys(updateData) }
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Profile updated successfully',
-      data: {
-        user: {
-          id: updated.id,
-          _id: updated.id,
-          name: updated.name,
-          email: updated.email,
-          phone: updated.phone_number,
-          role: 'SUPER_ADMIN'
-        }
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.changeAdminPassword = async (req, res, next) => {
-  try {
-    const { currentPassword, newPassword, confirmPassword } = req.body;
-
-    if (!currentPassword) {
-      return res.status(400).json({ success: false, message: 'Current password is required.' });
-    }
-
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
-    }
-
-    if (confirmPassword && newPassword !== confirmPassword) {
-      return res.status(400).json({ success: false, message: 'New password and confirmation do not match.' });
-    }
-
-    const [adminUser] = await db.select().from(users).where(
-      and(eq(users.id, req.user.id), eq(users.is_deleted, false))
-    ).limit(1);
-
-    if (!adminUser) {
-      return res.status(404).json({ success: false, message: 'Admin account not found in system.' });
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, adminUser.password_hash);
-    if (!isMatch) {
-      return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
-    }
-
-    const hash = await bcrypt.hash(newPassword, 12);
-    const newSessionVersion = (adminUser.sessionVersion || 0) + 1;
-
-    await db.update(users).set({
-      password_hash: hash,
-      sessionVersion: newSessionVersion,
-      updatedat: new Date()
-    }).where(eq(users.id, adminUser.id));
-
-    await db.insert(audit_log).values({
-      user_id: adminUser.id,
-      action: 'CHANGE_ADMIN_PASSWORD',
-      entity_type: 'USER',
-      entity_id: adminUser.id,
-      details: { changedAt: new Date() }
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Password has been updated successfully.'
-    });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // ──────────────────────────────────────────

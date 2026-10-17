@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Store, Users, Settings, LogOut, Megaphone, Menu, X, CreditCard } from 'lucide-react';
+import useAuthGuard from '../../hooks/useAuthGuard';
+
+// Only platform super admins may access the system admin panel.
+const ADMIN_ROLES = ['SUPER_ADMIN'];
 
 export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const location = useLocation();
   const navigate = useNavigate();
+  const authStatus = useAuthGuard(ADMIN_ROLES);
 
   useEffect(() => {
     const handleResize = () => {
@@ -25,11 +30,19 @@ export default function AdminLayout() {
   const links = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
     { name: 'Restaurant Management', path: '/admin/restaurants', icon: <Store size={18} /> },
-    { name: 'Registration Requests', path: '/admin/requests', icon: <Store size={18} /> },
+    { name: 'Plan Management', path: '/admin/plans', icon: <CreditCard size={18} /> },
     { name: 'Banner Management', path: '/admin/ads', icon: <Megaphone size={18} /> },
     { name: 'Users', path: '/admin/users', icon: <Users size={18} /> },
     { name: 'Settings', path: '/admin/settings', icon: <Settings size={18} /> },
   ];
+
+  if (authStatus !== 'allowed') {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--color-background)]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-[var(--color-background)] overflow-hidden">

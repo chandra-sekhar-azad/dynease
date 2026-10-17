@@ -4,6 +4,7 @@ const { eq, and, or, sql } = require('drizzle-orm');
 const { users, restaurants, plans, audit_log, tables_assignment } = schema;
 const { createSendToken } = require('../utils/jwt');
 const { getPlan } = require('../config/plans');
+const RealtimeService = require('../services/RealtimeService');
 
 exports.registerRestaurantOwner = async (req, res, next) => {
   try {
@@ -99,6 +100,7 @@ exports.registerRestaurantOwner = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(rawPassword, 12);
 
     // Create both records atomically in a single PostgreSQL transaction
+    let registered = null;
     await db.transaction(async (tx) => {
       // 1. Create restaurant with status PENDING
       const [newRestaurant] = await tx.insert(restaurants).values({
@@ -143,7 +145,19 @@ exports.registerRestaurantOwner = async (req, res, next) => {
           planId
         }
       });
+
+      registered = {
+        restaurantId: newRestaurant.id,
+        restaurantName: newRestaurant.name,
+        domain: finalSlug,
+        ownerName: newOwner.name,
+        ownerEmail: userEmail,
+        ownerPhone: cleanPhone,
+        planId
+      };
     });
+
+    RealtimeService.adminEvent('restaurant_registered', registered);
 
     res.status(201).json({
       success: true,

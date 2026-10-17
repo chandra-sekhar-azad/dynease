@@ -3,22 +3,31 @@ import { useSearchParams } from 'react-router-dom';
 import { 
   Plus, Trash2, Edit, Search, X, Send, CheckCircle, Loader, Eye, EyeOff, 
   AlertTriangle, Clock, CreditCard, Store, Layers, RefreshCw, 
-  Sparkles, Check, CheckCircle2
+  Sparkles, Check, CheckCircle2, Inbox, Mail, Phone, Building2
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
+import { useSocketEvents } from '../../lib/socket';
 
 export default function RestaurantsManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'restaurants'; // 'restaurants' | 'billing' | 'plans'
+  const initialTab = searchParams.get('tab') || 'restaurants'; // 'restaurants' | 'requests' | 'billing' | 'plans'
   const [activeTab, setActiveTab] = useState(
     initialTab === 'billing' || initialTab === 'subscriptions' ? 'billing' :
-    initialTab === 'plans' ? 'plans' : 'restaurants'
+    initialTab === 'plans' ? 'plans' :
+    initialTab === 'requests' || initialTab === 'registrations' ? 'requests' : 'restaurants'
   );
 
   const [restaurants, setRestaurants] = useState([]);
   const [plans, setPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Registration Requests tab state
+  const [requests, setRequests] = useState([]);
+  const [selectedReq, setSelectedReq] = useState(null);
+  const [requestActionLoading, setRequestActionLoading] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   // Modals state for Restaurant Directory
   const [showAddModal, setShowAddModal] = useState(false);
@@ -75,6 +84,8 @@ export default function RestaurantsManagement() {
       setActiveTab('billing');
     } else if (tabParam === 'plans') {
       setActiveTab('plans');
+    } else if (tabParam === 'requests' || tabParam === 'registrations') {
+      setActiveTab('requests');
     } else if (tabParam === 'restaurants') {
       setActiveTab('restaurants');
     }
@@ -87,12 +98,14 @@ export default function RestaurantsManagement() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [resRes, plansRes] = await Promise.all([
+      const [resRes, plansRes, reqRes] = await Promise.all([
         authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants`),
-        authFetch(`${import.meta.env.VITE_API_URL}/admin/plans`)
+        authFetch(`${import.meta.env.VITE_API_URL}/admin/plans`),
+        authFetch(`${import.meta.env.VITE_API_URL}/admin/requests`)
       ]);
       const resData = await resRes.json();
       const plansData = await plansRes.json();
+      const reqData = await reqRes.json();
 
       if (resData.success) {
         setRestaurants(resData.data.restaurants || []);
@@ -100,12 +113,23 @@ export default function RestaurantsManagement() {
       if (plansData.success) {
         setPlans(plansData.data.plans || []);
       }
+      if (reqData.success) {
+        setRequests(reqData.data.requests || []);
+      }
     } catch (err) {
       console.error('Failed to fetch data', err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Realtime: new registrations / approvals / plan requests from anywhere.
+  useSocketEvents({
+    restaurant_registered: () => fetchData(),
+    restaurant_updated: () => fetchData(),
+    plan_request: () => fetchData(),
+    plan_request_updated: () => fetchData(),
+  });
 
   // ── Handlers for Restaurant Directory ──
   const handleChange = (e) => {
@@ -236,6 +260,63 @@ export default function RestaurantsManagement() {
       }
     } catch (err) {
       alert('Network error rejecting plan change request');
+    }
+  };
+
+  // ── Handlers for Registration Requests ──
+  const getRequestId = (request) => request?.id || request?._id;
+
+  const handleApproveRegistration = async (request) => {
+    const id = getRequestId(request);
+    if (!id) return;
+    if (!window.confirm(`Approve "${request.name}"? The restaurant and its owner account will be activated.`)) return;
+
+    setRequestActionLoading(id);
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/requests/${id}/approve`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRequests(prev => prev.filter(r => getRequestId(r) !== id));
+        setSelectedReq(null);
+        fetchData();
+      } else {
+        alert(data.message || 'Failed to approve request');
+      }
+    } catch (err) {
+      console.error('Error approving request:', err);
+      alert('Network error while approving request');
+    } finally {
+      setRequestActionLoading(null);
+    }
+  };
+
+  const handleRejectRegistration = async (e) => {
+    e.preventDefault();
+    if (!selectedReq) return;
+
+    const id = getRequestId(selectedReq);
+    setRequestActionLoading(id);
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/requests/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: rejectReason })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRequests(prev => prev.filter(r => getRequestId(r) !== id));
+        setShowRejectModal(false);
+        setSelectedReq(null);
+        setRejectReason('');
+      } else {
+        alert(data.message || 'Failed to reject request');
+      }
+    } catch (err) {
+      console.error('Error rejecting request:', err);
+      alert('Network error while rejecting request');
+    } finally {
+      setRequestActionLoading(null);
     }
   };
 
@@ -392,6 +473,7 @@ export default function RestaurantsManagement() {
   const expiringSoonCount = restaurants.filter(r => r.daysRemaining <= 7 && r.daysRemaining > 0).length;
   const expiredCount = restaurants.filter(r => r.subscriptionStatus === 'EXPIRED' || (r.daysRemaining === 0 && r.subscriptionEndDate)).length;
   const pendingRequestsCount = restaurants.filter(r => r.renewalRequest?.status === 'PENDING').length;
+  const pendingRegistrationsCount = requests.length;
 
   const filteredBillingRestaurants = restaurants.filter(r => {
     const matchesSearch = 
@@ -463,6 +545,23 @@ export default function RestaurantsManagement() {
               <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-gray-200 text-gray-700">
                 {restaurants.length}
               </span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('requests')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'requests'
+                  ? 'bg-white text-amber-800 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <Inbox size={14} />
+              <span>Registration Requests</span>
+              {pendingRegistrationsCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white font-extrabold animate-pulse">
+                  {pendingRegistrationsCount}
+                </span>
+              )}
             </button>
 
             <button
@@ -653,7 +752,141 @@ export default function RestaurantsManagement() {
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* 2. SUBSCRIPTION & BILLING TAB (MERGED)                        */}
+      {/* 2. REGISTRATION REQUESTS TAB                                  */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'requests' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-amber-100 text-amber-800">
+                  <Inbox size={18} />
+                </span>
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900">Pending Registration Requests</h2>
+                  <p className="text-xs text-gray-500">Review, approve, or reject new restaurant onboarding applications.</p>
+                </div>
+              </div>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                {requests.length} Pending
+              </span>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-6 items-start p-4 lg:p-6">
+              {/* Requests List */}
+              <div className={`w-full ${selectedReq ? 'hidden lg:block lg:w-1/2' : 'lg:w-full'}`}>
+                {requests.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-dashed border-gray-200 p-12 text-center text-gray-400 font-medium flex flex-col items-center">
+                    <Inbox size={40} className="text-gray-200 mb-3" />
+                    No pending registration requests.
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {requests.map(request => {
+                      const reqId = getRequestId(request);
+                      const isSelected = getRequestId(selectedReq) === reqId;
+                      return (
+                        <div
+                          key={reqId}
+                          onClick={() => setSelectedReq(request)}
+                          className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500'
+                              : 'border-gray-200 hover:border-emerald-300 shadow-xs hover:shadow'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-2 gap-2">
+                            <h3 className="font-bold text-gray-900">{request.name}</h3>
+                            <span className="shrink-0 bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-1 rounded uppercase tracking-wide">
+                              Pending
+                            </span>
+                          </div>
+                          <p className="text-xs text-emerald-600 mb-2 font-semibold">{request.slug}.dynease.in</p>
+                          <div className="flex justify-between items-center text-xs gap-2">
+                            <span className="text-gray-500 truncate">Owner: {request.ownerId?.name || 'N/A'}</span>
+                            <span className="shrink-0 font-bold text-emerald-700">{request.selectedPlan}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Application Details */}
+              {selectedReq && (
+                <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden lg:sticky lg:top-6">
+                  <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                      <Building2 size={18} className="text-emerald-700" /> Application Details
+                    </h3>
+                    <button
+                      onClick={() => setSelectedReq(null)}
+                      className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-full transition-colors"
+                      title="Close"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="p-5 space-y-6">
+                    <div>
+                      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Restaurant Information</h4>
+                      <div className="space-y-2.5 text-sm text-gray-900">
+                        <p className="flex"><span className="font-medium text-gray-500 w-28 shrink-0">Name:</span> <span className="font-semibold">{selectedReq.name}</span></p>
+                        <p className="flex"><span className="font-medium text-gray-500 w-28 shrink-0">Domain:</span> {selectedReq.slug}.dynease.in</p>
+                        <p className="flex"><span className="font-medium text-gray-500 w-28 shrink-0">Address:</span> {selectedReq.address || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <hr className="border-gray-100" />
+
+                    <div>
+                      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Owner Information</h4>
+                      <div className="space-y-2.5 text-sm text-gray-900">
+                        <p className="flex"><span className="font-medium text-gray-500 w-28 shrink-0">Full Name:</span> {selectedReq.ownerId?.name || 'N/A'}</p>
+                        <p className="flex items-center gap-1.5"><span className="font-medium text-gray-500 w-28 shrink-0">Mobile:</span> <Phone size={13} className="text-gray-400" /> {selectedReq.ownerId?.phone || 'N/A'}</p>
+                        <p className="flex items-center gap-1.5 break-all"><span className="font-medium text-gray-500 w-28 shrink-0">Email:</span> <Mail size={13} className="text-gray-400 shrink-0" /> {selectedReq.ownerId?.email || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <hr className="border-gray-100" />
+
+                    <div>
+                      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Subscription Plan</h4>
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-extrabold uppercase">
+                        <CreditCard size={14} /> {selectedReq.selectedPlan || 'STARTER'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+                    <button
+                      onClick={() => handleApproveRegistration(selectedReq)}
+                      disabled={requestActionLoading === getRequestId(selectedReq)}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-xs transition-colors flex justify-center items-center gap-2 cursor-pointer"
+                    >
+                      {requestActionLoading === getRequestId(selectedReq)
+                        ? <><Loader size={14} className="animate-spin" /> Approving...</>
+                        : <><Check size={16} /> Approve</>}
+                    </button>
+                    <button
+                      onClick={() => setShowRejectModal(true)}
+                      disabled={requestActionLoading === getRequestId(selectedReq)}
+                      className="flex-1 border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-60 font-bold py-2.5 px-4 rounded-xl text-xs shadow-xs transition-colors flex justify-center items-center gap-2 cursor-pointer"
+                    >
+                      <X size={16} /> Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* 3. SUBSCRIPTION & BILLING TAB (MERGED)                        */}
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'billing' && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -906,7 +1139,7 @@ export default function RestaurantsManagement() {
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* 3. PLATFORM PLAN TIERS TAB                                    */}
+      {/* 4. PLATFORM PLAN TIERS TAB                                    */}
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'plans' && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -1290,6 +1523,58 @@ export default function RestaurantsManagement() {
                 >
                   {isSavingBilling && <Loader size={14} className="animate-spin" />}
                   <span>Save Billing Details</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* MODAL: Reject Registration Request                            */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {showRejectModal && selectedReq && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900">Reject Registration</h3>
+              <button
+                onClick={() => { setShowRejectModal(false); setRejectReason(''); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleRejectRegistration} className="p-5">
+              <p className="text-sm text-gray-600 mb-4">
+                Please provide a reason for rejecting <span className="font-bold text-gray-900">{selectedReq.name}</span>.
+                This will be recorded and shared if necessary.
+              </p>
+
+              <textarea
+                required
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="E.g. Duplicate registration, unverifiable details..."
+                className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none mb-5 resize-none"
+              ></textarea>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowRejectModal(false); setRejectReason(''); }}
+                  className="flex-1 py-2.5 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={requestActionLoading === getRequestId(selectedReq)}
+                  className="flex-1 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60 rounded-xl transition-colors flex justify-center items-center gap-1.5 cursor-pointer"
+                >
+                  {requestActionLoading === getRequestId(selectedReq)
+                    ? <><Loader size={14} className="animate-spin" /> Rejecting...</>
+                    : 'Confirm Reject'}
                 </button>
               </div>
             </form>

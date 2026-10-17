@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, X, Loader2, Tag, FolderOpen, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useSocketEvents } from '../../lib/socket';
 
 export default function CategoryManagement() {
   const [categories, setCategories] = useState([]);
@@ -68,6 +69,14 @@ export default function CategoryManagement() {
       console.error(err);
     }
   };
+
+  // Realtime: pick up category/menu changes made from other sessions/tabs.
+  useSocketEvents({
+    menu_updated: () => {
+      fetchCategories();
+      fetchMenu();
+    },
+  });
 
   const openAddModal = () => {
     setEditingCategory(null);

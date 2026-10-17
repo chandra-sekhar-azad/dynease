@@ -41,12 +41,6 @@ function loadEnv() {
   if (!process.env.DATABASE_URL && process.env.DATABASE_URL) {
     process.env.DATABASE_URL = process.env.DATABASE_URL;
   }
-
-  // Fallback production Supabase URL if running in cloud production where .env was not uploaded to Git
-  if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = process.env.DATABASE_URL;
-  }
 }
 
 loadEnv();

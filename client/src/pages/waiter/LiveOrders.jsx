@@ -70,7 +70,7 @@ export default function LiveOrders() {
     const pollInterval = setInterval(fetchData, 10000);
 
     const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
-    const socket = io(socketUrl, { withCredentials: true });
+    const socket = io(socketUrl, { withCredentials: true, auth: { token } });
 
     socket.on('connect', () => {
       setConnected(true);

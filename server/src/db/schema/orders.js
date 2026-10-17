@@ -6,12 +6,14 @@ const {
   integer,
   numeric,
   timestamp,
+  text,
   index,
 } = require('drizzle-orm/pg-core');
 
 const { restaurants } = require('./restaurants');
 const { tables } = require('./tables');
 const { leads } = require('./leads');
+const { users } = require('./users');
 const { menu_categories_items } = require('./menu');
 const { orderStatusEnum } = require('./enums');
 
@@ -25,6 +27,18 @@ const order_details = pgTable(
     table_id: uuid('table_id').references(() => tables.id),
     lead_id: uuid('lead_id').references(() => leads.id),
     order_status: orderStatusEnum('order_status').notNull().default('NO_ORDER'),
+    app_status: varchar('app_status', { length: 30 }).notNull().default('PENDING'),
+    order_number: varchar('order_number', { length: 100 }),
+    customer_name: varchar('customer_name', { length: 255 }),
+    customer_phone: varchar('customer_phone', { length: 30 }),
+    total_amount: numeric('total_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+    tax_amount: numeric('tax_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+    discount_amount: numeric('discount_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+    final_amount: numeric('final_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+    payment_status: varchar('payment_status', { length: 30 }).notNull().default('PENDING'),
+    payment_method: varchar('payment_method', { length: 30 }).notNull().default('CASH'),
+    special_instructions: text('special_instructions'),
+    assigned_waiter_id: uuid('assigned_waiter_id').references(() => users.id),
     date: timestamp('date', { withTimezone: true }).notNull().defaultNow(),
     createdat: timestamp('createdat', { withTimezone: true })
       .notNull()
@@ -38,6 +52,8 @@ const order_details = pgTable(
     index('order_details_table_idx').on(table.table_id),
     index('order_details_lead_idx').on(table.lead_id),
     index('order_details_status_idx').on(table.order_status),
+    index('order_details_app_status_idx').on(table.app_status),
+    index('order_details_order_number_idx').on(table.order_number),
   ]
 );
 
@@ -56,6 +72,7 @@ const order_items = pgTable(
     quantity: integer('quantity').notNull(),
     unit_price: numeric('unit_price', { precision: 12, scale: 2 }).notNull(),
     total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+    customizations: text('customizations'),
     createdat: timestamp('createdat', { withTimezone: true })
       .notNull()
       .defaultNow(),

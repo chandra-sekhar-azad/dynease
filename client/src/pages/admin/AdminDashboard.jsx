@@ -20,8 +20,8 @@ export default function AdminDashboard() {
     },
     {
       title: 'Registration Requests',
-      description: 'Review and approve new restaurant sign-ups',
-      path: '/admin/requests',
+      description: 'Review new restaurant sign-ups in Restaurant Management',
+      path: '/admin/restaurants?tab=requests',
       icon: <FileText size={32} />,
       color: 'bg-green-500'
     },

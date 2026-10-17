@@ -24,7 +24,7 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdsManagement from './pages/admin/Adsmanagement';
 import RestaurantsManagement from './pages/admin/RestaurentsManagement';
 import SubscriptionBillingManagement from './pages/admin/SubscriptionBillingManagement';
-import RequestsManagement from './pages/admin/RequestsManagement';
+import PlanManagement from './pages/admin/PlanManagement';
 import CustomMessage from './pages/admin/CustomMessage';
 import UsersManagement from './pages/admin/UsersManagement';
 import Analytics from './pages/admin/Analytics';
@@ -42,6 +42,7 @@ import Features from './pages/Features';
 import DemoPage from './pages/DemoPage';
 import RestaurantDashboard from './pages/restaurant/Dashboard';
 import StaffManagement from './pages/restaurant/StaffManagement';
+import StaffRoster from './pages/restaurant/StaffRoster';
 import Orders from './pages/restaurant/Orders';
 import RestaurantSettings from './pages/restaurant/Settings';
 import RestaurantSubscription from './pages/restaurant/Subscription';
@@ -121,6 +122,7 @@ function App() {
                 <Route path="categories" element={<CategoryManagement />} />
                 <Route path="tables" element={<TablesManagement />} />
                 <Route path="staff" element={<StaffManagement />} />
+                <Route path="roster" element={<StaffRoster />} />
                 <Route path="orders" element={<Orders />} />
                 <Route path="assignment" element={<WaiterAssignment />} />
                 <Route path="subscription" element={<RestaurantSubscription />} />
@@ -148,10 +150,10 @@ function App() {
             <Route path="/" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="restaurants" element={<RestaurantsManagement />} />
-              <Route path="billing" element={<Navigate to="/restaurants?tab=billing" replace />} />
-              <Route path="plans" element={<Navigate to="/restaurants?tab=plans" replace />} />
-              <Route path="plan-management" element={<Navigate to="/restaurants?tab=plans" replace />} />
-              <Route path="requests" element={<RequestsManagement />} />
+              <Route path="billing" element={<SubscriptionBillingManagement />} />
+              <Route path="plans" element={<PlanManagement />} />
+              <Route path="plan-management" element={<PlanManagement />} />
+              <Route path="requests" element={<Navigate to="/admin/restaurants?tab=requests" replace />} />
               <Route path="ads" element={<AdsManagement />} />
               <Route path="messages" element={<CustomMessage />} />
               <Route path="users" element={<UsersManagement />} />
@@ -161,10 +163,10 @@ function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="restaurants" element={<RestaurantsManagement />} />
-              <Route path="billing" element={<Navigate to="/restaurants?tab=billing" replace />} />
-              <Route path="plans" element={<Navigate to="/restaurants?tab=plans" replace />} />
-              <Route path="plan-management" element={<Navigate to="/restaurants?tab=plans" replace />} />
-              <Route path="requests" element={<RequestsManagement />} />
+              <Route path="billing" element={<SubscriptionBillingManagement />} />
+              <Route path="plans" element={<PlanManagement />} />
+              <Route path="plan-management" element={<PlanManagement />} />
+              <Route path="requests" element={<Navigate to="/admin/restaurants?tab=requests" replace />} />
               <Route path="ads" element={<AdsManagement />} />
               <Route path="messages" element={<CustomMessage />} />
               <Route path="users" element={<UsersManagement />} />
@@ -215,6 +217,7 @@ function App() {
             <Route path="categories" element={<CategoryManagement />} />
             <Route path="tables" element={<TablesManagement />} />
             <Route path="staff" element={<StaffManagement />} />
+            <Route path="roster" element={<StaffRoster />} />
             <Route path="orders" element={<Orders />} />
             <Route path="assignment" element={<WaiterAssignment />} />
             <Route path="subscription" element={<RestaurantSubscription />} />
@@ -236,7 +239,7 @@ function App() {
             <Route path="billing" element={<Navigate to="/admin/restaurants?tab=billing" replace />} />
             <Route path="plans" element={<Navigate to="/admin/restaurants?tab=plans" replace />} />
             <Route path="plan-management" element={<Navigate to="/admin/restaurants?tab=plans" replace />} />
-            <Route path="requests" element={<RequestsManagement />} />
+            <Route path="requests" element={<Navigate to="/admin/restaurants?tab=requests" replace />} />
             <Route path="ads" element={<AdsManagement />} />
             <Route path="messages" element={<CustomMessage />} />
             <Route path="users" element={<UsersManagement />} />

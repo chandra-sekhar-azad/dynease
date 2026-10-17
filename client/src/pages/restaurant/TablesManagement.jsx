@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Plus, Download, Printer, Trash2, Loader2, X, AlertCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { useSocketEvents } from '../../lib/socket';
 
 export default function TablesManagement() {
   const [tables, setTables] = useState([]);
@@ -44,19 +45,17 @@ export default function TablesManagement() {
   useEffect(() => {
     fetchTables();
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    let socket;
-    try {
-      const { io } = require ? {} : {}; // Vite import below if needed
-    } catch {}
-
-    const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
-    // Dynamically connect or re-fetch on focus
-    const interval = setInterval(fetchTables, 8000);
+    // Poll as a resilient fallback for environments without websockets.
+    const interval = setInterval(fetchTables, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Realtime: refresh the table grid whenever a table or order changes.
+  useSocketEvents({
+    table_updated: () => fetchTables(),
+    order_updated: () => fetchTables(),
+  });
+
 
   const handleAddTable = async (e) => {
     e.preventDefault();

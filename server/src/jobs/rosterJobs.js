@@ -3,7 +3,6 @@ const cron = require('node-cron');
 const { db, schema } = require('../db/client');
 const { eq, and } = require('drizzle-orm');
 const { restaurants, users, shifts, rosters } = schema;
-const crypto = require('crypto');
 
 /**
  * Configure Roster Cron Job
@@ -61,39 +60,36 @@ async function generateDailyRosters(targetDateStr) {
       ).limit(1);
 
       if (!defaultShift) {
-        const shiftId = 'shift_' + crypto.randomBytes(8).toString('hex');
         const [newShift] = await db.insert(shifts).values({
-          id: shiftId,
           restaurant_id: restaurant.id,
           name: 'General Shift',
-          start_time: '09:00',
-          end_time: '22:00'
+          start_time: '09:00:00',
+          end_time: '22:00:00'
         }).returning();
         defaultShift = newShift;
         console.log(`[RosterCron] Created default shift for restaurant ${restaurant.name} (${restaurant.id})`);
       }
 
-      // 3. Fetch active staff members
+      // 3. Fetch active staff members (exclude the restaurant owner)
       const activeStaff = await db.select().from(users).where(
         and(
           eq(users.restaurant_id, restaurant.id),
+          eq(users.user_type, 'STAFF'),
           eq(users.user_status, 'ACTIVE'),
           eq(users.is_deleted, false)
         )
       );
 
       for (const staff of activeStaff) {
-        // 4. Insert roster record idempotently
-        const rosterId = 'ros_' + crypto.randomBytes(8).toString('hex');
+        // 4. Insert roster record idempotently (unique on user_id + date)
         const result = await db.insert(rosters).values({
-          id: rosterId,
           restaurant_id: restaurant.id,
           user_id: staff.id,
           date: dateStr,
           shift_id: defaultShift ? defaultShift.id : null,
           shift_type: 'WORKING'
         }).onConflictDoNothing({
-          target: [rosters.restaurant_id, rosters.user_id, rosters.date]
+          target: [rosters.user_id, rosters.date]
         }).returning();
 
         if (result.length > 0) {

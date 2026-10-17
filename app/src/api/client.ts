@@ -2,9 +2,41 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 
-// When using Android emulator, localhost is 10.0.2.2. For iOS/Web it's usually localhost.
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.2:5000/api';
+const resolveBaseUrl = (): string => {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  // If a production/remote URL is explicitly defined (not localhost/127.0.0.1), use it
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl;
+  }
+
+  // 1. Web browser: localhost:5000 always points to the local machine
+  if (Platform.OS === 'web') {
+    return envUrl || 'http://localhost:5000/api';
+  }
+
+  // 2. Mobile device (Expo Go or Dev Client over Wi-Fi):
+  // Constants.expoConfig?.hostUri contains the dev machine's LAN IP (e.g. 192.168.x.x:8081)
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  const hostIp = hostUri ? hostUri.split(':')[0] : null;
+
+  if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
+    return `http://${hostIp}:5000/api`;
+  }
+
+  // 3. Android Emulator fallback: 10.0.2.2 maps to host machine loopback (localhost)
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:5000/api';
+  }
+
+  // 4. iOS Simulator or default fallback
+  return envUrl || 'http://localhost:5000/api';
+};
+
+const BASE_URL = resolveBaseUrl();
+console.log(`[API Client] Development Base URL: ${BASE_URL}`);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,

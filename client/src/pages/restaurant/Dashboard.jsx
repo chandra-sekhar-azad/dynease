@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Clock, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getSocket } from '../../lib/socket';
 
 export default function RestaurantDashboard() {
   const [restaurantName, setRestaurantName] = useState('Loading...');
@@ -47,6 +48,16 @@ export default function RestaurantDashboard() {
       }
     };
     fetchData();
+
+    // Realtime: keep dashboard stats fresh as orders/tables/staff change.
+    const socket = getSocket();
+    const refreshEvents = ['new_order', 'order_updated', 'table_updated', 'new_service_request', 'service_request_updated', 'waiter_status_updated', 'staff_updated'];
+    const refresh = () => fetchData();
+    refreshEvents.forEach((event) => socket.on(event, refresh));
+
+    return () => {
+      refreshEvents.forEach((event) => socket.off(event, refresh));
+    };
   }, []);
 
   const getSubAlert = () => {

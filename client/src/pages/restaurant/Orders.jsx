@@ -40,15 +40,16 @@ export default function Orders() {
     const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
     const socket = io(socketUrl, {
       withCredentials: true,
+      auth: { token },
     });
 
     socket.on('connect', () => {
       setConnected(true);
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        // Restaurant owner/staff can join the restaurant room to get all updates
+        // The server joins the correct rooms from the auth token; these calls
+        // are kept for backwards compatibility with older deployments.
         socket.emit('restaurant:join', payload.restaurantId);
-        // Also join waiter room just in case
         socket.emit('waiter:join', { restaurantId: payload.restaurantId, waiterId: payload.id });
       } catch (err) {
         console.error("Failed to decode token", err);

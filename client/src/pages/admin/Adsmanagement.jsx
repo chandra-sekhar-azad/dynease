@@ -5,6 +5,7 @@ import {
   ArrowUpRight, Search, Filter, MessageCircle, AlertCircle
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
+import { useSocketEvents } from '../../lib/socket';
 
 const DEFAULT_BANNER_IMAGE = 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
 
@@ -30,6 +31,16 @@ export default function AdsManagement() {
     targetUrl: '',
     status: 'Active'
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+
+  // Reset any previously selected file whenever the modal is (re)opened
+  useEffect(() => {
+    if (showModal) {
+      setImageFile(null);
+      setImagePreview('');
+    }
+  }, [showModal]);
 
   useEffect(() => {
     fetchAds();
@@ -82,6 +93,12 @@ export default function AdsManagement() {
     combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     setInquiries(combined);
   };
+
+  // Realtime: banners changed anywhere + new ad inquiries.
+  useSocketEvents({
+    banners_updated: () => fetchAds(),
+    ad_inquiry: () => fetchInquiries(),
+  });
 
   // Inquiry Status Update
   const handleUpdateInquiryStatus = async (id, newStatus) => {
@@ -192,13 +209,27 @@ export default function AdsManagement() {
       
       const method = isEditing ? 'PUT' : 'POST';
 
+      // Send multipart/form-data so the image file can be uploaded to Cloudinary
+      const body = new FormData();
+      body.append('title', formData.title || '');
+      body.append('subtitle', formData.subtitle || '');
+      body.append('badge', formData.badge || '');
+      body.append('buttonText', formData.buttonText || '');
+      body.append('rightBadge', formData.rightBadge || '');
+      body.append('targetUrl', formData.targetUrl || '');
+      body.append('imageUrl', formData.imageUrl || '');
+      body.append('status', formData.status || 'Active');
+      if (imageFile) body.append('image', imageFile);
+
       const res = await authFetch(url, {
         method,
-        body: JSON.stringify(formData)
+        body
       });
       const data = await res.json();
       if (data.success) {
         setShowModal(false);
+        setImageFile(null);
+        setImagePreview('');
         fetchAds();
       } else {
         alert(data.message || 'Failed to save banner');
@@ -208,6 +239,13 @@ export default function AdsManagement() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleDelete = async (id) => {
@@ -695,7 +733,7 @@ export default function AdsManagement() {
                     {/* Right Part Preview */}
                     <div className="col-span-5 relative h-24 rounded-lg overflow-hidden bg-black/25">
                       <img 
-                        src={formData.imageUrl || DEFAULT_BANNER_IMAGE} 
+                        src={imagePreview || formData.imageUrl || DEFAULT_BANNER_IMAGE} 
                         alt="Preview"
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -779,16 +817,47 @@ export default function AdsManagement() {
                   </h4>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Image URL *</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Banner Image</label>
+                    <div className="flex items-center gap-2">
+                      <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-semibold border border-dashed border-emerald-400 rounded-lg bg-emerald-50/50 text-emerald-700 cursor-pointer hover:bg-emerald-50 transition-colors">
+                        <ImageIcon size={15} />
+                        <span>{imageFile ? imageFile.name : 'Upload image (stored on Cloudinary)'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                      {(imageFile || imagePreview) && (
+                        <button
+                          type="button"
+                          onClick={() => { setImageFile(null); setImagePreview(''); }}
+                          className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Remove selected image"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                    {imagePreview && (
+                      <div className="mt-2 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                        <img src={imagePreview} alt="Selected preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Or paste Image URL</label>
                     <input 
                       type="url" 
                       name="imageUrl" 
                       value={formData.imageUrl} 
                       onChange={handleInputChange} 
-                      required 
                       className="w-full p-2.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-emerald-500" 
                       placeholder="https://images.unsplash.com/..." 
                     />
+                    <p className="text-[10px] text-gray-400 mt-1">Used only when no file is uploaded.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">

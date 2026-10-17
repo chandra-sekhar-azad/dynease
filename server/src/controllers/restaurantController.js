@@ -18,6 +18,7 @@ const {
   plans
 } = schema;
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const RealtimeService = require('../services/RealtimeService');
 const SubscriptionService = require('../services/SubscriptionService');
 const WaiterAssignmentService = require('../services/waiterAssignmentService');
 const { getPlan, getPublicPlans } = require('../config/plans');
@@ -43,6 +44,7 @@ exports.getCategories = async (req, res) => {
       restaurantId: c.restaurant_id,
       name: c.category,
       description: c.description || '',
+      image: c.image || null,
       displayOrder: c.display_order,
       isActive: c.menu_category_status === 'ACTIVE',
       type: 'all'
@@ -93,9 +95,12 @@ exports.createCategory = async (req, res) => {
       restaurant_id: restaurantId,
       category: name.trim(),
       description: description?.trim() || '',
+      image,
       display_order: displayOrder ? parseInt(displayOrder, 10) : 0,
       menu_category_status: 'ACTIVE'
     }).returning();
+
+    RealtimeService.menuUpdated(restaurantId);
 
     res.status(201).json({
       success: true,
@@ -134,6 +139,18 @@ exports.updateCategory = async (req, res) => {
       updateFields.menu_category_status = isActive ? 'ACTIVE' : 'INACTIVE';
     }
 
+    if (req.file) {
+      try {
+        const uploadResult = await uploadToCloudinary(req.file.buffer, `dynease/categories/${restaurantId}`);
+        updateFields.image = {
+          public_id: uploadResult.public_id,
+          secure_url: uploadResult.secure_url
+        };
+      } catch (uploadError) {
+        console.error('Cloudinary Upload Error:', uploadError);
+      }
+    }
+
     const [category] = await db.update(menu_categories).set(updateFields).where(
       and(
         eq(menu_categories.id, id),
@@ -146,6 +163,8 @@ exports.updateCategory = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Category not found.' });
     }
 
+    RealtimeService.menuUpdated(restaurantId);
+
     res.status(200).json({
       success: true,
       data: {
@@ -154,6 +173,7 @@ exports.updateCategory = async (req, res) => {
           id: category.id,
           name: category.category,
           description: category.description,
+          image: category.image || null,
           displayOrder: category.display_order,
           isActive: category.menu_category_status === 'ACTIVE'
         }
@@ -205,6 +225,8 @@ exports.deleteCategory = async (req, res) => {
         eq(menu_categories.restaurant_id, restaurantId)
       )
     );
+
+    RealtimeService.menuUpdated(restaurantId);
 
     res.status(200).json({ success: true, message: 'Category deleted.' });
   } catch (error) {
@@ -336,6 +358,7 @@ exports.createMenuItem = async (req, res) => {
       category_id: catId,
       name: name.trim(),
       description: description?.trim() || '',
+      image,
       price: parsedPrice.toFixed(2),
       menu_item_status: isAvailable !== false ? 'AVAILABLE' : 'UNAVAILABLE',
       menu_item_type: itemType,
@@ -343,6 +366,8 @@ exports.createMenuItem = async (req, res) => {
       rating: ratingVal,
       display_order: displayOrder !== undefined ? parseInt(displayOrder, 10) || 0 : 0
     }).returning();
+
+    RealtimeService.menuUpdated(restaurantId);
 
     res.status(201).json({
       success: true,
@@ -457,6 +482,18 @@ exports.updateMenuItem = async (req, res) => {
       updateFields.display_order = parseInt(displayOrder, 10) || 0;
     }
 
+    if (req.file) {
+      try {
+        const uploadResult = await uploadToCloudinary(req.file.buffer, `dynease/menu/${restaurantId}`);
+        updateFields.image = {
+          public_id: uploadResult.public_id,
+          secure_url: uploadResult.secure_url
+        };
+      } catch (uploadError) {
+        console.error('Cloudinary Upload Error:', uploadError);
+      }
+    }
+
     const [menuItem] = await db.update(menu_categories_items).set(updateFields).where(
       and(
         eq(menu_categories_items.id, id),
@@ -465,6 +502,8 @@ exports.updateMenuItem = async (req, res) => {
     ).returning();
 
     const [cat] = await db.select().from(menu_categories).where(eq(menu_categories.id, menuItem.category_id)).limit(1);
+
+    RealtimeService.menuUpdated(restaurantId);
 
     res.status(200).json({
       success: true,
@@ -477,6 +516,7 @@ exports.updateMenuItem = async (req, res) => {
           categoryId: menuItem.category_id,
           name: menuItem.name,
           description: menuItem.description,
+          image: menuItem.image || null,
           price: parseFloat(menuItem.price),
           isAvailable: menuItem.menu_item_status === 'AVAILABLE',
           dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
@@ -529,6 +569,7 @@ exports.getMenu = async (req, res) => {
       category: catMap.get(r.category_id) || 'General',
       name: r.name,
       description: r.description,
+      image: r.image || null,
       price: parseFloat(r.price),
       isAvailable: r.menu_item_status === 'AVAILABLE',
       dietaryPreference: r.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
@@ -562,6 +603,9 @@ exports.deleteMenuItem = async (req, res) => {
     ).returning();
 
     if (!item) return res.status(404).json({ success: false, message: 'Item not found.' });
+
+    RealtimeService.menuUpdated(restaurantId);
+
     res.status(200).json({ success: true, message: 'Menu item deleted.' });
   } catch (error) {
     console.error('[RestaurantController] Error deleting menu item:', error);
@@ -586,6 +630,9 @@ exports.toggleMenuItemStatus = async (req, res) => {
     ).returning();
 
     if (!item) return res.status(404).json({ success: false, message: 'Item not found.' });
+
+    RealtimeService.menuUpdated(restaurantId);
+
     res.status(200).json({ success: true, data: { menuItem: item } });
   } catch (error) {
     console.error('[RestaurantController] Error toggling status:', error);
@@ -746,47 +793,55 @@ exports.updateOrderStatus = async (req, res) => {
 
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
 
-    // Permitted order status transitions
-    const currentStatus = order.order_status;
+    // Canonical statuses supported by the order_status enum
+    const ORDER_STATUSES = ['NO_ORDER', 'ORDERED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'PAID', 'CANCELLED'];
+    // Legacy UI aliases mapped onto canonical statuses
+    const STATUS_ALIASES = { NEW: 'ORDERED', PENDING: 'ORDERED', READ: 'PREPARING' };
+    // Forward-only transitions; waiters may skip straight to COMPLETED/CANCELLED
     const validTransitions = {
-      'NO_ORDER': ['ORDERED', 'CANCELLED'],
-      'ORDERED': ['PREPARING', 'CANCELLED'],
-      'PREPARING': ['READY', 'CANCELLED'],
-      'READY': ['SERVED', 'CANCELLED'],
-      'SERVED': ['COMPLETED', 'PAID'],
+      'NO_ORDER': ['ORDERED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'],
+      'ORDERED': ['PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'],
+      'PREPARING': ['READY', 'SERVED', 'COMPLETED', 'CANCELLED'],
+      'READY': ['SERVED', 'COMPLETED', 'CANCELLED'],
+      'SERVED': ['COMPLETED', 'PAID', 'CANCELLED'],
       'COMPLETED': ['PAID'],
       'CANCELLED': [],
       'PAID': []
     };
 
+    const currentStatus = order.order_status;
+    const nextStatus = STATUS_ALIASES[status] || status;
+
+    if (!ORDER_STATUSES.includes(nextStatus)) {
+      return res.status(400).json({ success: false, message: `Invalid order status: ${status}.` });
+    }
+
     const allowed = validTransitions[currentStatus] || [];
-    if (req.user.userType === 'STAFF') {
-      if (!allowed.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid order status transition from ${currentStatus} to ${status}.`
-        });
-      }
+    if (req.user.userType === 'STAFF' && !allowed.includes(nextStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot change order status from ${currentStatus} to ${status}.`
+      });
     }
 
     const [updatedOrder] = await db.update(order_details).set({
-      order_status: status,
+      order_status: nextStatus,
       updatedat: new Date()
     }).where(eq(order_details.id, id)).returning();
 
-    const io = req.app.get('io');
-    if (io) {
-      const payload = {
+    RealtimeService.orderUpdated({
+      restaurantId,
+      order: {
         _id: updatedOrder.id,
         id: updatedOrder.id,
         status: updatedOrder.order_status,
         restaurantId,
+        tableId: updatedOrder.table_id,
         updatedAt: updatedOrder.updatedat
-      };
-      io.to(`kitchen:${restaurantId}`).emit('order_updated', payload);
-      io.to(`waiter:${restaurantId}`).emit('order_updated', payload);
-      io.to(`restaurant:${restaurantId}`).emit('order_updated', payload);
-    }
+      },
+      orderId: updatedOrder.id,
+      tableId: updatedOrder.table_id
+    });
 
     res.status(200).json({ success: true, data: { order: updatedOrder } });
   } catch (error) {
@@ -807,11 +862,12 @@ exports.acceptOrder = async (req, res) => {
       req.user.id || req.user._id
     );
 
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
-      io.to(`waiter:${restaurantId}`).emit('order_updated', order);
-    }
+    RealtimeService.orderUpdated({
+      restaurantId,
+      order,
+      orderId: order?.id || order?._id,
+      tableId: order?.table_id || order?.tableId
+    });
 
     res.status(200).json({ success: true, message: 'Order accepted successfully', data: { order } });
   } catch (error) {
@@ -834,11 +890,12 @@ exports.rejectOrder = async (req, res) => {
       reason || 'Waiter rejected'
     );
 
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`restaurant:${restaurantId}`).emit('order_updated', result.order);
-      io.to(`waiter:${restaurantId}`).emit('order_updated', result.order);
-    }
+    RealtimeService.orderUpdated({
+      restaurantId,
+      order: result.order,
+      orderId: result.order?.id || result.order?._id,
+      tableId: result.order?.table_id || result.order?.tableId
+    });
 
     res.status(200).json({ success: true, message: 'Order rejected and processed', data: result });
   } catch (error) {
@@ -886,11 +943,13 @@ exports.reassignOrder = async (req, res) => {
       }
     });
 
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`restaurant:${restaurantId}`).emit('order_updated', order);
-      io.to(`waiter:${restaurantId}`).emit('order_updated', order);
-    }
+    RealtimeService.orderUpdated({
+      restaurantId,
+      order,
+      orderId: order.id,
+      tableId: order.table_id
+    });
+    if (waiterId) RealtimeService.orderAssigned({ waiterId, order });
 
     res.status(200).json({ success: true, message: 'Order reassigned successfully', data: { order } });
   } catch (error) {
@@ -1283,7 +1342,7 @@ exports.getSubscription = async (req, res) => {
     }
 
     // Fetch active plans available in system
-    const availablePlansList = await db.select().from(plans).where(eq(plans.status, 'ACTIVE')).orderBy(plans.display_order);
+    const availablePlansList = await db.select().from(plans).where(eq(plans.plan_status, 'ACTIVE')).orderBy(plans.createdat);
 
     res.status(200).json({
       success: true,
@@ -1305,9 +1364,10 @@ exports.getSubscription = async (req, res) => {
           _id: p.id,
           id: p.id,
           name: p.name,
-          description: p.description,
-          price: p.price,
-          billingPeriod: p.billing_period,
+          planId: p.configuration?.planId || p.name.toUpperCase(),
+          description: p.configuration?.tagline || '',
+          price: p.configuration?.monthlyDisplayPrice ?? null,
+          billingPeriod: 'monthly',
           configuration: p.configuration
         }))
       }
@@ -1346,10 +1406,20 @@ exports.renewSubscription = async (req, res) => {
         } else {
           const [inserted] = await db.insert(plans).values({
             name: fallback.name,
-            description: fallback.description || '',
-            price: fallback.price || '0',
-            status: 'ACTIVE',
-            configuration: { limits: fallback.limits, features: fallback.features }
+            plan_status: 'ACTIVE',
+            is_deleted: false,
+            configuration: {
+              planId: fallback.planId,
+              name: fallback.name,
+              tagline: fallback.tagline || '',
+              limits: fallback.limits,
+              features: fallback.features,
+              displayFeatures: fallback.displayFeatures || [],
+              monthlyDisplayPrice: fallback.monthlyDisplayPrice,
+              yearlyDisplayPrice: fallback.yearlyDisplayPrice,
+              monthlyPricePaise: fallback.monthlyPricePaise,
+              yearlyPricePaise: fallback.yearlyPricePaise
+            }
           }).returning();
           targetPlan = inserted;
         }
@@ -1399,6 +1469,14 @@ exports.renewSubscription = async (req, res) => {
         billingCycle,
         requestedAt: new Date()
       }
+    });
+
+    RealtimeService.adminEvent('plan_request', {
+      id: newRequest.id,
+      restaurantId,
+      planId: targetPlan.id,
+      planName: targetPlan.name,
+      billingCycle
     });
 
     res.status(200).json({

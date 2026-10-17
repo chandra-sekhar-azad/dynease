@@ -2,6 +2,7 @@
 const {
   pgTable,
   uuid,
+  varchar,
   time,
   date,
   timestamp,
@@ -20,6 +21,7 @@ const shifts = pgTable(
     restaurant_id: uuid('restaurant_id')
       .notNull()
       .references(() => restaurants.id),
+    name: varchar('name', { length: 100 }),
     start_time: time('start_time').notNull(),
     end_time: time('end_time').notNull(),
     createdat: timestamp('createdat', { withTimezone: true })

@@ -110,10 +110,12 @@ export default function Orders() {
 
   // Socket.IO real-time connection
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_API_URL || undefined;
+    const socketUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '') || undefined;
+    const token = localStorage.getItem('token');
     const socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5
+      reconnectionAttempts: 5,
+      auth: token ? { token } : {},
     });
 
     socket.on('connect', () => {

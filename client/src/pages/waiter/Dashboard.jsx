@@ -20,6 +20,7 @@ export default function WaiterDashboard() {
     const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
     const socket = io(socketUrl, {
       withCredentials: true,
+      auth: { token },
     });
 
     socket.on('connect', () => {
@@ -37,25 +38,36 @@ export default function WaiterDashboard() {
       setConnected(false);
     });
 
-    socket.on('new_order', (orderPayload) => {
-      // Receive new order
-      setOrders(prev => [
-        {
-          id: orderPayload.orderNumber || orderPayload.id,
-          table: orderPayload.tableNumber,
-          status: orderPayload.status,
-          time: new Date(orderPayload.createdAt),
-          items: orderPayload.items
-        },
-        ...prev
-      ]);
-      
-      // Play a notification sound
+    const playChime = () => {
       try {
         const audio = new Audio('/notification.mp3');
         audio.play().catch(e => console.log('Audio play failed', e));
       } catch(e){}
-    });
+    };
+
+    const upsertOrder = (orderPayload) => {
+      if (!orderPayload) return;
+      const uuid = orderPayload._id || orderPayload.id;
+      setOrders(prev => {
+        const mapped = {
+          id: orderPayload.orderNumber || uuid,
+          _id: uuid,
+          table: orderPayload.tableNumber,
+          status: orderPayload.status,
+          time: new Date(orderPayload.createdAt || Date.now()),
+          items: orderPayload.items
+        };
+        const exists = prev.find(o => (o._id || o.id) === uuid);
+        if (exists) {
+          return prev.map(o => ((o._id || o.id) === uuid ? { ...o, ...mapped } : o));
+        }
+        return [mapped, ...prev];
+      });
+    };
+
+    socket.on('new_order', (orderPayload) => { upsertOrder(orderPayload); playChime(); });
+    socket.on('assigned_order', (orderPayload) => { upsertOrder(orderPayload); playChime(); });
+    socket.on('order_updated', upsertOrder);
 
     return () => {
       socket.disconnect();

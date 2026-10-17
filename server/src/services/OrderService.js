@@ -1,6 +1,5 @@
-const crypto = require('crypto');
 const { db, schema } = require('../db/client');
-const { eq, and, sql } = require('drizzle-orm');
+const { eq, and, sql, isNull } = require('drizzle-orm');
 const { restaurants, tables, menu_categories_items, order_details, order_items, leads } = schema;
 const { logAudit } = require('./AuditService');
 
@@ -85,7 +84,7 @@ class OrderService {
           and(
             eq(menu_categories_items.id, item.menu_item_id),
             eq(menu_categories_items.restaurant_id, restaurant_id),
-            eq(menu_categories_items.is_deleted, false)
+            isNull(menu_categories_items.deletedat)
           )
         ).limit(1);
 
@@ -128,9 +127,7 @@ class OrderService {
         if (existingLead) {
           leadId = existingLead.id;
         } else {
-          leadId = 'lead_' + crypto.randomBytes(8).toString('hex');
           const [newLead] = await tx.insert(leads).values({
-            id: leadId,
             restaurant_id,
             name: customer_name,
             number: customer_phone,
@@ -141,11 +138,9 @@ class OrderService {
       }
 
       // 6. Generate order details
-      const orderId = 'ord_' + crypto.randomBytes(8).toString('hex');
       const orderNumber = idempotency_key || ('ORD-' + Date.now().toString(36).toUpperCase());
 
       const [order] = await tx.insert(order_details).values({
-        id: orderId,
         restaurant_id,
         table_id,
         lead_id: leadId,
@@ -165,12 +160,12 @@ class OrderService {
         app_status: 'PENDING'
       }).returning();
 
+      const orderId = order.id;
+
       // 7. Insert all order items
       const createdItems = [];
       for (const vi of validatedItems) {
-        const orderItemId = 'oi_' + crypto.randomBytes(8).toString('hex');
         const [oi] = await tx.insert(order_items).values({
-          id: orderItemId,
           restaurant_id,
           order_id: orderId,
           item_name: vi.item_name,

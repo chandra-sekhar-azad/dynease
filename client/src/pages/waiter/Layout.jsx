@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle, User, LogOut, Menu, X, Bell, Settings } from 'lucide-react';
+import useAuthGuard from '../../hooks/useAuthGuard';
+
+// Waiters/kitchen staff both map to the RESTAURANT_STAFF role server-side.
+const WAITER_ROLES = ['RESTAURANT_STAFF'];
 
 export default function WaiterLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [restaurantName, setRestaurantName] = useState('Staff Panel');
+  const authStatus = useAuthGuard(WAITER_ROLES);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -49,6 +54,14 @@ export default function WaiterLayout() {
     { name: 'Profile', path: '/waiter/profile', icon: <User size={20} /> },
     { name: 'Settings', path: '/waiter/settings', icon: <Settings size={20} /> },
   ];
+
+  if (authStatus !== 'allowed') {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden relative">

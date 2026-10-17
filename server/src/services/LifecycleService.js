@@ -181,7 +181,6 @@ class LifecycleService {
           is_deleted: true,
           user_status: 'INACTIVE',
           deletedat: new Date(),
-          deletedby: actorId,
           sessionVersion: sql`${users.sessionVersion} + 1`,
           updatedat: new Date()
         })

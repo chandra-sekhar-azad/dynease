@@ -1,4 +1,3 @@
-const crypto = require('crypto');
 const { db, schema } = require('../db/client');
 const { audit_log } = schema;
 
@@ -22,11 +21,9 @@ async function logAudit({ restaurant_id, user_id, action, entity_type, entity_id
     delete sanitizedDetails.secret;
     delete sanitizedDetails.authorization;
 
-    const id = 'aud_' + crypto.randomBytes(8).toString('hex');
     const runner = tx || db;
 
     await runner.insert(audit_log).values({
-      id,
       restaurant_id: restaurant_id || null,
       user_id: user_id || null,
       action,

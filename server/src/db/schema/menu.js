@@ -6,6 +6,7 @@ const {
   text,
   integer,
   numeric,
+  jsonb,
   timestamp,
   index,
   uniqueIndex,
@@ -28,6 +29,7 @@ const menu_categories = pgTable(
       .references(() => restaurants.id),
     category: varchar('category', { length: 255 }).notNull(),
     description: text('description'),
+    image: jsonb('image'),
     menu_category_status: menuCategoryStatusEnum('menu_category_status')
       .notNull()
       .default('ACTIVE'),
@@ -66,6 +68,7 @@ const menu_categories_items = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     item_size: itemSizeEnum('item_size').notNull(),
     description: text('description'),
+    image: jsonb('image'),
     price: numeric('price', { precision: 12, scale: 2 }).notNull(),
     rating: numeric('rating', { precision: 3, scale: 2 }),
     display_order: integer('display_order').notNull().default(0),

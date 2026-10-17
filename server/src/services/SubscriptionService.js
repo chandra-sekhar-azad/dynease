@@ -1,6 +1,6 @@
 const { getPlan, PLANS, hasEntitlement } = require('../config/plans');
 const { db, schema } = require('../db/client');
-const { eq, and, sql } = require('drizzle-orm');
+const { eq, and, sql, isNull } = require('drizzle-orm');
 const { restaurants, tables, menu_categories_items, users, plans, audit_log } = schema;
 const crypto = require('crypto');
 
@@ -103,7 +103,7 @@ class SubscriptionService {
           tableCount = parseInt(tRes?.count || '0', 10);
 
           const [mRes] = await db.select({ count: sql`count(*)` }).from(menu_categories_items).where(
-            and(eq(menu_categories_items.restaurant_id, restaurantId), eq(menu_categories_items.is_deleted, false))
+            and(eq(menu_categories_items.restaurant_id, restaurantId), isNull(menu_categories_items.deletedat))
           );
           menuItemCount = parseInt(mRes?.count || '0', 10);
 

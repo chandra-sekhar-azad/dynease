@@ -20,6 +20,7 @@ export default function KitchenOrders() {
     const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
     const socket = io(socketUrl, {
       withCredentials: true,
+      auth: { token },
     });
 
     socket.on('connect', () => {

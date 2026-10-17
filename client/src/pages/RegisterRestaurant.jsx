@@ -17,6 +17,8 @@ export default function RegisterRestaurant() {
     
     ownerName: '',
     ownerPhone: '',
+    email: '',
+    password: '',
     
     selectedPlan: defaultPlan,
     billingCycle: urlCycle === 'yearly' ? 'yearly' : 'monthly'
@@ -37,6 +39,8 @@ export default function RegisterRestaurant() {
       phone: formData.ownerPhone,
       ownerName: formData.ownerName,
       ownerPhone: formData.ownerPhone,
+      email: formData.email ? formData.email.trim() : undefined,
+      password: formData.password || undefined,
       selectedPlan: formData.selectedPlan,
       billingCycle: formData.billingCycle
     };
@@ -178,6 +182,33 @@ export default function RegisterRestaurant() {
                       className="flex-1 w-full px-4 py-3 border-none outline-none text-gray-900 bg-transparent focus:ring-0" 
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Owner Email <span className="text-gray-400 text-xs font-normal">(Optional)</span></label>
+                  <input 
+                    name="email" 
+                    type="email" 
+                    placeholder="owner@example.com" 
+                    value={formData.email} 
+                    onChange={handleChange} 
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all outline-none text-gray-900 bg-gray-50 hover:bg-white" 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Account Password <span className="text-gray-400 text-xs font-normal">(Optional, min 6 chars)</span></label>
+                  <input 
+                    name="password" 
+                    type="password" 
+                    minLength={6} 
+                    placeholder="Set your login password..." 
+                    value={formData.password} 
+                    onChange={handleChange} 
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all outline-none text-gray-900 bg-gray-50 hover:bg-white" 
+                  />
                 </div>
               </div>
           </div>

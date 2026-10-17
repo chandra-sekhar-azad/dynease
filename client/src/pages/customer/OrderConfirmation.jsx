@@ -1,32 +1,57 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useLocation } from 'react-router-dom';
 import { Loader2, CheckCircle, UtensilsCrossed, Clock } from 'lucide-react';
 import { getTenantHeaders } from '../../context/RestaurantContext';
+import { getSocket } from '../../lib/socket';
 
 export default function OrderConfirmation() {
   const { orderId } = useParams();
   const location = useLocation();
   const [order, setOrder] = useState(location.state?.order || null);
-  const [loading, setLoading] = useState(!order);
+  const [loading, setLoading] = useState(!location.state?.order);
   const [error, setError] = useState('');
+  const hasOrderRef = useRef(Boolean(location.state?.order));
 
   useEffect(() => {
-    if (order) return;
+    let cancelled = false;
+
     const fetchOrder = async () => {
       try {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/public/orders/${orderId}`, {
           headers: getTenantHeaders()
         });
         const data = await res.json();
-        if (data.success) setOrder(data.data.order);
-        else setError('Order not found.');
+        if (cancelled) return;
+        if (data.success) {
+          hasOrderRef.current = true;
+          setOrder(data.data.order);
+        } else if (!hasOrderRef.current) {
+          setError('Order not found.');
+        }
       } catch {
-        setError('Network error. Could not load order.');
+        if (!cancelled && !hasOrderRef.current) {
+          setError('Network error. Could not load order.');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
+
     fetchOrder();
+
+    // Realtime: keep the tracking status in sync with the kitchen.
+    const socket = getSocket();
+    if (orderId) socket.emit('customer:join', orderId);
+    const onOrderUpdated = (updated) => {
+      const updatedId = (updated?.id || updated?._id)?.toString();
+      if (!updatedId || updatedId === String(orderId)) fetchOrder();
+    };
+    socket.on('order_updated', onOrderUpdated);
+
+    return () => {
+      cancelled = true;
+      socket.off('order_updated', onOrderUpdated);
+    };
   }, [orderId]);
 
   if (loading) {

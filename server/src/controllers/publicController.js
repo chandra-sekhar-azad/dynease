@@ -14,6 +14,10 @@ const {
   audit_log
 } = schema;
 
+const RealtimeService = require('../services/RealtimeService');
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const inferCategoryType = (name, explicitType) => {
   if (explicitType && explicitType !== 'all') return explicitType.toLowerCase();
   const lower = (name || '').toLowerCase();
@@ -168,7 +172,7 @@ async function fetchMenuForRestaurant(restaurantId) {
     categoriesMap.set(c.id, {
       name: c.category,
       type: inferCategoryType(c.category, 'all'),
-      image: null,
+      image: c.image?.secure_url || null,
       items: []
     });
   }
@@ -184,7 +188,7 @@ async function fetchMenuForRestaurant(restaurantId) {
       name: item.name,
       description: item.description,
       price: parseFloat(item.price),
-      imageUrl: null,
+      imageUrl: item.image?.secure_url || null,
       isAvailable: item.menu_item_status === 'AVAILABLE',
       dietaryPreference: item.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
       preparationTime: 15,
@@ -334,9 +338,9 @@ exports.createOrder = async (req, res, next) => {
       order.id
     );
 
-    const io = req.app.get('io');
-    if (io) {
-      const payload = {
+    RealtimeService.orderCreated({
+      restaurantId,
+      order: {
         id: order.id,
         _id: order.id,
         orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
@@ -355,16 +359,11 @@ exports.createOrder = async (req, res, next) => {
         assignmentType: assignment?.assignmentType || 'DYNAMIC',
         assignmentStatus: assignment?.assignmentStatus || 'ASSIGNED',
         createdAt: order.createdat || order.date
-      };
-
-      io.to(`kitchen:${restaurantId}`).emit('new_order', payload);
-      io.to(`restaurant:${restaurantId}`).emit('new_order', payload);
-      io.to(`waiter:${restaurantId}`).emit('new_order', payload);
-
-      if (assignment?.assignedWaiterId) {
-        io.to(`waiter_user:${assignment.assignedWaiterId.toString()}`).emit('assigned_order', payload);
-      }
-    }
+      },
+      orderId: order.id,
+      tableId: table.id,
+      waiterId: assignment?.assignedWaiterId ? assignment.assignedWaiterId.toString() : null
+    });
 
     res.status(201).json({
       success: true,
@@ -404,17 +403,17 @@ exports.getCustomerOrders = async (req, res, next) => {
     const conditions = [];
 
     if (orderIds) {
-      const rawIds = Array.isArray(orderIds)
-        ? orderIds
-        : String(orderIds).split(',').map(s => s.trim()).filter(Boolean);
+      const rawIds = (Array.isArray(orderIds) ? orderIds : String(orderIds).split(','))
+        .map(s => String(s).trim())
+        .filter(id => UUID_RE.test(id));
 
       if (rawIds.length > 0) {
         conditions.push(inArray(order_details.id, rawIds));
       }
     }
 
-    if (tableId) {
-      conditions.push(eq(order_details.table_id, tableId));
+    if (tableId && UUID_RE.test(String(tableId).trim())) {
+      conditions.push(eq(order_details.table_id, String(tableId).trim()));
     }
 
     if (phone) {
@@ -488,6 +487,10 @@ exports.getCustomerOrders = async (req, res, next) => {
 exports.getOrder = async (req, res, next) => {
   try {
     const { orderId } = req.params;
+
+    if (!UUID_RE.test(String(orderId))) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
 
     const [order] = await db.select().from(order_details).where(
       eq(order_details.id, orderId)
@@ -570,22 +573,18 @@ exports.createServiceRequest = async (req, res, next) => {
       }
     }).returning();
 
-    const io = req.app.get('io');
-    if (io) {
-      const payload = {
-        id: serviceRequest.id,
-        _id: serviceRequest.id,
-        tableId: table.id,
-        tableNumber: table.table_code,
-        type: serviceRequest.request_type,
-        note: note || '',
-        status: serviceRequest.request_status,
-        createdAt: serviceRequest.createdat
-      };
+    const payload = {
+      id: serviceRequest.id,
+      _id: serviceRequest.id,
+      tableId: table.id,
+      tableNumber: table.table_code,
+      type: serviceRequest.request_type,
+      note: note || '',
+      status: serviceRequest.request_status,
+      createdAt: serviceRequest.createdat
+    };
 
-      io.to(`restaurant:${table.restaurant_id}`).emit('new_service_request', payload);
-      io.to(`waiter:${table.restaurant_id}`).emit('new_service_request', payload);
-    }
+    RealtimeService.serviceRequestCreated(table.restaurant_id, payload);
 
     res.status(201).json({
       success: true,
@@ -614,17 +613,17 @@ exports.createServiceRequest = async (req, res, next) => {
 exports.getBanners = async (req, res, next) => {
   try {
     const bannerRows = await db.select().from(ads).where(
-      isNull(ads.deletedat)
-    ).orderBy(desc(ads.createdat));
+      eq(ads.ad_status, true)
+    ).orderBy(ads.display_order, desc(ads.createdat));
 
     const banners = bannerRows.map(b => ({
       _id: b.id,
       id: b.id,
       title: b.name || 'Special Offer',
       subtitle: b.description || '',
-      imageUrl: b.image || b.ad_image_url || '',
+      imageUrl: b.image || '',
       targetUrl: b.url || '',
-      isActive: b.ad_status !== false && b.is_active !== false,
+      isActive: b.ad_status !== false,
       status: 'active',
       createdAt: b.createdat
     }));
@@ -665,6 +664,8 @@ exports.createAdInquiry = async (req, res, next) => {
       entity_type: 'AD_INQUIRY',
       details: inquiry
     });
+
+    RealtimeService.adminEvent('ad_inquiry', inquiry);
 
     res.status(201).json({
       success: true,

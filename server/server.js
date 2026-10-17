@@ -23,6 +23,7 @@ const io = new Server(server, {
 });
 
 require('./src/sockets')(io);
+require('./src/services/RealtimeService').init(io);
 app.set('io', io);
 
 const { initSubscriptionJobs } = require('./src/jobs/subscriptionJobs');

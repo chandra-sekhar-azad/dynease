@@ -198,8 +198,7 @@ class TableAssignmentService {
       const [updated] = await tx.update(tables)
         .set({
           qr_token: newToken,
-          updatedat: new Date(),
-          updatedby: actorId
+          updatedat: new Date()
         })
         .where(
           and(

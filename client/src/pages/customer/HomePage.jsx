@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
 import CustomerSidebar from '../../components/customer/CustomerSidebar';
 import ServiceRequestModal from '../../components/customer/ServiceRequestModal';
+import { getSocket } from '../../lib/socket';
 
 const SIZE_FILTERS = [
   { id: 'ALL', label: 'All Sizes' },
@@ -40,48 +41,54 @@ export default function HomePage({ forcedSlug }) {
   const searchInputRef = useRef(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchBanners = async () => {
       try {
         const apiUrl = import.meta.env.VITE_API_URL || '';
-        let fetchedAds = [];
-
-        // 1. Fetch from /admin/ads (primary production endpoint where admin manages ads)
-        try {
-          const res = await fetch(`${apiUrl}/admin/ads`);
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data?.ads) && json.data.ads.length > 0) {
-            fetchedAds = json.data.ads;
-          }
-        } catch (e) {
-          console.warn('Could not fetch from /admin/ads, trying public endpoint', e);
-        }
-
-        // 2. Fallback to /public/banners or /public/ads
-        if (fetchedAds.length === 0) {
-          try {
-            const res = await fetch(`${apiUrl}/public/banners`);
-            const json = await res.json();
-            if (json.success) {
-              fetchedAds = json.data?.banners || json.data?.ads || [];
-            }
-          } catch (e) {
-            console.warn('Could not fetch from /public/banners', e);
-          }
-        }
+        const res = await fetch(`${apiUrl}/public/banners`);
+        const json = await res.json();
+        const fetchedAds = json.success
+          ? (json.data?.banners || json.data?.ads || [])
+          : [];
 
         // Filter active banners (case-insensitive)
-        const activeOnly = fetchedAds.filter(ad => 
+        const activeOnly = fetchedAds.filter(ad =>
           !ad.status || String(ad.status).toLowerCase() === 'active'
         );
 
-        if (activeOnly.length > 0) {
+        if (!cancelled) {
           setBanners(activeOnly);
+          setCurrentBannerIndex(0);
         }
-      } catch (err) {
-        console.error('Failed to fetch banners', err);
+      } catch (e) {
+        console.warn('Could not fetch banners from /public/banners', e);
       }
     };
+
     fetchBanners();
+
+    // Realtime: refresh instantly when an admin adds/removes/edits a banner.
+    const socket = getSocket();
+    const onBannersUpdated = () => fetchBanners();
+    socket.on('banners_updated', onBannersUpdated);
+
+    // Refresh periodically and when the tab regains focus so
+    // admin changes (add/remove banners) show up without a reload.
+    const interval = setInterval(fetchBanners, 30000);
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') fetchBanners();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      cancelled = true;
+      socket.off('banners_updated', onBannersUpdated);
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
   }, []);
 
   useEffect(() => {
@@ -110,7 +117,10 @@ export default function HomePage({ forcedSlug }) {
         
         if (json.success) {
           const data = json.data;
-          setRestaurant(data.restaurant || session?.restaurant);
+          const resolvedRestaurant = data.restaurant || session?.restaurant;
+          setRestaurant(resolvedRestaurant);
+          const rid = resolvedRestaurant?.id || resolvedRestaurant?._id || resolvedRestaurant?.restaurantId;
+          if (rid) getSocket().emit('menu:join', rid);
           if (data.categories && Array.isArray(data.categories) && data.categories[0]?.items) {
             setCategories(data.categories);
             setActiveCategory(data.categories[0]?.name || null);
@@ -144,6 +154,15 @@ export default function HomePage({ forcedSlug }) {
       }
     };
     fetchMenu();
+
+    // Realtime: refresh the menu when the restaurant changes it.
+    const socket = getSocket();
+    const onMenuUpdated = () => fetchMenu();
+    socket.on('menu_updated', onMenuUpdated);
+
+    return () => {
+      socket.off('menu_updated', onMenuUpdated);
+    };
   }, [activeSlug]);
 
   const getItemVariantForActiveSize = (item, sizeFilterId) => {
@@ -592,17 +611,11 @@ export default function HomePage({ forcedSlug }) {
 
       {!selectedCategory ? (
         <div className="bg-[var(--color-background)] pb-6">
-          {/* Two-Part Promotional Banner */}
+          {/* Two-Part Promotional Banner (hidden entirely when no active banners) */}
           {(() => {
-            const activeBanner = banners.length > 0 ? banners[currentBannerIndex] : {
-              title: "Chef's Signature Specials",
-              subtitle: "Handcrafted delicacies prepared fresh daily with authentic ingredients.",
-              badge: "CHEF'S SPECIAL",
-              buttonText: "Explore Now",
-              rightBadge: "FRESH TODAY",
-              imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80",
-              targetUrl: ""
-            };
+            if (banners.length === 0) return null;
+
+            const activeBanner = banners[currentBannerIndex] || banners[0];
 
             const handleBannerClick = () => {
               if (activeBanner.targetUrl) {

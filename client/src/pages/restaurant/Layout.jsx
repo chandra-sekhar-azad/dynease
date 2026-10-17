@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Utensils, Grid, LogOut, Users, FolderOpen, Menu, X, ClipboardList, Settings, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Utensils, Grid, LogOut, Users, FolderOpen, Menu, X, ClipboardList, Settings, CreditCard, CalendarDays } from 'lucide-react';
+import useAuthGuard from '../../hooks/useAuthGuard';
+
+// Roles permitted to access the restaurant owner/staff dashboard.
+const RESTAURANT_ROLES = ['RESTAURANT_OWNER', 'RESTAURANT_STAFF'];
 
 export default function RestaurantLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
+  const authStatus = useAuthGuard(RESTAURANT_ROLES);
 
   useEffect(() => {
     const handleResize = () => {
@@ -30,9 +35,18 @@ export default function RestaurantLayout() {
     { name: 'Menu', path: '/restaurant/menu', icon: <Utensils size={20} /> },
     { name: 'Categories', path: '/restaurant/categories', icon: <FolderOpen size={20} /> },
     { name: 'Staff', path: '/restaurant/staff', icon: <Users size={20} /> },
+    { name: 'Staff Roster', path: '/restaurant/roster', icon: <CalendarDays size={20} /> },
     { name: 'Subscription & Billing', path: '/restaurant/subscription', icon: <CreditCard size={20} /> },
     { name: 'Settings', path: '/restaurant/settings', icon: <Settings size={20} /> },
   ];
+
+  if (authStatus !== 'allowed') {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden relative">

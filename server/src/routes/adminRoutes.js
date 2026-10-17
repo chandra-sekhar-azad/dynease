@@ -1,8 +1,10 @@
 const express = require('express');
+const multer = require('multer');
 const adminController = require('../controllers/adminController');
 const { protect, restrictTo } = require('../middleware/auth');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Public routes (ad inquiries submission from website)
 router.post('/ad-inquiries', adminController.createAdInquiry);
@@ -45,8 +47,8 @@ router.post('/plan-requests/:id/reject', adminController.rejectPlanRequest);
 
 // Ads Management
 router.get('/ads', adminController.getAds);
-router.post('/ads', adminController.createAd);
-router.put('/ads/:id', adminController.updateAd);
+router.post('/ads', upload.single('image'), adminController.createAd);
+router.put('/ads/:id', upload.single('image'), adminController.updateAd);
 router.delete('/ads/:id', adminController.deleteAd);
 
 // Advertisement Inquiries

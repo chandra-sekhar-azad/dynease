@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, X, Image as ImageIcon, Tag, Filter, ToggleLeft, ToggleRight, Loader2, FolderPlus, Edit2, Search } from 'lucide-react';
+import { useSocketEvents } from '../../lib/socket';
 
 const DIET_TYPES = [
   { value: 'ALL', label: 'All Types', color: 'gray' },
@@ -85,6 +86,14 @@ export default function MenuManagement() {
       console.error(err);
     }
   };
+
+  // Realtime: pick up menu changes made from other sessions/tabs.
+  useSocketEvents({
+    menu_updated: () => {
+      fetchCategories();
+      fetchMenu();
+    },
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();

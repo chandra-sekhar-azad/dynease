@@ -4,6 +4,7 @@ const { eq, and, sql, desc } = require('drizzle-orm');
 const { users, tables_assignment, tables } = schema;
 const SubscriptionService = require('../services/SubscriptionService');
 const TableAssignmentService = require('../services/TableAssignmentService');
+const RealtimeService = require('../services/RealtimeService');
 
 exports.getStaff = async (req, res, next) => {
   try {
@@ -126,6 +127,8 @@ exports.createStaff = async (req, res, next) => {
       assignedTables: assigned
     };
 
+    RealtimeService.staffUpdated(restaurantId);
+
     res.status(201).json({ success: true, message: 'Staff member created in PostgreSQL.', data: { staff: formattedStaff } });
   } catch (error) {
     next(error);
@@ -237,6 +240,8 @@ exports.updateStaff = async (req, res, next) => {
       });
     }
 
+    RealtimeService.staffUpdated(restaurantId);
+
     res.status(200).json({ success: true, message: 'Staff updated in PostgreSQL.', data: { staff: formattedStaff } });
   } catch (error) {
     next(error);
@@ -266,6 +271,8 @@ exports.deleteStaff = async (req, res, next) => {
       user_status: 'INACTIVE',
       updatedat: new Date()
     }).where(eq(users.id, id));
+
+    RealtimeService.staffUpdated(restaurantId);
 
     res.status(200).json({ success: true, message: 'Staff member deleted.' });
   } catch (error) {
