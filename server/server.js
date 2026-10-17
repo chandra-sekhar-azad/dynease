@@ -10,15 +10,15 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
-      // Allow any localhost origin (including subdomains) or the main client URL
       if (!origin || origin.includes('localhost') || origin.includes('dynease.in')) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(null, false);
       }
     },
     methods: ['GET', 'POST'],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Subdomain']
   }
 });
 

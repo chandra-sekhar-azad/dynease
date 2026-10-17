@@ -20,23 +20,41 @@ app.set('trust proxy', 1);
 // Middleware
 app.use(helmet({
   contentSecurityPolicy: false,
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: false
 }));
-const allowedOrigins = ['http://localhost:5173', 'http://admin.localhost:5173', 'https://dynease.in'];
-app.use(cors({
+
+const corsOptions = {
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    // Allow localhost, main domain, and any subdomain
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('.dynease.in') || origin.includes('localhost')) {
+
+    // Allow localhost, main domain, and any *.dynease.in subdomain
+    if (
+      origin.includes('localhost') ||
+      origin === 'https://dynease.in' ||
+      origin === 'http://localhost:5173' ||
+      origin.endsWith('.dynease.in') ||
+      origin.includes('.dynease.in')
+    ) {
       return callback(null, true);
     }
-    
-    return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
+
+    // Reject unknown origins silently (return false, not an Error)
+    // Passing an Error would route to the Express error handler which
+    // strips CORS headers, making the browser see "no ACAO header".
+    return callback(null, false);
   },
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Subdomain', 'X-Requested-With'],
+  optionsSuccessStatus: 200    // some legacy browsers choke on 204
+};
+
+app.use(cors(corsOptions));
+
+// Explicitly handle all OPTIONS preflight requests
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
