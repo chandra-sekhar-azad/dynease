@@ -2,6 +2,7 @@ require('./src/config/env');
 const http = require('http');
 const app = require('./src/app');
 const { Server } = require('socket.io');
+const { isAllowedOrigin } = require('./src/config/cors');
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -10,11 +11,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
-      if (!origin || origin.includes('localhost') || origin.includes('dynease.in')) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
+      // Same policy as the HTTP API: dynease.in + subdomains, dev localhost,
+      // and non-browser clients (no Origin). Never throw.
+      callback(null, isAllowedOrigin(origin));
     },
     methods: ['GET', 'POST'],
     credentials: true,

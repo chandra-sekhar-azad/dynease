@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
+const { corsOptions } = require('./config/cors');
+
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
@@ -24,41 +26,25 @@ app.use(helmet({
   crossOriginOpenerPolicy: false
 }));
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+const corsMw = cors(corsOptions());
 
-    // Allow localhost, main domain, and any *.dynease.in subdomain
-    if (
-      origin.includes('localhost') ||
-      origin === 'https://dynease.in' ||
-      origin === 'http://localhost:5173' ||
-      origin.endsWith('.dynease.in') ||
-      origin.includes('.dynease.in')
-    ) {
-      return callback(null, true);
-    }
+// CORS MUST run before auth, the rate limiter and all routes so that preflight
+// requests are answered here and never reach tenant/auth/subscription middleware.
+app.use(corsMw);
 
-    // Reject unknown origins silently (return false, not an Error)
-    // Passing an Error would route to the Express error handler which
-    // strips CORS headers, making the browser see "no ACAO header".
-    return callback(null, false);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Subdomain', 'X-Requested-With'],
-  optionsSuccessStatus: 200    // some legacy browsers choke on 204
-};
-
-app.use(cors(corsOptions));
+// Explicitly terminate OPTIONS preflight requests (204, no auth required).
+// NOTE: Express 5 uses path-to-regexp v8 where app.options('*') throws; a RegExp
+// path is the supported equivalent.
+app.options(/.*/, corsMw);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000 // limit each IP to 1000 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  // Never rate-limit CORS preflight requests.
+  skip: (req) => req.method === 'OPTIONS'
 });
 app.use('/api', limiter);
 
