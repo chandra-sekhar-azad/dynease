@@ -36,8 +36,32 @@ export async function authFetch(url, options = {}) {
     delete headers['Content-Type'];
   }
 
-  return fetch(url, {
+  return fetchWithRetry(url, {
     ...options,
     headers
   });
 }
+
+/**
+ * Resilient fetch helper that automatically retries on 503 (database/service unavailable)
+ * or transient connection drops with exponential backoff before failing.
+ */
+export async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 1200) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if ((res.status === 503 || res.status === 504) && attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs * Math.pow(1.5, attempt)));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs * Math.pow(1.5, attempt)));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+

@@ -5,6 +5,7 @@ import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext
 import CustomerSidebar from '../../components/customer/CustomerSidebar';
 import ServiceRequestModal from '../../components/customer/ServiceRequestModal';
 import { getSocket } from '../../lib/socket';
+import { fetchWithRetry } from '../../utils/api';
 
 const SIZE_FILTERS = [
   { id: 'ALL', label: 'All Sizes' },
@@ -112,7 +113,7 @@ export default function HomePage({ forcedSlug }) {
           url = `${import.meta.env.VITE_API_URL}/public/menu`;
         }
 
-        const res = await fetch(url, { headers });
+        const res = await fetchWithRetry(url, { headers }, 2, 1200);
         const json = await res.json();
         
         if (json.success) {

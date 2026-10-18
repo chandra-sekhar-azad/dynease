@@ -49,6 +49,7 @@ import RestaurantSubscription from './pages/restaurant/Subscription';
 import WaiterAssignment from './pages/restaurant/WaiterAssignment';
 import ClickSpark from './components/ui/ClickSpark';
 import { Loader2 } from 'lucide-react';
+import { fetchWithRetry } from './utils/api';
 
 function SubdomainWrapper({ subdomain, children }) {
   // status: 'loading' | 'valid' | 'notFound' | 'unavailable'
@@ -61,7 +62,7 @@ function SubdomainWrapper({ subdomain, children }) {
 
     // No custom headers here: the restaurant slug is already in the path, so this
     // stays a "simple" CORS GET and never triggers an OPTIONS preflight.
-    fetch(`${import.meta.env.VITE_API_URL}/public/restaurant/${subdomain}/menu`)
+    fetchWithRetry(`${import.meta.env.VITE_API_URL}/public/restaurant/${subdomain}/menu`, {}, 2, 1200)
       .then(async (res) => {
         if (cancelled) return;
 
