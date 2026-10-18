@@ -4,11 +4,11 @@ const { Pool } = require('pg');
 const { drizzle } = require('drizzle-orm/node-postgres');
 const schema = require('./schema');
 
-const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_URL;
+const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
   console.error('[Database] FATAL: DATABASE_URL environment variable is missing.');
-  throw new Error('Missing database connection string in environment variables');
+  throw new Error('DATABASE_URL is not set. Configure the Supabase Transaction Pooler connection string.');
 }
 
 const pool = new Pool({

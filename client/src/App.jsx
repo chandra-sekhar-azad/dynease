@@ -51,22 +51,53 @@ import ClickSpark from './components/ui/ClickSpark';
 import { Loader2 } from 'lucide-react';
 
 function SubdomainWrapper({ subdomain, children }) {
-  const [isValid, setIsValid] = useState(null);
+  // status: 'loading' | 'valid' | 'notFound' | 'unavailable'
+  const [state, setState] = useState({ status: 'loading' });
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/public/restaurant/${subdomain}/menu`, {
-      headers: { 'x-tenant-subdomain': subdomain }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setIsValid(true);
-        else setIsValid(false);
-      })
-      .catch(() => setIsValid(false));
-  }, [subdomain]);
+    let cancelled = false;
+    setState({ status: 'loading' });
 
-  if (isValid === null) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500 w-8 h-8" /></div>;
-  if (isValid === false) return <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center"><h1 className="text-4xl text-gray-800 font-bold mb-2">404</h1><p className="text-gray-500 text-lg">Page not available</p></div>;
+    // No custom headers here: the restaurant slug is already in the path, so this
+    // stays a "simple" CORS GET and never triggers an OPTIONS preflight.
+    fetch(`${import.meta.env.VITE_API_URL}/public/restaurant/${subdomain}/menu`)
+      .then(async (res) => {
+        if (cancelled) return;
+
+        // A genuine "restaurant not found" is a 404. Anything else (5xx, gateway
+        // errors, rate limiting) is a TEMPORARY outage and must not be shown as 404.
+        if (res.status === 404) return setState({ status: 'notFound' });
+        if (!res.ok) return setState({ status: 'unavailable', code: res.status });
+
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+        setState(data && data.success ? { status: 'valid' } : { status: 'notFound' });
+      })
+      .catch(() => {
+        // Network error / CORS / DNS failure — also a temporary outage, not a 404.
+        if (!cancelled) setState({ status: 'unavailable' });
+      });
+
+    return () => { cancelled = true; };
+  }, [subdomain, reloadKey]);
+
+  if (state.status === 'loading') return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500 w-8 h-8" /></div>;
+
+  if (state.status === 'notFound') return <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center"><h1 className="text-4xl text-gray-800 font-bold mb-2">404</h1><p className="text-gray-500 text-lg">Page not available</p></div>;
+
+  if (state.status === 'unavailable') return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
+      <h1 className="text-3xl text-gray-800 font-bold mb-2">Temporarily unavailable</h1>
+      <p className="text-gray-500 text-lg mb-6 max-w-md">We couldn't reach the restaurant right now. This is a temporary problem — please try again in a moment.</p>
+      <button
+        onClick={() => setReloadKey((k) => k + 1)}
+        className="px-6 py-2.5 rounded-full bg-orange-500 text-white font-semibold hover:bg-orange-600 transition-colors"
+      >
+        Try again
+      </button>
+    </div>
+  );
 
   return children;
 }
