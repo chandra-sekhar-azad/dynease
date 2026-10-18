@@ -1,8 +1,31 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { io, Socket } from 'socket.io-client';
 import apiClient from '../../api/client';
+import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+const resolveSocketUrl = (): string => {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/api$/, '');
+  }
+  if (Platform.OS === 'web') {
+    return envUrl ? envUrl.replace(/\/api$/, '') : 'http://localhost:5000';
+  }
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  const hostIp = hostUri ? hostUri.split(':')[0] : null;
+  if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
+    return `http://${hostIp}:5000`;
+  }
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:5000';
+  }
+  return envUrl ? envUrl.replace(/\/api$/, '') : 'http://localhost:5000';
+};
 
 export default function WaiterDashboard() {
   const router = useRouter();
@@ -11,6 +34,7 @@ export default function WaiterDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [connected, setConnected] = useState(true);
+  const socketRef = useRef<Socket | null>(null);
 
   const fetchOrders = async (fetchUser = false) => {
     try {
@@ -63,13 +87,81 @@ export default function WaiterDashboard() {
     }
   };
 
+  const upsertOrder = (orderPayload: any) => {
+    const orderId = orderPayload?.id || orderPayload?._id;
+    if (!orderId) return;
+    setOrders((prev) => {
+      const exists = prev.some((o: any) => o.id === orderId || o._id === orderId);
+      if (exists) {
+        return prev.map((o: any) =>
+          (o.id === orderId || o._id === orderId) ? { ...o, ...orderPayload, id: orderId } : o
+        );
+      }
+      return [{ ...orderPayload, id: orderId }, ...prev];
+    });
+  };
+
   useEffect(() => {
+    let isMounted = true;
     fetchOrders(true);
+
+    const initSocket = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        const socket = io(resolveSocketUrl(), {
+          transports: ['websocket', 'polling'],
+          auth: token ? { token } : {},
+        });
+        socketRef.current = socket;
+
+        socket.on('connect', async () => {
+          if (!isMounted) return;
+          setConnected(true);
+          try {
+            const meRes = await apiClient.get('/auth/me');
+            const user = meRes.data?.data?.user;
+            if (user) {
+              socket.emit('waiter:join', {
+                restaurantId: user.restaurantId?.id || user.restaurantId?._id || user.restaurantId,
+                waiterId: user.id,
+              });
+            }
+          } catch (e) {
+            console.error('Socket join error:', e);
+          }
+        });
+
+        socket.on('disconnect', () => {
+          if (isMounted) setConnected(false);
+        });
+
+        socket.on('new_order', upsertOrder);
+        socket.on('assigned_order', upsertOrder);
+        socket.on('order_updated', upsertOrder);
+        socket.on('new_service_request', (payload: any) => {
+          console.log('Service request:', payload);
+        });
+        socket.on('service_request_updated', (payload: any) => {
+          console.log('Service request updated:', payload);
+        });
+      } catch (e) {
+        console.error('Socket init failed:', e);
+      }
+    };
+
+    initSocket();
     const interval = setInterval(() => {
       fetchOrders(false);
-    }, 10000); // poll every 10 seconds
+    }, 2000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      clearInterval(interval);
+    };
   }, []);
 
   const onRefresh = useCallback(async () => {

@@ -1,12 +1,36 @@
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { io, Socket } from 'socket.io-client';
 import apiClient from '../../api/client';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+const resolveSocketUrl = (): string => {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/api$/, '');
+  }
+  if (Platform.OS === 'web') {
+    return envUrl ? envUrl.replace(/\/api$/, '') : 'http://localhost:5000';
+  }
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  const hostIp = hostUri ? hostUri.split(':')[0] : null;
+  if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
+    return `http://${hostIp}:5000`;
+  }
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:5000';
+  }
+  return envUrl ? envUrl.replace(/\/api$/, '') : 'http://localhost:5000';
+};
 
 export default function OwnerDashboard() {
   const [restaurantName, setRestaurantName] = useState('...');
   const [stats, setStats] = useState({ todaysOrders: 0, revenue: 0, activeTables: 0 });
   const [refreshing, setRefreshing] = useState(false);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   const fetchName = async () => {
     const name = await SecureStore.getItemAsync('restaurantName');
@@ -25,9 +49,41 @@ export default function OwnerDashboard() {
   };
 
   useEffect(() => {
+    let mounted = true;
     fetchName();
     fetchStats();
-  }, []);
+    (async () => {
+      try {
+        const me = await apiClient.get('/auth/me');
+        const user = me.data?.data?.user;
+        const rid = user?.restaurantId?.id || user?.restaurantId?._id;
+        if (rid) {
+          setRestaurantId(rid);
+          if (mounted && socketRef.current?.connected) {
+            socketRef.current.emit('restaurant:join', rid);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+
+    const socket = io(resolveSocketUrl(), { transports: ['websocket', 'polling'], auth: {} });
+    socketRef.current = socket;
+    socket.on('connect', () => {
+      if (restaurantId) socket.emit('restaurant:join', restaurantId);
+    });
+    socket.on('order_updated', fetchStats);
+    socket.on('new_order', fetchStats);
+    socket.on('table_updated', fetchStats);
+
+    const int = setInterval(fetchStats, 2000);
+    return () => {
+      mounted = false;
+      clearInterval(int);
+      socket.disconnect();
+    };
+  }, [restaurantId]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

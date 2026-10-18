@@ -1,4 +1,5 @@
 const PostgresAdapter = require('../services/PostgresAdapter');
+const { logError } = require('../utils/logError');
 
 /**
  * Middleware to resolve tenant restaurant from subdomain
@@ -30,7 +31,7 @@ module.exports = async (req, res, next) => {
 
     // Lookup restaurant in PostgreSQL via Drizzle ORM
     const pgRegistry = await PostgresAdapter.getRegistryBySubdomain(subdomain).catch((err) => {
-      console.error('[TenantResolver] PostgreSQL lookup error:', err.message);
+      logError('TenantResolver', err);
       return null;
     });
 

@@ -98,7 +98,8 @@ app.use((req, res, next) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  const { logError } = require('./utils/logError');
+  logError('GlobalErrorHandler', err);
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',

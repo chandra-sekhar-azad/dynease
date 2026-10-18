@@ -1,6 +1,7 @@
 const PostgresAdapter = require('../services/PostgresAdapter');
 const { db, schema } = require('../db/client');
 const { eq } = require('drizzle-orm');
+const { logError } = require('../utils/logError');
 
 exports.checkSubscription = async (req, res, next) => {
   try {
@@ -10,9 +11,15 @@ exports.checkSubscription = async (req, res, next) => {
     if (!registry) {
       const slug = req.params.slug;
       if (slug) {
-        registry = await PostgresAdapter.getRegistryBySubdomain(slug).catch(() => null);
+        registry = await PostgresAdapter.getRegistryBySubdomain(slug).catch((err) => {
+          logError('Subscription Middleware', err);
+          return null;
+        });
         if (!registry) {
-          registry = await PostgresAdapter.getRegistryById(slug).catch(() => null);
+          registry = await PostgresAdapter.getRegistryById(slug).catch((err) => {
+            logError('Subscription Middleware', err);
+            return null;
+          });
         }
       }
     }

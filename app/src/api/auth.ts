@@ -13,7 +13,8 @@ export const loginApi = async (email: string, password: string, subdomain?: stri
       }
       throw apiError;
     }
-    throw new Error('Network error. Please check your connection.');
+    const msg = error?.message || 'Network error. Please check your connection.';
+    throw new Error(msg.includes('Network') ? msg : 'Network error. Please check your connection.');
   }
 };
 

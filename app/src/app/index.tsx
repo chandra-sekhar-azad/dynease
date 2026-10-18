@@ -12,6 +12,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loginRole, setLoginRole] = useState<'owner' | 'staff'>('owner');
+  const [baseUrl, setBaseUrl] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -31,6 +32,12 @@ export default function LoginScreen() {
         }
       };
       checkLogin();
+      (async () => {
+        try {
+          const { default: apiClient } = await import('../api/client');
+          (apiClient as any)?.defaults?.baseURL && setBaseUrl((apiClient as any).defaults.baseURL);
+        } catch (e) {}
+      })();
     }, [])
   );
 
@@ -78,7 +85,8 @@ export default function LoginScreen() {
         handleLogin(error.subdomain);
       } else {
         setLoading(false);
-        Alert.alert('Login Failed', error.message);
+        const msg = error?.message || 'Login failed';
+        Alert.alert('Login Failed', msg.toLowerCase().includes('network') || msg.includes('ERR_NETWORK') || msg.includes('ECONN') ? 'Network error. Please check your internet connection and server.' : msg);
       }
     }
   };
@@ -87,6 +95,7 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Dynease</Text>
       <Text style={styles.subtitle}>Sign in to your account</Text>
+      {__DEV__ && baseUrl ? <Text style={styles.devInfo}>{baseUrl}</Text> : null}
 
       {/* Role Selector */}
       <View style={styles.roleSelector}>
@@ -150,4 +159,5 @@ const styles = StyleSheet.create({
   eyeIcon: { padding: 15 },
   loginButton: { width: '100%', backgroundColor: '#16a34a', padding: 15, borderRadius: 8, alignItems: 'center', marginBottom: 30 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  devInfo: { fontSize: 10, color: '#94a3b8', marginBottom: 10 },
 });

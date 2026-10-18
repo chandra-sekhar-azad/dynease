@@ -14,15 +14,18 @@ const resolveBaseUrl = (): string => {
 
   // 1. Web browser: localhost:5000 always points to the local machine
   if (Platform.OS === 'web') {
+    if (__DEV__) {
+      return envUrl && envUrl.includes('localhost') ? envUrl : 'http://localhost:5000/api';
+    }
     return envUrl || 'http://localhost:5000/api';
   }
 
   // 2. Mobile device (Expo Go or Dev Client over Wi-Fi):
   // Constants.expoConfig?.hostUri contains the dev machine's LAN IP (e.g. 192.168.x.x:8081)
-  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost || (Constants as any).manifest?.debuggerHost;
   const hostIp = hostUri ? hostUri.split(':')[0] : null;
 
-  if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
+  if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1' && hostIp.length > 5) {
     return `http://${hostIp}:5000/api`;
   }
 
@@ -32,7 +35,12 @@ const resolveBaseUrl = (): string => {
   }
 
   // 4. iOS Simulator or default fallback
-  return envUrl || 'http://localhost:5000/api';
+  if (Platform.OS === 'ios') {
+    return 'http://localhost:5000/api';
+  }
+
+  // 5. General fallback
+  return envUrl && !envUrl.includes('https://api.dynease.in') ? envUrl : 'http://localhost:5000/api';
 };
 
 const BASE_URL = resolveBaseUrl();
@@ -72,11 +80,18 @@ apiClient.interceptors.response.use(
       await SecureStore.deleteItemAsync('subdomain');
       await SecureStore.deleteItemAsync('restaurantName');
       
-      const { router } = require('expo-router');
-      router.replace('/');
-
+      try {
+        const { router } = require('expo-router');
+        router.replace('/');
+      } catch (e) {
+        console.error(e);
+      }
+      
       // Return a clean error instead of the full AxiosError to avoid massive red stack traces on logout
       return Promise.reject(new Error('Session expired (401). Logged out automatically.'));
+    }
+    if (!error.response && (error.code === 'ERR_NETWORK' || error.message?.toLowerCase().includes('network') || error.message?.includes('ERR_NETWORK'))) {
+      return Promise.reject(new Error('Network error. Please check your connection.'));
     }
     return Promise.reject(error);
   }
