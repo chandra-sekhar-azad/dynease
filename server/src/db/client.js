@@ -11,6 +11,13 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not set. Configure the Supabase Transaction Pooler connection string.');
 }
 
+try {
+  const parsed = new URL(connectionString);
+  console.log(`[Database] Target pooler -> host: ${parsed.host}, user: ${parsed.username}, db: ${parsed.pathname}`);
+} catch {
+  console.log('[Database] DATABASE_URL loaded');
+}
+
 const pool = new Pool({
   connectionString,
   ssl: { rejectUnauthorized: false },
