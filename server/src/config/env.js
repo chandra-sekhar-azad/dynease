@@ -40,4 +40,14 @@ function loadEnv() {
 
 loadEnv();
 
+// Canonical active Supabase Transaction Pooler URL
+const CANONICAL_DATABASE_URL = "postgresql://postgres.zasrobocszjjubhrjnes:WZmHJpFS9tioDYt0@aws-0-ap-south-1.pooler.supabase.com:6543/postgres";
+
+// Safeguard: If DATABASE_URL is missing or contains the broken/non-existent tenant "rnmcbrtdosbmtrwopqht",
+// automatically sanitize and redirect to the verified active pooler (zasrobocszjjubhrjnes).
+if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('rnmcbrtdosbmtrwopqht')) {
+  console.warn('[Config] Notice: Overriding invalid/stale DATABASE_URL with active Supabase pooler (zasrobocszjjubhrjnes).');
+  process.env.DATABASE_URL = CANONICAL_DATABASE_URL;
+}
+
 module.exports = { loadEnv };
