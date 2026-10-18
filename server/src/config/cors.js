@@ -66,7 +66,31 @@ const DOMAIN_PATTERNS = DOMAINS.map(
 // Explicit full origins (scheme + host + optional port) passed via env.
 const EXPLICIT_ORIGINS = new Set(parseList(process.env.CORS_ALLOWED_ORIGINS));
 
-const DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+// Allowed local development ports (e.g. Vite, React CRA, Next.js, Expo web, API).
+// You can also add custom ports via CORS_ALLOWED_PORTS="5176,8000" in .env
+const DEFAULT_DEV_PORTS = [
+  '5173', // Vite default
+  '5174', // Vite fallback 1
+  '5175', // Vite fallback 2
+  '3000', // React CRA / Next.js
+  '3001', // Secondary React
+  '5000', // Express / Node server
+  '8080', // Alternate dev server
+  '8081', // Expo web
+  '19006' // Expo web legacy
+];
+
+const DEV_PORTS = [
+  ...new Set([...DEFAULT_DEV_PORTS, ...parseList(process.env.CORS_ALLOWED_PORTS)])
+];
+
+const DEV_PORT_PATTERN = DEV_PORTS.join('|');
+
+// Matches localhost, 127.0.0.1, and all tenant subdomains (e.g. test.localhost, admin.localhost)
+// on any configured dev port (or any local port in development).
+const DEV_ORIGIN = new RegExp(
+  `^https?:\\/\\/([a-z0-9-]+\\.)*(localhost|127\\.0\\.0\\.1)(:(?:${DEV_PORT_PATTERN}|\\d+))?$`
+);
 
 function isAllowedOrigin(origin) {
   // No Origin => not a browser CORS request (curl, server-to-server).
@@ -100,7 +124,8 @@ function corsOptions() {
 
 console.log(
   `[CORS] Allowed domains (and all subdomains): ${DOMAINS.join(', ') || '(none)'}` +
-  (EXPLICIT_ORIGINS.size ? ` | extra origins: ${[...EXPLICIT_ORIGINS].join(', ')}` : '')
+  (EXPLICIT_ORIGINS.size ? ` | extra origins: ${[...EXPLICIT_ORIGINS].join(', ')}` : '') +
+  (process.env.NODE_ENV !== 'production' ? ` | dev ports: ${DEV_PORTS.join(', ')}` : '')
 );
 
 module.exports = {
@@ -110,5 +135,7 @@ module.exports = {
   DOMAINS,
   DOMAIN_PATTERNS,
   EXPLICIT_ORIGINS,
+  DEFAULT_DEV_PORTS,
+  DEV_PORTS,
   DEV_ORIGIN
 };

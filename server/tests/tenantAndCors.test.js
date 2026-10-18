@@ -48,5 +48,27 @@ test('cors: disallowed origins get no header (and never throw)', () => {
   assert.equal(isAllowedOrigin('https://dynease.in.evil.com'), false);
   assert.equal(isAllowedOrigin('https://sub.dynease.in.evil.com'), false);
   assert.equal(isAllowedOrigin('http://localhost:5173'), false); // dev-only, NODE_ENV=production
+  assert.equal(isAllowedOrigin('http://test.localhost:5173'), false); // dev-only, NODE_ENV=production
   assert.equal(isAllowedOrigin('http://dynease.in'), false);     // https only in production
+});
+
+test('cors: dev mode allows localhost, 127.0.0.1, and all *.localhost subdomains on dev ports', () => {
+  const originalEnv = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = 'development';
+    assert.equal(isAllowedOrigin('http://localhost:5173'), true);
+    assert.equal(isAllowedOrigin('http://test.localhost:5173'), true);
+    assert.equal(isAllowedOrigin('http://admin.localhost:5173'), true);
+    assert.equal(isAllowedOrigin('http://chandrika.localhost:5173'), true);
+    assert.equal(isAllowedOrigin('http://127.0.0.1:5173'), true);
+    assert.equal(isAllowedOrigin('http://localhost:3000'), true);
+    assert.equal(isAllowedOrigin('http://test.localhost:3000'), true);
+    assert.equal(isAllowedOrigin('http://localhost:5000'), true);
+    assert.equal(isAllowedOrigin('http://localhost:8080'), true);
+    // Malicious hosts should still be rejected in dev mode
+    assert.equal(isAllowedOrigin('http://evil.com'), false);
+    assert.equal(isAllowedOrigin('http://localhost.evil.com:5173'), false);
+  } finally {
+    process.env.NODE_ENV = originalEnv;
+  }
 });
