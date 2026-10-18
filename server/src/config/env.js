@@ -25,21 +25,16 @@ function loadEnv() {
     for (const dir of searchDirs) {
       const fullPath = path.resolve(dir, file);
       if (fs.existsSync(fullPath)) {
-        require('dotenv').config({ path: fullPath, override: true });
+        // override:false => real environment variables (e.g. Hostinger hPanel)
+        // take precedence over bundled files. This prevents a stale/leftover
+        // .env file on the server from silently overriding DATABASE_URL etc.
+        require('dotenv').config({ path: fullPath, override: false });
         console.log(`[Config] Loaded environment variables from: ${fullPath} (${isProduction ? 'production' : 'development'} mode)`);
         loaded = true;
         break;
       }
     }
     if (loaded && (file === '.env.production' || !isProduction)) break;
-  }
-
-  // Ensure DATABASE_URL and DATABASE_URL are synced if either is provided
-  if (!process.env.DATABASE_URL && process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = process.env.DATABASE_URL;
-  }
-  if (!process.env.DATABASE_URL && process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = process.env.DATABASE_URL;
   }
 }
 

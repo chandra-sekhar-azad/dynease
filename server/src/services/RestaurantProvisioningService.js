@@ -118,9 +118,8 @@ class RestaurantProvisioningService {
         status: restaurantRecord.restaurant_status,
         ownerEmail,
         ownerName: registration.ownerName,
-        ownerPhone: registration.ownerPhone,
-        databaseProvisioned: true,
-        databaseProvisionedAt: new Date()
+        ownerPhone: registration.ownerPhone
+        // NOTE: no databaseProvisioned flags — restaurants share one database/schema.
       };
     });
   }

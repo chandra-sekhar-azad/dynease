@@ -4,6 +4,7 @@
 
 const { db, schema, pool } = require('../db/client');
 const { eq, and, sql, or, isNull } = require('drizzle-orm');
+const { normalizeSubdomain, baseDomain, isUuid } = require('../utils/tenant');
 const {
   restaurants,
   users,
@@ -22,11 +23,21 @@ class PostgresAdapter {
     this.pool = pool;
   }
 
-  // 1. Registries & Profiles (using restaurants table)
+  // 1. Registries & Profiles (using the central shared `restaurants` table)
+  //    The subdomain is only an identifier; it is never a database name.
   async getRegistryBySubdomain(subdomain) {
+    const slug = normalizeSubdomain(subdomain);
+    if (!slug) return null;
+
+    const base = baseDomain();
     const [row] = await db.select().from(restaurants).where(
       and(
-        eq(sql`LOWER(${restaurants.domain})`, subdomain.toLowerCase()),
+        or(
+          // Stored as the bare slug (canonical, what provisioning writes)
+          eq(sql`LOWER(${restaurants.domain})`, slug),
+          // Tolerate legacy rows that stored the full host
+          eq(sql`LOWER(${restaurants.domain})`, `${slug}.${base}`)
+        ),
         eq(restaurants.is_deleted, false)
       )
     ).limit(1);
@@ -35,6 +46,10 @@ class PostgresAdapter {
   }
 
   async getRegistryById(restaurantId) {
+    // Slug values are not UUIDs; guard so a slug passed here cannot raise a
+    // PostgreSQL "invalid input syntax for type uuid" error.
+    if (!isUuid(restaurantId)) return null;
+
     const [row] = await db.select().from(restaurants).where(
       and(
         eq(restaurants.id, restaurantId),
@@ -59,7 +74,6 @@ class PostgresAdapter {
       slug: row.domain,
       subdomain: row.domain,
       domain: row.domain,
-      databaseName: `dynease_${row.domain}`,
       ownerPhone: row.phone_number,
       phone: row.phone_number,
       address: row.address || {},

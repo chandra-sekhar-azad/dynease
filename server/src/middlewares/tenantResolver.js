@@ -29,11 +29,19 @@ module.exports = async (req, res, next) => {
       return next();
     }
 
-    // Lookup restaurant in PostgreSQL via Drizzle ORM
-    const pgRegistry = await PostgresAdapter.getRegistryBySubdomain(subdomain).catch((err) => {
+    // Lookup restaurant in the shared PostgreSQL database via Drizzle ORM.
+    // A database failure must NOT be reported as "restaurant not found".
+    let pgRegistry;
+    try {
+      pgRegistry = await PostgresAdapter.getRegistryBySubdomain(subdomain);
+    } catch (err) {
       logError('TenantResolver', err);
-      return null;
-    });
+      return res.status(503).json({
+        success: false,
+        code: 'DATABASE_UNAVAILABLE',
+        message: 'The service is temporarily unable to reach the database. Please try again shortly.'
+      });
+    }
 
     if (!pgRegistry) {
       return res.status(404).json({ success: false, message: 'Restaurant not found or not active.' });

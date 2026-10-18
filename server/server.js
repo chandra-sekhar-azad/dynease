@@ -62,6 +62,13 @@ pool.query('SELECT current_database(), now()')
     initAssignmentTimeoutJobs();
   })
   .catch((err) => {
-    console.error('[PostgreSQL] Supabase connection error:', err.message);
+    console.error('[PostgreSQL] Supabase connection error:', err.code || '', err.message);
+    if (/tenant\/user|ENOTFOUND|not found/i.test(err.message || '')) {
+      console.error(
+        '[PostgreSQL] Hint: DATABASE_URL references a Supabase pooler tenant that does not exist. ' +
+        'Verify the project ref + region and that the Transaction Pooler URL (host aws-0-<region>.pooler.supabase.com, port 6543, ' +
+        'user postgres.<project-ref>) from Supabase Dashboard -> Connect matches the value deployed in Hostinger hPanel.'
+      );
+    }
   });
 

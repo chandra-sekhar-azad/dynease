@@ -11,14 +11,17 @@ exports.checkSubscription = async (req, res, next) => {
     if (!registry) {
       const slug = req.params.slug;
       if (slug) {
-        registry = await PostgresAdapter.getRegistryBySubdomain(slug).catch((err) => {
+        try {
+          registry = await PostgresAdapter.getRegistryBySubdomain(slug);
+          if (!registry) {
+            registry = await PostgresAdapter.getRegistryById(slug);
+          }
+        } catch (err) {
+          // A database failure must NOT be reported as "Restaurant not found".
           logError('Subscription Middleware', err);
-          return null;
-        });
-        if (!registry) {
-          registry = await PostgresAdapter.getRegistryById(slug).catch((err) => {
-            logError('Subscription Middleware', err);
-            return null;
+          return res.status(503).json({
+            success: false,
+            message: 'The service is temporarily unable to reach the database. Please try again shortly.'
           });
         }
       }

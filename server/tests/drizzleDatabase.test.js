@@ -7,7 +7,13 @@ const OrderService = require('../src/services/OrderService');
 const TableAssignmentService = require('../src/services/TableAssignmentService');
 const { generateDailyRosters } = require('../src/jobs/rosterJobs');
 
-test('Dynease Supabase PostgreSQL + Drizzle ORM Integration Suite', async (t) => {
+// SAFETY: this suite creates orders, assignments and rosters. It must never run
+// against production. It is opt-in and must point at a disposable database.
+const RUN_DB_TESTS = process.env.RUN_DB_TESTS === 'true';
+
+test('Dynease Supabase PostgreSQL + Drizzle ORM Integration Suite',
+  { skip: RUN_DB_TESTS ? false : 'Writes data. Set RUN_DB_TESTS=true and point DATABASE_URL at a NON-production database to run.' },
+  async (t) => {
   await t.test('1. Database Connection and Schema verification', async () => {
     const res = await pool.query('SELECT 1 + 1 AS result');
     assert.equal(res.rows[0].result, 2);
