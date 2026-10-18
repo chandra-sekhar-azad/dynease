@@ -104,7 +104,7 @@ export default function Orders() {
   // Initial fetch and polling fallback
   useEffect(() => {
     fetchOrders(false);
-    const interval = setInterval(() => fetchOrders(true), 8000);
+    const interval = setInterval(() => fetchOrders(true), 3000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
 

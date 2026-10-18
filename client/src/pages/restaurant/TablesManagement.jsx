@@ -46,7 +46,7 @@ export default function TablesManagement() {
     fetchTables();
 
     // Poll as a resilient fallback for environments without websockets.
-    const interval = setInterval(fetchTables, 30000);
+    const interval = setInterval(fetchTables, 5000);
     return () => clearInterval(interval);
   }, []);
 

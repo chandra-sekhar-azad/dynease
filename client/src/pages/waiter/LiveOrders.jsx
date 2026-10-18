@@ -67,7 +67,7 @@ export default function LiveOrders() {
     }
 
     fetchData();
-    const pollInterval = setInterval(fetchData, 10000);
+    const pollInterval = setInterval(fetchData, 3000);
 
     const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
     const socket = io(socketUrl, { withCredentials: true, auth: { token } });

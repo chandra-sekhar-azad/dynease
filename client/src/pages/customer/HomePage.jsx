@@ -75,7 +75,7 @@ export default function HomePage({ forcedSlug }) {
 
     // Refresh periodically and when the tab regains focus so
     // admin changes (add/remove banners) show up without a reload.
-    const interval = setInterval(fetchBanners, 30000);
+    const interval = setInterval(fetchBanners, 5000);
     const handleFocus = () => {
       if (document.visibilityState === 'visible') fetchBanners();
     };

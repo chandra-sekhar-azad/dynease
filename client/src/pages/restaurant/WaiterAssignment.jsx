@@ -69,7 +69,7 @@ export default function WaiterAssignment() {
 
   useEffect(() => {
     fetchAllData();
-    const interval = setInterval(fetchAllData, 12000);
+    const interval = setInterval(fetchAllData, 3000);
     return () => clearInterval(interval);
   }, []);
 

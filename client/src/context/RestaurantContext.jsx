@@ -257,7 +257,7 @@ export function RestaurantProvider({ children }) {
   // Initial and periodic check for live orders count
   useEffect(() => {
     refreshOrders();
-    const interval = setInterval(refreshOrders, 12000);
+    const interval = setInterval(refreshOrders, 3000);
     return () => clearInterval(interval);
   }, [session?.table?.id, myOrders.length]);
 
