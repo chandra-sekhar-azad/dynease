@@ -40,4 +40,11 @@ function loadEnv() {
 
 loadEnv();
 
+// Safeguard: Warn if DATABASE_URL is missing or stale after loading .env
+if (!process.env.DATABASE_URL) {
+  console.error('[Config] ERROR: DATABASE_URL is not set. Please add it to your .env file.');
+} else if (process.env.DATABASE_URL.includes('rnmcbrtdosbmtrwopqht')) {
+  console.warn('[Config] WARNING: DATABASE_URL contains a stale/invalid tenant. Update DATABASE_URL in your .env file.');
+}
+
 module.exports = { loadEnv };
