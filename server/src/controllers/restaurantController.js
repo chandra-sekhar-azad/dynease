@@ -284,9 +284,33 @@ exports.createMenuItem = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Item name is required.' });
     }
 
-    const parsedPrice = parseFloat(price);
-    if (price === undefined || price === null || isNaN(parsedPrice) || parsedPrice < 0) {
-      return res.status(400).json({ success: false, message: 'Price must be a valid non-negative number.' });
+    // Parse and normalize portions/quantities
+    let parsedQuantities = [];
+    if (req.body.quantities) {
+      try {
+        parsedQuantities = typeof req.body.quantities === 'string'
+          ? JSON.parse(req.body.quantities)
+          : req.body.quantities;
+      } catch (e) {
+        parsedQuantities = [];
+      }
+    }
+    if (!Array.isArray(parsedQuantities)) parsedQuantities = [];
+    parsedQuantities = parsedQuantities
+      .filter(q => q && q.size && String(q.size).trim() && q.price !== undefined && q.price !== '' && !isNaN(parseFloat(q.price)))
+      .map(q => ({ size: String(q.size).trim(), price: parseFloat(parseFloat(q.price).toFixed(2)) }));
+
+    // Determine effective price
+    let effectivePrice = null;
+    if (parsedQuantities.length > 0) {
+      effectivePrice = parsedQuantities[0].price;
+    } else if (price !== undefined && price !== null && price !== '' && !isNaN(parseFloat(price))) {
+      effectivePrice = parseFloat(price);
+      parsedQuantities = [{ size: (itemSize || size || 'Full').toUpperCase(), price: effectivePrice }];
+    }
+
+    if (effectivePrice === null || isNaN(effectivePrice) || effectivePrice < 0) {
+      return res.status(400).json({ success: false, message: 'Please provide at least one portion size and valid price.' });
     }
 
     // Enforce subscription plan menu item limit
@@ -367,7 +391,7 @@ exports.createMenuItem = async (req, res) => {
 
     const itemType = (dietaryPreference || type || '').toLowerCase().includes('non') ? 'NON_VEG' : 'VEG';
     const validSizes = ['SMALL', 'MEDIUM', 'LARGE', 'JUMBO', 'FULL', 'HALF'];
-    const chosenSize = (itemSize || size || 'FULL').toUpperCase();
+    const chosenSize = (parsedQuantities[0]?.size || itemSize || size || 'FULL').toUpperCase();
     const finalSize = validSizes.includes(chosenSize) ? chosenSize : 'FULL';
 
     let ratingVal = null;
@@ -382,7 +406,8 @@ exports.createMenuItem = async (req, res) => {
       name: name.trim(),
       description: description?.trim() || '',
       image,
-      price: parsedPrice.toFixed(2),
+      price: effectivePrice.toFixed(2),
+      quantities: parsedQuantities,
       menu_item_status: isAvailable !== false ? 'AVAILABLE' : 'UNAVAILABLE',
       menu_item_type: itemType,
       item_size: finalSize,
@@ -411,7 +436,7 @@ exports.createMenuItem = async (req, res) => {
           rating: menuItem.rating ? parseFloat(menuItem.rating) : null,
           preparationTime: 15,
           image,
-          quantities: []
+          quantities: menuItem.quantities || parsedQuantities || []
         }
       }
     });
@@ -458,8 +483,29 @@ exports.updateMenuItem = async (req, res) => {
 
     if (name?.trim()) updateFields.name = name.trim();
     if (description !== undefined) updateFields.description = description.trim();
+
+    // Parse and handle quantities
+    if (req.body.quantities !== undefined) {
+      let parsedQuantities = [];
+      try {
+        parsedQuantities = typeof req.body.quantities === 'string'
+          ? JSON.parse(req.body.quantities)
+          : req.body.quantities;
+      } catch (e) {
+        parsedQuantities = [];
+      }
+      if (!Array.isArray(parsedQuantities)) parsedQuantities = [];
+      parsedQuantities = parsedQuantities
+        .filter(q => q && q.size && String(q.size).trim() && q.price !== undefined && q.price !== '' && !isNaN(parseFloat(q.price)))
+        .map(q => ({ size: String(q.size).trim(), price: parseFloat(parseFloat(q.price).toFixed(2)) }));
+
+      updateFields.quantities = parsedQuantities;
+      if (parsedQuantities.length > 0 && (price === undefined || price === null || price === '')) {
+        updateFields.price = parsedQuantities[0].price.toFixed(2);
+      }
+    }
     
-    if (price !== undefined) {
+    if (price !== undefined && price !== null && price !== '') {
       const parsedPrice = parseFloat(price);
       if (isNaN(parsedPrice) || parsedPrice < 0) {
         return res.status(400).json({ success: false, message: 'Price must be a valid non-negative number.' });
@@ -546,7 +592,10 @@ exports.updateMenuItem = async (req, res) => {
           itemSize: menuItem.item_size,
           displayOrder: menuItem.display_order,
           rating: menuItem.rating ? parseFloat(menuItem.rating) : null,
-          preparationTime: 15
+          preparationTime: 15,
+          quantities: (Array.isArray(menuItem.quantities) && menuItem.quantities.length > 0)
+            ? menuItem.quantities
+            : (menuItem.item_size ? [{ size: menuItem.item_size, price: parseFloat(menuItem.price) }] : [])
         }
       }
     });
@@ -597,7 +646,9 @@ exports.getMenu = async (req, res) => {
       isAvailable: r.menu_item_status === 'AVAILABLE',
       dietaryPreference: r.menu_item_type === 'VEG' ? 'VEG' : 'NON_VEG',
       preparationTime: 15,
-      quantities: []
+      quantities: (Array.isArray(r.quantities) && r.quantities.length > 0)
+        ? r.quantities
+        : (r.item_size ? [{ size: r.item_size, price: parseFloat(r.price) }] : [{ size: 'Full', price: parseFloat(r.price) }])
     }));
 
     if (category) {

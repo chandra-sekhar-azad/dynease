@@ -96,8 +96,17 @@ class OrderService {
           throw new Error(`Menu item "${menuItem.name}" is currently ${menuItem.menu_item_status} and cannot be ordered.`);
         }
 
-        const unitPrice = parseFloat(menuItem.price);
-        if (unitPrice < 0) {
+        let unitPrice = parseFloat(menuItem.price);
+        if (item.customizations && Array.isArray(menuItem.quantities) && menuItem.quantities.length > 0) {
+          const matchedVariant = menuItem.quantities.find(
+            q => q && q.size && q.size.trim().toLowerCase() === item.customizations.trim().toLowerCase()
+          );
+          if (matchedVariant && !isNaN(parseFloat(matchedVariant.price))) {
+            unitPrice = parseFloat(matchedVariant.price);
+          }
+        }
+
+        if (isNaN(unitPrice) || unitPrice < 0) {
           throw new Error(`Invalid price for item "${menuItem.name}".`);
         }
 

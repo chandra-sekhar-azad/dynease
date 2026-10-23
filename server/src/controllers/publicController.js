@@ -204,7 +204,9 @@ async function fetchMenuForRestaurant(restaurantId) {
       isAvailable: item.menu_item_status === 'AVAILABLE',
       dietaryPreference: item.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
       preparationTime: 15,
-      quantities: item.item_size ? [{ size: item.item_size, price: parseFloat(item.price) }] : []
+      quantities: (Array.isArray(item.quantities) && item.quantities.length > 0)
+        ? item.quantities
+        : (item.item_size ? [{ size: item.item_size, price: parseFloat(item.price) }] : [{ size: 'Full', price: parseFloat(item.price) }])
     });
   }
 

@@ -71,6 +71,7 @@ const menu_categories_items = pgTable(
     description: text('description'),
     image: jsonb('image'),
     price: numeric('price', { precision: 12, scale: 2 }).notNull(),
+    quantities: jsonb('quantities'),
     rating: numeric('rating', { precision: 3, scale: 2 }),
     display_order: integer('display_order').notNull().default(0),
     createdat: timestamp('createdat', { withTimezone: true })

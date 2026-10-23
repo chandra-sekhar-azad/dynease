@@ -93,17 +93,23 @@ export default function MenuManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const cleanQuantities = quantities
+      .filter(q => q.size && q.size.trim() && q.price !== '' && !isNaN(q.price) && Number(q.price) >= 0)
+      .map(q => ({ size: q.size.trim(), price: Number(q.price) }));
+
+    if (cleanQuantities.length === 0) {
+      alert('Please add at least one portion / quantity with a valid price (e.g. Full: ₹200).');
+      return;
+    }
+
     setIsLoading(true);
     const data = new FormData();
     data.append('name', formData.name);
     data.append('category', formData.category);
     data.append('description', formData.description);
-    data.append('price', formData.price);
+    data.append('price', cleanQuantities[0].price);
     data.append('dietaryPreference', formData.dietaryPreference);
     data.append('preparationTime', formData.preparationTime);
-    const cleanQuantities = quantities
-      .filter(q => q.size && q.size.trim() && q.price !== '' && !isNaN(q.price))
-      .map(q => ({ size: q.size.trim(), price: Number(q.price) }));
     data.append('quantities', JSON.stringify(cleanQuantities));
     if (imageFile) data.append('image', imageFile);
 
@@ -122,7 +128,7 @@ export default function MenuManagement() {
         setShowAddModal(false);
         setEditingItem(null);
         setFormData({ name: '', category: '', description: '', price: '', dietaryPreference: 'VEG', preparationTime: '15' });
-        setQuantities([]);
+        setQuantities([{ size: 'Full', price: '' }]);
         setImageFile(null);
         fetchMenu();
       } else {
@@ -142,11 +148,14 @@ export default function MenuManagement() {
       name: item.name,
       category: item.category,
       description: item.description || '',
-      price: item.price,
+      price: item.price !== undefined ? item.price : '',
       dietaryPreference: (item.dietaryPreference || '').toUpperCase().includes('NON') ? 'NON_VEG' : 'VEG',
       preparationTime: item.preparationTime || '15'
     });
-    setQuantities(item.quantities || []);
+    const itemQuantities = Array.isArray(item.quantities) && item.quantities.length > 0
+      ? item.quantities.map(q => ({ size: q.size, price: q.price }))
+      : [{ size: item.itemSize || 'Full', price: item.price !== undefined ? item.price : '' }];
+    setQuantities(itemQuantities);
     setImageFile(null);
     setShowAddModal(true);
   };
@@ -216,7 +225,7 @@ export default function MenuManagement() {
             onClick={() => {
               setEditingItem(null);
               setFormData({ name: '', category: '', description: '', price: '', dietaryPreference: 'VEG', preparationTime: '15' });
-              setQuantities([]);
+              setQuantities([{ size: 'Full', price: '' }]);
               setImageFile(null);
               setShowAddModal(true);
             }}
@@ -360,15 +369,26 @@ export default function MenuManagement() {
                   </span>
                 </td>
                 <td className="p-4">
-                  <div className="font-bold text-green-600">₹{item.price}</div>
-                  {item.quantities && item.quantities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5 max-w-[220px]">
-                      {item.quantities.map((q, qIdx) => (
-                        <span key={qIdx} className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-200 shadow-2xs">
-                          {q.size}: ₹{q.price}
-                        </span>
-                      ))}
+                  {item.quantities && item.quantities.length > 1 ? (
+                    <div>
+                      <div className="font-bold text-gray-900 text-xs">
+                        ₹{Math.min(...item.quantities.map(q => Number(q.price) || 0))} - ₹{Math.max(...item.quantities.map(q => Number(q.price) || 0))}
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1.5 max-w-[240px]">
+                        {item.quantities.map((q, qIdx) => (
+                          <span key={qIdx} className="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-200 shadow-2xs">
+                            {q.size}: ₹{q.price}
+                          </span>
+                        ))}
+                      </div>
                     </div>
+                  ) : item.quantities && item.quantities.length === 1 ? (
+                    <div>
+                      <div className="font-bold text-green-600">₹{item.quantities[0].price}</div>
+                      <span className="text-[11px] text-gray-500 font-medium">({item.quantities[0].size})</span>
+                    </div>
+                  ) : (
+                    <div className="font-bold text-green-600">₹{item.price}</div>
                   )}
                 </td>
                 <td className="p-4">
@@ -439,15 +459,9 @@ export default function MenuManagement() {
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-200 transition-colors"><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-1 text-gray-700">Dish Name *</label>
-                  <input type="text" name="name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm" placeholder="e.g. Paneer Tikka" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-1 text-gray-700">Price (₹) *</label>
-                  <input type="number" name="price" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required min="0" className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm" placeholder="249" />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-gray-700">Dish Name *</label>
+                <input type="text" name="name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm" placeholder="e.g. Paneer Tikka" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
@@ -521,8 +535,8 @@ export default function MenuManagement() {
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-2">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-800">Portions / Quantities & Pricing (Optional)</label>
-                    <p className="text-xs text-gray-500">Mention portion sizes (Half, Full, Small, Medium, Large, Jumbo) and their prices</p>
+                    <label className="block text-sm font-semibold text-gray-800">Portions / Quantities & Pricing *</label>
+                    <p className="text-xs text-gray-500">Set prices for portion sizes (e.g. Full, Half, Small, Medium, Large, or Custom)</p>
                   </div>
                 </div>
 
@@ -567,61 +581,79 @@ export default function MenuManagement() {
                   <option value="Medium" />
                   <option value="Large" />
                   <option value="Jumbo" />
+                  <option value="Regular" />
+                  <option value="Plate" />
                 </datalist>
                 
-                {quantities.length > 0 && (
+                {quantities.length > 0 ? (
                   <div className="space-y-2 mt-2">
                     {quantities.map((qty, idx) => (
                       <div key={idx} className="flex gap-2 items-center bg-gray-50 p-2.5 rounded-lg border border-gray-200">
                         <div className="flex-1">
-                          <label className="text-[11px] text-gray-500 font-semibold block mb-0.5">Quantity / Size</label>
+                          <label className="text-[11px] text-gray-500 font-semibold block mb-0.5">Quantity / Size *</label>
                           <input
                             type="text"
                             list="sizePresetOptions"
                             value={qty.size}
+                            required
                             onChange={(e) => {
                               const newQty = [...quantities];
                               newQty[idx].size = e.target.value;
                               setQuantities(newQty);
                             }}
-                            placeholder="e.g. Half, Full, Small, Medium, Large, Jumbo"
-                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500 bg-white"
+                            placeholder="e.g. Full, Half, Small, Medium, Large"
+                            className="w-full p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500 bg-white font-medium"
                           />
                         </div>
-                        <div className="w-32">
-                          <label className="text-[11px] text-gray-500 font-semibold block mb-0.5">Price (₹)</label>
+                        <div className="w-36">
+                          <label className="text-[11px] text-gray-500 font-semibold block mb-0.5">Price (₹) *</label>
                           <div className="relative">
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">₹</span>
                             <input
                               type="number"
                               value={qty.price}
+                              required
+                              min="0"
+                              step="any"
                               onChange={(e) => {
                                 const newQty = [...quantities];
                                 newQty[idx].price = e.target.value;
                                 setQuantities(newQty);
-                                // If base price is empty, optionally fill with first variant price
-                                if (!formData.price && e.target.value) {
-                                  setFormData(prev => ({ ...prev, price: e.target.value }));
-                                }
                               }}
                               placeholder="0"
-                              min="0"
-                              className="w-full pl-6 p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500 bg-white"
+                              className="w-full pl-6 p-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-green-500 bg-white font-bold text-gray-800"
                             />
                           </div>
                         </div>
                         <div className="pt-4">
                           <button
                             type="button"
-                            onClick={() => setQuantities(quantities.filter((_, i) => i !== idx))}
+                            onClick={() => {
+                              if (quantities.length === 1) {
+                                setQuantities([{ size: '', price: '' }]);
+                              } else {
+                                setQuantities(quantities.filter((_, i) => i !== idx));
+                              }
+                            }}
                             className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
-                            title="Remove variant"
+                            title="Remove portion"
                           >
                             <Trash2 size={16} />
                           </button>
                         </div>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="p-4 border border-dashed border-gray-300 rounded-lg text-center bg-gray-50">
+                    <p className="text-xs text-gray-500 mb-2">No portion sizes added yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => setQuantities([{ size: 'Full', price: '' }])}
+                      className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
+                    >
+                      + Add Default Portion (Full)
+                    </button>
                   </div>
                 )}
               </div>
