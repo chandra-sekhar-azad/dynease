@@ -1,6 +1,3 @@
-const u = new URL(process.env.DATABASE_URL || "http://none");
-console.log("[Debug] DB user:", u.username, "host:", u.hostname);
-
 require('../config/env');
 
 const { Pool } = require('pg');
