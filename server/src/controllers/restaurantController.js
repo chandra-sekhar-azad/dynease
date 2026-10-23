@@ -45,9 +45,9 @@ exports.getCategories = async (req, res) => {
       name: c.category,
       description: c.description || '',
       image: c.image || null,
-      displayOrder: c.display_order,
+      displayOrder: c.display_order ?? 0,
       isActive: c.menu_category_status === 'ACTIVE',
-      type: 'all'
+      type: c.type || 'all'
     }));
 
     res.status(200).json({ success: true, data: { categories } });
@@ -60,7 +60,7 @@ exports.getCategories = async (req, res) => {
 exports.createCategory = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const { name, description, displayOrder } = req.body;
+    const { name, description, displayOrder, type } = req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ success: false, message: 'Category name is required.' });
@@ -95,8 +95,9 @@ exports.createCategory = async (req, res) => {
       restaurant_id: restaurantId,
       category: name.trim(),
       description: description?.trim() || '',
+      type: type?.trim()?.toLowerCase() || 'all',
       image,
-      display_order: displayOrder ? parseInt(displayOrder, 10) : 0,
+      display_order: displayOrder !== undefined && displayOrder !== '' ? parseInt(displayOrder, 10) : 0,
       menu_category_status: 'ACTIVE'
     }).returning();
 
@@ -111,6 +112,7 @@ exports.createCategory = async (req, res) => {
           name: category.category,
           description: category.description,
           displayOrder: category.display_order,
+          type: category.type || 'all',
           isActive: category.menu_category_status === 'ACTIVE',
           image
         }
@@ -126,7 +128,7 @@ exports.updateCategory = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const { name, description, displayOrder, isActive } = req.body;
+    const { name, description, displayOrder, isActive, type } = req.body;
 
     const updateFields = {
       updatedat: new Date()
@@ -134,9 +136,10 @@ exports.updateCategory = async (req, res) => {
 
     if (name) updateFields.category = name.trim();
     if (description !== undefined) updateFields.description = description.trim();
-    if (displayOrder !== undefined) updateFields.display_order = parseInt(displayOrder, 10);
+    if (type !== undefined) updateFields.type = type.trim().toLowerCase();
+    if (displayOrder !== undefined && displayOrder !== '') updateFields.display_order = parseInt(displayOrder, 10);
     if (isActive !== undefined) {
-      updateFields.menu_category_status = isActive ? 'ACTIVE' : 'INACTIVE';
+      updateFields.menu_category_status = (isActive === true || isActive === 'true') ? 'ACTIVE' : 'INACTIVE';
     }
 
     if (req.file) {
@@ -175,6 +178,7 @@ exports.updateCategory = async (req, res) => {
           description: category.description,
           image: category.image || null,
           displayOrder: category.display_order,
+          type: category.type || 'all',
           isActive: category.menu_category_status === 'ACTIVE'
         }
       }

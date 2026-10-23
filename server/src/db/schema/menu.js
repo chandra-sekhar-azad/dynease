@@ -28,6 +28,7 @@ const menu_categories = pgTable(
       .notNull()
       .references(() => restaurants.id),
     category: varchar('category', { length: 255 }).notNull(),
+    type: varchar('type', { length: 50 }).default('all'),
     description: text('description'),
     image: jsonb('image'),
     menu_category_status: menuCategoryStatusEnum('menu_category_status')

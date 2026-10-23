@@ -171,7 +171,7 @@ async function fetchMenuForRestaurant(restaurantId) {
   for (const c of categoryDocs) {
     categoriesMap.set(c.id, {
       name: c.category,
-      type: inferCategoryType(c.category, 'all'),
+      type: c.type && c.type !== 'all' ? c.type : inferCategoryType(c.category, 'all'),
       image: c.image?.secure_url || null,
       items: []
     });
