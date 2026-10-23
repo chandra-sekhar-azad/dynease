@@ -7,7 +7,6 @@ const DIET_TYPES = [
   { value: 'ALL', label: 'All Types', color: 'gray' },
   { value: 'VEG', label: 'Veg', color: 'green' },
   { value: 'NON_VEG', label: 'Non-Veg', color: 'red' },
-  { value: 'VEGAN', label: 'Vegan', color: 'emerald' },
   { value: 'NONE', label: 'None', color: 'gray' },
 ];
 
@@ -459,7 +458,6 @@ export default function MenuManagement() {
                   <select name="dietaryPreference" value={formData.dietaryPreference} onChange={e => setFormData({...formData, dietaryPreference: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm">
                     <option value="VEG">🟢 Veg</option>
                     <option value="NON_VEG">🔴 Non-Veg</option>
-                    <option value="VEGAN">🌿 Vegan</option>
                     <option value="NONE">⚪ None</option>
                   </select>
                 </div>

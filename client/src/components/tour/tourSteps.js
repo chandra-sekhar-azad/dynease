@@ -31,7 +31,7 @@ export const TOUR_STEPS = [
   {
     target: '[data-tour="menu"]',
     title: 'Digital Menu Management',
-    content: 'Effortlessly curate food items, categories, pricing, dietary preferences (Veg, Non-Veg, Vegan), and real-time 86/availability toggles that sync instantly to customer phones.',
+    content: 'Effortlessly curate food items, categories, pricing, dietary preferences (Veg, Non-Veg), and real-time 86/availability toggles that sync instantly to customer phones.',
     placement: 'bottom',
     disableBeacon: true,
     data: { tab: 'menu' },

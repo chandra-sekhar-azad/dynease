@@ -142,7 +142,7 @@ exports.getAllRestaurants = async (req, res, next) => {
     const mapped = rows.map(r => {
       const owner = ownerMap.get(r.id) || {};
       const planObj = r.plan_id ? planMap.get(r.plan_id) : null;
-      const planName = planObj ? planObj.name : (r.overriden_plan || 'Starter');
+      const planName = r.overriden_plan || (planObj ? planObj.name : 'Starter');
 
       const renewalReq = pendingPlanReqMap.get(r.id) || null;
 
@@ -415,7 +415,7 @@ exports.getPendingRequests = async (req, res, next) => {
     const formattedRequests = rows.map(reqRow => {
       const owner = ownerMap.get(reqRow.id) || {};
       const planObj = reqRow.plan_id ? planMap.get(reqRow.plan_id) : null;
-      const planName = planObj ? planObj.name : 'Starter';
+      const planName = reqRow.overriden_plan || (planObj ? planObj.name : 'Starter');
 
       return {
         _id: reqRow.id,
@@ -429,6 +429,7 @@ exports.getPendingRequests = async (req, res, next) => {
         restaurant_status: reqRow.restaurant_status,
         selectedPlan: planName.toUpperCase(),
         plan_id: reqRow.plan_id,
+        overriden_plan: reqRow.overriden_plan,
         createdAt: reqRow.createdat,
         createdat: reqRow.createdat,
         ownerId: {
@@ -465,10 +466,27 @@ exports.approveRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'This restaurant is already approved and active.' });
     }
 
+    // Resolve plan_id if missing
+    let resolvedPlanId = restaurant.plan_id;
+    if (!resolvedPlanId) {
+      const targetPlanName = (restaurant.overriden_plan || 'STARTER').toUpperCase();
+      const [matchedPlan] = await db.select().from(plans).where(
+        and(
+          or(
+            eq(sql`UPPER(${plans.name})`, targetPlanName),
+            eq(sql`LOWER(${plans.configuration}->>'planId')`, targetPlanName.toLowerCase())
+          ),
+          eq(plans.is_deleted, false)
+        )
+      ).limit(1);
+      if (matchedPlan) resolvedPlanId = matchedPlan.id;
+    }
+
     // Activate restaurant and its owner atomically in PostgreSQL transaction
     await db.transaction(async (tx) => {
       await tx.update(restaurants).set({
         restaurant_status: 'ACTIVE',
+        plan_id: resolvedPlanId,
         updatedat: new Date()
       }).where(eq(restaurants.id, id));
 

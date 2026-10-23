@@ -72,9 +72,10 @@ exports.registerRestaurantOwner = async (req, res, next) => {
 
     // Validate and resolve requested plan from DB
     let planId = null;
-    const requestedCanonical = getPlan(selectedPlan) || getPlan('STARTER');
+    const requestedPlanName = (selectedPlan || 'STARTER').toUpperCase();
+    const requestedCanonical = getPlan(requestedPlanName) || getPlan('STARTER');
     if (requestedCanonical) {
-      const [dbPlan] = await db.select().from(plans).where(
+      let [dbPlan] = await db.select().from(plans).where(
         and(
           or(
             eq(sql`UPPER(${plans.name})`, requestedCanonical.name.toUpperCase()),
@@ -84,6 +85,23 @@ exports.registerRestaurantOwner = async (req, res, next) => {
           eq(plans.is_deleted, false)
         )
       ).limit(1);
+
+      // If plans table hasn't been seeded, seed it and retry
+      if (!dbPlan) {
+        const { seedPlansIfMissing } = require('../services/PlanSeedService');
+        await seedPlansIfMissing();
+        [dbPlan] = await db.select().from(plans).where(
+          and(
+            or(
+              eq(sql`UPPER(${plans.name})`, requestedCanonical.name.toUpperCase()),
+              eq(sql`UPPER(${plans.name})`, requestedCanonical.planId.toUpperCase()),
+              eq(sql`LOWER(${plans.configuration}->>'planId')`, requestedCanonical.planId.toLowerCase())
+            ),
+            eq(plans.is_deleted, false)
+          )
+        ).limit(1);
+      }
+
       if (dbPlan) planId = dbPlan.id;
     }
 
@@ -111,6 +129,7 @@ exports.registerRestaurantOwner = async (req, res, next) => {
         phone_number: cleanPhone,
         restaurant_status: 'PENDING',
         plan_id: planId,
+        overriden_plan: requestedPlanName,
         table_allocation_mode: 'MANUAL',
         is_deleted: false
       }).returning();
@@ -153,7 +172,8 @@ exports.registerRestaurantOwner = async (req, res, next) => {
         ownerName: newOwner.name,
         ownerEmail: userEmail,
         ownerPhone: cleanPhone,
-        planId
+        planId,
+        selectedPlan: requestedPlanName
       };
     });
 

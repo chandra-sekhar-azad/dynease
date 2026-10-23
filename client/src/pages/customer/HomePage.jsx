@@ -706,8 +706,7 @@ export default function HomePage({ forcedSlug }) {
               {[
                 { id: 'ALL', label: 'All' },
                 { id: 'VEG', label: 'Veg', dot: 'bg-green-600' },
-                { id: 'NON_VEG', label: 'Non-Veg', dot: 'bg-red-600' },
-                { id: 'VEGAN', label: 'Vegan', dot: 'bg-emerald-600' }
+                { id: 'NON_VEG', label: 'Non-Veg', dot: 'bg-red-600' }
               ].map(dietBtn => {
                 const isActive = activeDiet === dietBtn.id;
                 return (
@@ -849,8 +848,7 @@ export default function HomePage({ forcedSlug }) {
               {[
                 { value: 'ALL', label: 'All' },
                 { value: 'VEG', label: 'Veg' },
-                { value: 'NON_VEG', label: 'Non-Veg' },
-                { value: 'VEGAN', label: 'Vegan' }
+                { value: 'NON_VEG', label: 'Non-Veg' }
               ].map(type => (
                 <button
                   key={type.value}

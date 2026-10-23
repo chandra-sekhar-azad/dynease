@@ -514,27 +514,27 @@ export default function RestaurantsManagement() {
   return (
     <div className="space-y-6">
       {/* ── Top Header & Tab Navigation ── */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+            <span className="p-2 rounded-xl bg-emerald-100 text-emerald-800 shrink-0">
               <Store size={22} />
             </span>
-            <h1 className="text-2xl font-bold font-serif text-gray-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold font-serif text-gray-900 tracking-tight">
               Restaurant Management
             </h1>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-xs sm:text-sm text-gray-500">
             Unified control center for restaurant profiles, subscription tracking, billing renewal, and platform plan tiers.
           </p>
         </div>
 
         {/* View Mode Tabs (Merged Navigation) */}
-        <div className="flex items-center gap-2">
-          <div className="flex p-1 bg-gray-100 rounded-xl border border-gray-200">
+        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 max-w-full">
+          <div className="flex p-1 bg-gray-100 rounded-xl border border-gray-200 shrink-0 overflow-x-auto max-w-full">
             <button
               onClick={() => handleTabChange('restaurants')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                 activeTab === 'restaurants'
                   ? 'bg-white text-gray-900 shadow-xs'
                   : 'text-gray-500 hover:text-gray-900'
@@ -549,7 +549,7 @@ export default function RestaurantsManagement() {
 
             <button
               onClick={() => handleTabChange('requests')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                 activeTab === 'requests'
                   ? 'bg-white text-amber-800 shadow-xs'
                   : 'text-gray-500 hover:text-gray-900'
@@ -566,7 +566,7 @@ export default function RestaurantsManagement() {
 
             <button
               onClick={() => handleTabChange('billing')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                 activeTab === 'billing'
                   ? 'bg-white text-emerald-800 shadow-xs'
                   : 'text-gray-500 hover:text-gray-900'
@@ -583,7 +583,7 @@ export default function RestaurantsManagement() {
 
             <button
               onClick={() => handleTabChange('plans')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                 activeTab === 'plans'
                   ? 'bg-white text-gray-900 shadow-xs'
                   : 'text-gray-500 hover:text-gray-900'
@@ -597,7 +597,7 @@ export default function RestaurantsManagement() {
           <button
             onClick={fetchData}
             disabled={isLoading}
-            className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-all shadow-xs cursor-pointer disabled:opacity-60"
+            className="p-2 sm:p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-all shadow-xs cursor-pointer disabled:opacity-60 shrink-0"
             title="Refresh data"
           >
             <RefreshCw size={16} className={isLoading ? 'animate-spin text-emerald-600' : ''} />
@@ -611,7 +611,7 @@ export default function RestaurantsManagement() {
       {activeTab === 'restaurants' && (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50">
+            <div className="p-3.5 sm:p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-gray-50/50">
               <div className="relative w-full sm:max-w-md">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input 
@@ -625,21 +625,21 @@ export default function RestaurantsManagement() {
 
               <button 
                 onClick={() => setShowAddModal(true)}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer shrink-0"
               >
                 <Plus size={16} /> Add Restaurant
               </button>
             </div>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
+              <table className="w-full text-left border-collapse text-sm min-w-[720px]">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    <th className="p-4">Restaurant</th>
-                    <th className="p-4">Owner</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4">Subscription Plan</th>
-                    <th className="p-4 text-right">Actions</th>
+                    <th className="p-3 sm:p-4">Restaurant</th>
+                    <th className="p-3 sm:p-4">Owner</th>
+                    <th className="p-3 sm:p-4">Status</th>
+                    <th className="p-3 sm:p-4">Subscription Plan</th>
+                    <th className="p-3 sm:p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -804,7 +804,14 @@ export default function RestaurantsManagement() {
                           <p className="text-xs text-emerald-600 mb-2 font-semibold">{request.slug}.dynease.in</p>
                           <div className="flex justify-between items-center text-xs gap-2">
                             <span className="text-gray-500 truncate">Owner: {request.ownerId?.name || 'N/A'}</span>
-                            <span className="shrink-0 font-bold text-emerald-700">{request.selectedPlan}</span>
+                            <span className={`shrink-0 text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider ${
+                              request.selectedPlan === 'GROWTH' ? 'bg-emerald-100 text-emerald-800' :
+                              request.selectedPlan === 'BUSINESS' ? 'bg-blue-100 text-blue-800' :
+                              request.selectedPlan === 'PRO' || request.selectedPlan === 'CUSTOM' ? 'bg-purple-100 text-purple-800' :
+                              'bg-amber-100 text-amber-800'
+                            }`}>
+                              {request.selectedPlan || 'STARTER'}
+                            </span>
                           </div>
                         </div>
                       );
@@ -817,9 +824,17 @@ export default function RestaurantsManagement() {
               {selectedReq && (
                 <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden lg:sticky lg:top-6">
                   <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                      <Building2 size={18} className="text-emerald-700" /> Application Details
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSelectedReq(null)}
+                        className="lg:hidden text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer mr-1"
+                      >
+                        ← Back
+                      </button>
+                      <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                        <Building2 size={18} className="text-emerald-700 shrink-0" /> Application Details
+                      </h3>
+                    </div>
                     <button
                       onClick={() => setSelectedReq(null)}
                       className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-full transition-colors"
@@ -854,13 +869,18 @@ export default function RestaurantsManagement() {
 
                     <div>
                       <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Subscription Plan</h4>
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-extrabold uppercase">
+                      <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-extrabold uppercase ${
+                        selectedReq.selectedPlan === 'GROWTH' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                        selectedReq.selectedPlan === 'BUSINESS' ? 'bg-blue-50 text-blue-800 border-blue-200' :
+                        selectedReq.selectedPlan === 'PRO' || selectedReq.selectedPlan === 'CUSTOM' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                        'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}>
                         <CreditCard size={14} /> {selectedReq.selectedPlan || 'STARTER'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="p-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+                  <div className="p-4 border-t border-gray-100 flex flex-col sm:flex-row gap-3 bg-gray-50/50">
                     <button
                       onClick={() => handleApproveRegistration(selectedReq)}
                       disabled={requestActionLoading === getRequestId(selectedReq)}
@@ -943,8 +963,8 @@ export default function RestaurantsManagement() {
           )}
 
           {/* KPI Metrics Strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Active Subscriptions</p>
                 <p className="text-2xl font-black text-emerald-600 mt-1">{activeSubsCount}</p>
@@ -954,7 +974,7 @@ export default function RestaurantsManagement() {
               </span>
             </div>
 
-            <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
+            <div className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expiring in 7 Days</p>
                 <p className="text-2xl font-black text-amber-600 mt-1">{expiringSoonCount}</p>
@@ -964,7 +984,7 @@ export default function RestaurantsManagement() {
               </span>
             </div>
 
-            <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
+            <div className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trial Plans</p>
                 <p className="text-2xl font-black text-blue-600 mt-1">{trialSubsCount}</p>
@@ -974,7 +994,7 @@ export default function RestaurantsManagement() {
               </span>
             </div>
 
-            <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
+            <div className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expired / Grace</p>
                 <p className="text-2xl font-black text-rose-600 mt-1">{expiredCount}</p>
@@ -986,7 +1006,7 @@ export default function RestaurantsManagement() {
           </div>
 
           {/* Billing Search & Filter Toolbar */}
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white p-3.5 sm:p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1 min-w-[240px]">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
@@ -1040,15 +1060,15 @@ export default function RestaurantsManagement() {
           {/* Subscriptions & Billing Table */}
           <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
+              <table className="w-full text-left border-collapse text-sm min-w-[740px]">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    <th className="p-4">Restaurant</th>
-                    <th className="p-4">Plan</th>
-                    <th className="p-4">Days Remaining</th>
-                    <th className="p-4">Expiration Date</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4 text-right">Billing Actions</th>
+                    <th className="p-3 sm:p-4">Restaurant</th>
+                    <th className="p-3 sm:p-4">Plan</th>
+                    <th className="p-3 sm:p-4">Days Remaining</th>
+                    <th className="p-3 sm:p-4">Expiration Date</th>
+                    <th className="p-3 sm:p-4">Status</th>
+                    <th className="p-3 sm:p-4 text-right">Billing Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1143,11 +1163,11 @@ export default function RestaurantsManagement() {
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'plans' && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs">
             <h2 className="text-lg font-bold text-gray-900 font-serif mb-1">Dynease Official Plan Tiers</h2>
             <p className="text-xs text-gray-500 mb-6">These are the subscription plans available across the platform for restaurants.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
               {plans.map((p) => (
                 <div key={p.planId} className={`rounded-2xl border p-5 flex flex-col justify-between transition-all ${
                   p.isPopular ? 'border-emerald-400 bg-emerald-50/20 shadow-md ring-2 ring-emerald-400/20' : 'border-gray-200 bg-white shadow-xs'
@@ -1206,8 +1226,8 @@ export default function RestaurantsManagement() {
       {/* MODAL: Add Restaurant                                         */}
       {/* ───────────────────────────────────────────────────────────── */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto">
             <button 
               onClick={() => setShowAddModal(false)}
               className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
@@ -1319,8 +1339,8 @@ export default function RestaurantsManagement() {
       {/* MODAL: Edit Restaurant Directory                              */}
       {/* ───────────────────────────────────────────────────────────── */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto">
             <button 
               onClick={() => setShowEditModal(false)}
               className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
@@ -1350,7 +1370,7 @@ export default function RestaurantsManagement() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Owner Name</label>
                   <input 
@@ -1395,8 +1415,8 @@ export default function RestaurantsManagement() {
       {/* MODAL: Manage Subscription & Billing                          */}
       {/* ───────────────────────────────────────────────────────────── */}
       {editingRestaurantBilling && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl relative border border-gray-100">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto border border-gray-100">
             <button 
               onClick={() => setEditingRestaurantBilling(null)}
               className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 p-1"
@@ -1441,7 +1461,7 @@ export default function RestaurantsManagement() {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Subscription Plan</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {planOptions.map(opt => (
                     <button
                       type="button"
@@ -1460,7 +1480,7 @@ export default function RestaurantsManagement() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Days Remaining</label>
                   <input
@@ -1534,8 +1554,8 @@ export default function RestaurantsManagement() {
       {/* MODAL: Reject Registration Request                            */}
       {/* ───────────────────────────────────────────────────────────── */}
       {showRejectModal && selectedReq && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden my-auto max-h-[92vh] overflow-y-auto">
             <div className="p-5 border-b border-gray-100 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-900">Reject Registration</h3>
               <button
@@ -1559,7 +1579,7 @@ export default function RestaurantsManagement() {
                 className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none mb-5 resize-none"
               ></textarea>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
                   onClick={() => { setShowRejectModal(false); setRejectReason(''); }}

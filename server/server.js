@@ -57,6 +57,8 @@ process.on('unhandledRejection', (reason, promise) => {
 pool.query('SELECT current_database(), now()')
   .then(() => {
     console.log('[PostgreSQL] Connected to Supabase PostgreSQL successfully via Drizzle client');
+    const { seedPlansIfMissing } = require('./src/services/PlanSeedService');
+    seedPlansIfMissing().catch(e => console.error('[PostgreSQL] Plan seeding error:', e.message));
     initRosterCron();
     initSubscriptionJobs();
     initAssignmentTimeoutJobs();

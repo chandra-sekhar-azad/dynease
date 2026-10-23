@@ -239,17 +239,18 @@ export default function CategoryManagement() {
 
     const cType = (cat.type || 'all').toLowerCase();
     let matchesType = true;
-    if (selectedTypeFilter === 'VEG') matchesType = (cType === 'veg');
+    if (selectedTypeFilter === 'VEG') matchesType = (cType === 'veg' || cType === 'vegan');
     else if (selectedTypeFilter === 'NON_VEG') matchesType = (cType === 'non-veg');
-    else if (selectedTypeFilter === 'VEGAN') matchesType = (cType === 'vegan');
     else if (selectedTypeFilter === 'ALL_TYPES') matchesType = (cType === 'all');
 
     return matchesSearch && matchesType;
   });
 
-  const vegCount = categories.filter(c => (c.type || '').toLowerCase() === 'veg').length;
+  const vegCount = categories.filter(c => {
+    const t = (c.type || '').toLowerCase();
+    return t === 'veg' || t === 'vegan';
+  }).length;
   const nonVegCount = categories.filter(c => (c.type || '').toLowerCase() === 'non-veg').length;
-  const veganCount = categories.filter(c => (c.type || '').toLowerCase() === 'vegan').length;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 min-h-[500px] relative">
@@ -327,8 +328,7 @@ export default function CategoryManagement() {
           {[
             { id: 'ALL', label: `All (${categories.length})` },
             { id: 'VEG', label: `Veg (${vegCount})`, color: 'text-green-700 bg-green-50 border-green-200' },
-            { id: 'NON_VEG', label: `Non-Veg (${nonVegCount})`, color: 'text-red-700 bg-red-50 border-red-200' },
-            { id: 'VEGAN', label: `Vegan (${veganCount})`, color: 'text-emerald-700 bg-emerald-50 border-emerald-200' }
+            { id: 'NON_VEG', label: `Non-Veg (${nonVegCount})`, color: 'text-red-700 bg-red-50 border-red-200' }
           ].map(pill => (
             <button
               key={pill.id}
@@ -449,26 +449,23 @@ export default function CategoryManagement() {
                         </div>
                       </td>
 
-                      {/* Type Column (Veg / Non-Veg / Vegan / All) */}
+                      {/* Type Column (Veg / Non-Veg / All) */}
                       <td className="py-3.5 px-4">
                         <div className="relative inline-block w-full max-w-[140px]">
                           <select
-                            value={currentType}
+                            value={currentType === 'vegan' ? 'veg' : currentType}
                             onChange={(e) => handleQuickUpdate(cat._id, { type: e.target.value })}
                             disabled={isBusy}
                             className={`w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer transition-colors ${
-                              currentType === 'veg' 
+                              currentType === 'veg' || currentType === 'vegan'
                                 ? 'bg-green-50 text-green-800 border-green-300' 
                                 : currentType === 'non-veg'
                                 ? 'bg-red-50 text-red-800 border-red-300'
-                                : currentType === 'vegan'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                 : 'bg-gray-50 text-gray-700 border-gray-300'
                             }`}
                           >
                             <option value="veg">🟢 Veg</option>
                             <option value="non-veg">🔴 Non-Veg</option>
-                            <option value="vegan">🌱 Vegan</option>
                             <option value="all">⚪ All Types</option>
                           </select>
                         </div>
@@ -545,17 +542,13 @@ export default function CategoryManagement() {
                           </span>
                         </div>
                         <div className="mt-1">
-                          {currentType === 'veg' ? (
+                          {currentType === 'veg' || currentType === 'vegan' ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-50 text-green-800 border border-green-200 uppercase tracking-wider">
                               <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Veg
                             </span>
                           ) : currentType === 'non-veg' ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-50 text-red-800 border border-red-200 uppercase tracking-wider">
                               <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span> Non-Veg
-                            </span>
-                          ) : currentType === 'vegan' ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Vegan
                             </span>
                           ) : (
                             <span className="inline-block text-[10px] font-medium text-gray-500 px-2 py-0.5 rounded bg-gray-100 uppercase tracking-wider">
@@ -669,12 +662,11 @@ export default function CategoryManagement() {
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Category Type (Dietary Preference)
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: 'all', label: 'All Types', icon: '⚪' },
                     { id: 'veg', label: 'Veg', icon: '🟢', highlight: 'text-green-800 bg-green-50 border-green-500' },
-                    { id: 'non-veg', label: 'Non-Veg', icon: '🔴', highlight: 'text-red-800 bg-red-50 border-red-500' },
-                    { id: 'vegan', label: 'Vegan', icon: '🌱', highlight: 'text-emerald-800 bg-emerald-50 border-emerald-500' }
+                    { id: 'non-veg', label: 'Non-Veg', icon: '🔴', highlight: 'text-red-800 bg-red-50 border-red-500' }
                   ].map(t => (
                     <button
                       type="button"
