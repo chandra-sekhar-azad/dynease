@@ -75,29 +75,29 @@ export default function HowItWorks() {
       <Navbar />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-6">How It Works</h1>
-          <p className="text-xl text-gray-600 font-medium">From Registration to Real-Time Orders</p>
-          <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
+        <div className="text-center mb-12 sm:mb-16">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 mb-4 sm:mb-6">How It Works</h1>
+          <p className="text-lg sm:text-xl text-gray-600 font-medium">From Registration to Real-Time Orders</p>
+          <p className="text-gray-500 mt-3 sm:mt-4 text-sm sm:text-base max-w-2xl mx-auto">
             Get your restaurant online, connect every table, and start accepting digital orders with a simple workflow.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
           {steps.map((step, idx) => (
-            <div key={idx} className="bg-gradient-to-b from-white to-[#f4faf6] p-8 rounded-3xl shadow-md border border-[#e2f5ea] flex flex-col gap-6 items-start hover:shadow-xl hover:border-[var(--color-primary)] transition-all transform hover:-translate-y-1 relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 text-[120px] font-black text-gray-50 opacity-50 select-none group-hover:scale-110 transition-transform">
+            <div key={idx} className="bg-gradient-to-b from-white to-[#f4faf6] p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-md border border-[#e2f5ea] flex flex-col gap-5 sm:gap-6 items-start hover:shadow-xl hover:border-[var(--color-primary)] transition-all transform hover:-translate-y-1 relative overflow-hidden group">
+              <div className="absolute -right-4 -top-4 text-[100px] sm:text-[120px] font-black text-gray-50 opacity-50 select-none group-hover:scale-110 transition-transform">
                 {step.num}
               </div>
-              <div className="shrink-0 bg-orange-50 p-4 rounded-2xl relative z-10">
+              <div className="shrink-0 bg-orange-50 p-3 sm:p-4 rounded-2xl relative z-10">
                 {step.icon}
               </div>
               <div className="relative z-10 flex flex-col h-full">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-orange-500 font-bold text-lg">{step.num}</span>
-                  <h3 className="text-xl font-bold text-gray-900 leading-tight">{step.title}</h3>
+                <div className="flex items-center gap-2.5 sm:gap-3 mb-2">
+                  <span className="text-orange-500 font-bold text-base sm:text-lg">{step.num}</span>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">{step.title}</h3>
                 </div>
-                <p className="text-gray-600 text-base leading-relaxed mt-2">
+                <p className="text-gray-600 text-sm sm:text-base leading-relaxed mt-1 sm:mt-2">
                   {step.desc}
                 </p>
               </div>
@@ -105,8 +105,8 @@ export default function HowItWorks() {
           ))}
         </div>
 
-        <div className="mt-20 text-center">
-          <a href="/register" className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold text-xl py-5 px-12 rounded-full shadow-xl shadow-orange-200 transition-all transform hover:-translate-y-1">
+        <div className="mt-14 sm:mt-20 text-center">
+          <a href="/register" className="inline-block w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold text-lg sm:text-xl py-4 sm:py-5 px-8 sm:px-12 rounded-full shadow-xl shadow-orange-200 transition-all transform hover:-translate-y-1">
             Start Your Free Trial
           </a>
         </div>

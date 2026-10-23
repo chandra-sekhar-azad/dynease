@@ -296,17 +296,17 @@ export default function StaffRoster() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <UserCheck className="text-green-600" size={26} />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <UserCheck className="text-green-600" size={24} />
             Staff Roster
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
             Assign shifts and mark holidays or leave for your restaurant staff.
           </p>
         </div>
         <button
           onClick={() => setShowShiftForm((v) => !v)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-colors self-start"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-colors w-full sm:w-auto"
         >
           <Plus size={18} />
           Manage Shifts
@@ -389,7 +389,7 @@ export default function StaffRoster() {
       )}
 
       {/* Week picker */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => {
@@ -397,12 +397,12 @@ export default function StaffRoster() {
               setWeekStart(prev);
               setSelectedDate(toDateStr(prev));
             }}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 text-gray-600"
           >
             <ChevronLeft size={20} />
           </button>
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-gray-800">
+          <div className="flex items-center gap-2 sm:gap-3 text-center">
+            <span className="text-xs sm:text-base font-semibold text-gray-800">
               {fmtDate(weekStart)} – {fmtDate(addDays(weekStart, 6))}
             </span>
             <button
@@ -410,7 +410,7 @@ export default function StaffRoster() {
                 setWeekStart(startOfWeek(new Date()));
                 setSelectedDate(todayStr);
               }}
-              className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-full hover:bg-green-100"
+              className="text-[10px] sm:text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full hover:bg-green-100"
             >
               Today
             </button>
@@ -421,13 +421,13 @@ export default function StaffRoster() {
               setWeekStart(next);
               setSelectedDate(toDateStr(next));
             }}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 text-gray-600"
           >
             <ChevronRight size={20} />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {weekDays.map((d) => {
             const ds = toDateStr(d);
             const isSelected = ds === selectedDate;
@@ -436,18 +436,18 @@ export default function StaffRoster() {
               <button
                 key={ds}
                 onClick={() => setSelectedDate(ds)}
-                className={`rounded-lg border px-2 py-3 text-center transition-colors ${
+                className={`rounded-lg border px-1 sm:px-2 py-2 sm:py-3 text-center transition-colors ${
                   isSelected
                     ? 'bg-green-600 border-green-600 text-white'
                     : 'bg-white border-gray-200 text-gray-700 hover:border-green-400'
                 }`}
               >
-                <div className={`text-xs font-semibold ${isSelected ? 'text-green-50' : 'text-gray-400'}`}>
+                <div className={`text-[10px] sm:text-xs font-semibold ${isSelected ? 'text-green-50' : 'text-gray-400'}`}>
                   {fmtDay(d)}
                 </div>
-                <div className="text-sm font-bold">{d.getDate()}</div>
-                <div className={`text-[10px] mt-1 ${isSelected ? 'text-green-50' : 'text-gray-400'}`}>
-                  {weekCounts[ds] || 0} working
+                <div className="text-xs sm:text-sm font-bold">{d.getDate()}</div>
+                <div className={`text-[9px] sm:text-[10px] mt-0.5 sm:mt-1 truncate ${isSelected ? 'text-green-50' : 'text-gray-400'}`}>
+                  {weekCounts[ds] || 0} <span className="hidden sm:inline">working</span>
                 </div>
                 {isToday && (
                   <div className={`mx-auto mt-1 h-1 w-1 rounded-full ${isSelected ? 'bg-white' : 'bg-green-600'}`} />

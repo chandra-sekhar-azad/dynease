@@ -284,12 +284,12 @@ export default function Pricing() {
         </p>
 
         {/* Monthly / Yearly Billing Toggle */}
-        <div className="inline-flex items-center bg-gray-100/90 p-1.5 rounded-2xl border border-gray-200 shadow-inner">
+        <div className="flex flex-col sm:inline-flex sm:flex-row items-center bg-gray-100/90 p-1.5 rounded-2xl border border-gray-200 shadow-inner w-full sm:w-auto gap-1">
           <button
             type="button"
             id="billing-toggle-monthly"
             onClick={() => setBillingCycle('monthly')}
-            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
+            className={`w-full sm:w-auto px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
               billingCycle === 'monthly'
                 ? 'bg-emerald-600 text-white shadow-md ring-1 ring-black/5'
                 : 'text-gray-500 hover:text-gray-900'
@@ -301,7 +301,7 @@ export default function Pricing() {
             type="button"
             id="billing-toggle-yearly"
             onClick={() => setBillingCycle('yearly')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
+            className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
               billingCycle === 'yearly'
                 ? 'bg-emerald-600 text-white shadow-md'
                 : 'text-gray-500 hover:text-gray-900'
@@ -313,7 +313,7 @@ export default function Pricing() {
                 ? 'bg-white/20 text-white'
                 : 'bg-emerald-100 text-emerald-800 font-extrabold'
             }`}>
-              Save 16.7% (2 Months Free)
+              Save 16.7%
             </span>
           </button>
         </div>

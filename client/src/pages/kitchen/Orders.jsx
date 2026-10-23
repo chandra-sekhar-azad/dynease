@@ -64,34 +64,34 @@ export default function KitchenOrders() {
   };
 
   const renderColumn = (status, title, bgColor, icon) => (
-    <div className="flex flex-col flex-1 bg-gray-50 rounded-xl p-4 overflow-hidden h-full">
-      <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-gray-200">
+    <div className="flex flex-col flex-1 bg-gray-50 rounded-xl p-3 sm:p-4 overflow-hidden min-w-[280px] shrink-0 md:shrink min-h-[300px]">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b-2 border-gray-200">
         {icon}
-        <h2 className="font-bold text-xl text-gray-800">{title}</h2>
-        <span className="ml-auto bg-gray-200 text-gray-700 py-1 px-3 rounded-full text-sm font-semibold">
+        <h2 className="font-bold text-lg sm:text-xl text-gray-800">{title}</h2>
+        <span className="ml-auto bg-gray-200 text-gray-700 py-0.5 px-2.5 rounded-full text-xs sm:text-sm font-semibold">
           {orders.filter(o => o.status === status).length}
         </span>
       </div>
       
-      <div className="flex-1 overflow-y-auto flex flex-col gap-4 pr-2">
+      <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1 sm:pr-2">
         {orders.filter(o => o.status === status).map(order => (
-          <div key={order.id} className={`bg-white rounded-lg shadow-sm border-l-4 ${bgColor} p-4`}>
+          <div key={order.id} className={`bg-white rounded-lg shadow-sm border-l-4 ${bgColor} p-3 sm:p-4`}>
             <div className="flex justify-between items-start mb-3">
               <div>
-                <h3 className="font-bold text-lg">{order.id}</h3>
-                <span className="text-gray-500 text-sm">Table {order.table}</span>
+                <h3 className="font-bold text-base sm:text-lg">{order.id}</h3>
+                <span className="text-gray-500 text-xs sm:text-sm">Table {order.table}</span>
               </div>
               <div className="text-right">
-                <div className="flex items-center gap-1 text-orange-600 font-medium">
+                <div className="flex items-center gap-1 text-orange-600 font-medium text-xs sm:text-sm">
                   <Clock size={16} />
                   <span>{Math.floor((Date.now() - order.time) / 60000)}m</span>
                 </div>
               </div>
             </div>
             
-            <div className="space-y-3 mb-4">
+            <div className="space-y-2 mb-3">
               {order.items.map((item, idx) => (
-                <div key={idx} className="bg-gray-50 rounded p-2 text-sm">
+                <div key={idx} className="bg-gray-50 rounded p-2 text-xs sm:text-sm">
                   <div className="font-medium flex justify-between">
                     <span>{item.qty}x {item.name}</span>
                   </div>
@@ -109,7 +109,7 @@ export default function KitchenOrders() {
               {status === 'NEW' && (
                 <button 
                   onClick={() => moveOrder(order.id, 'PREPARING')}
-                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium transition-colors"
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors"
                 >
                   Accept & Prepare
                 </button>
@@ -117,7 +117,7 @@ export default function KitchenOrders() {
               {status === 'PREPARING' && (
                 <button 
                   onClick={() => moveOrder(order.id, 'READY')}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors"
                 >
                   Mark Ready
                 </button>
@@ -125,7 +125,7 @@ export default function KitchenOrders() {
               {status === 'READY' && (
                 <button 
                   onClick={() => moveOrder(order.id, 'SERVED')}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-medium transition-colors"
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors"
                 >
                   Mark Served
                 </button>
@@ -135,7 +135,7 @@ export default function KitchenOrders() {
         ))}
         
         {orders.filter(o => o.status === status).length === 0 && (
-          <div className="text-center text-gray-400 py-10">
+          <div className="text-center text-gray-400 py-10 text-xs sm:text-sm">
             No orders here
           </div>
         )}
@@ -144,21 +144,21 @@ export default function KitchenOrders() {
   );
 
   return (
-    <div className="h-screen bg-gray-100 p-4 flex flex-col">
-      <header className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm">
+    <div className="min-h-screen md:h-screen bg-gray-100 p-3 sm:p-4 flex flex-col">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6 bg-white p-4 rounded-xl shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Kitchen Display System</h1>
-          <p className="text-gray-500 text-sm">Paradise Biryani</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Kitchen Display System</h1>
+          <p className="text-gray-500 text-xs sm:text-sm">Paradise Biryani</p>
         </div>
         <div className="flex items-center gap-4">
-           <span className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${connected ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+           <span className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${connected ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
              {connected ? 'Live' : 'Disconnected'}
            </span>
         </div>
       </header>
 
-      <div className="flex-1 flex gap-4 overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row gap-4 overflow-x-auto overflow-y-auto pb-2">
         {renderColumn('NEW', 'New Orders', 'border-blue-500', <Clock className="text-blue-500" />)}
         {renderColumn('PREPARING', 'Preparing', 'border-orange-500', <ChefHat className="text-orange-500" />)}
         {renderColumn('READY', 'Ready', 'border-green-500', <CheckCircle className="text-green-500" />)}

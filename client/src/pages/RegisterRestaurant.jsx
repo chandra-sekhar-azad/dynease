@@ -119,7 +119,7 @@ export default function RegisterRestaurant() {
             </div>
           )}
 
-          <div className="bg-white py-8 px-8 shadow-xl shadow-gray-200/40 sm:rounded-2xl border border-gray-100 space-y-6">
+          <div className="bg-white py-6 sm:py-8 px-4 sm:px-8 shadow-xl shadow-gray-200/40 rounded-2xl border border-gray-100 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Restaurant Name <span className="text-red-500">*</span></label>
@@ -214,7 +214,7 @@ export default function RegisterRestaurant() {
           </div>
 
           {/* SECTION 3: Plan Selection */}
-          <div className="bg-white py-8 px-8 shadow-xl shadow-gray-200/40 sm:rounded-2xl border border-gray-100">
+          <div className="bg-white py-6 sm:py-8 px-4 sm:px-8 shadow-xl shadow-gray-200/40 rounded-2xl border border-gray-100">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end border-b pb-4 mb-6 gap-3">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">Choose Your Subscription Plan</h3>

@@ -489,7 +489,7 @@ export default function HomePage({ forcedSlug }) {
   const tableLabel = session?.table?.tableNumber ? `Table ${session.table.tableNumber}` : null;
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] max-w-md mx-auto relative shadow-2xl pb-28">
+    <div className="min-h-screen bg-[var(--color-background)] max-w-md md:max-w-4xl lg:max-w-6xl mx-auto relative shadow-2xl pb-28">
       {/* ── Header ── */}
       <header className="bg-white px-3 sm:px-4 py-3 sticky top-0 z-20 border-b border-[var(--color-border)] shadow-xs">
         <div className="flex justify-between items-center gap-2 min-h-[36px]">
@@ -751,7 +751,7 @@ export default function HomePage({ forcedSlug }) {
               </div>
 
               {matchingSearchItems.length > 0 ? (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {matchingSearchItems.map(item => renderDishItem(item, item.categoryName))}
                 </div>
               ) : (
@@ -781,7 +781,7 @@ export default function HomePage({ forcedSlug }) {
               </div>
 
               {sizeFilteredDishes.length > 0 ? (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {sizeFilteredDishes.map(item => renderDishItem(item, item.categoryName))}
                 </div>
               ) : (
@@ -796,7 +796,7 @@ export default function HomePage({ forcedSlug }) {
             </div>
           ) : (
             /* Categories Grid */
-            <div className="p-4 grid grid-cols-2 gap-4 mt-1">
+            <div className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4 mt-1">
               {categories.filter(cat => isCategoryMatchingDietAndSize(cat, activeDiet, activeSize)).map(cat => {
                 const catImage = cat.image || cat.items.find(i => i.imageUrl)?.imageUrl;
                 return (
@@ -871,7 +871,7 @@ export default function HomePage({ forcedSlug }) {
           </div>
 
           {/* Items List */}
-          <div className="px-4 pt-4 space-y-3">
+          <div className="px-4 sm:px-6 pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {filteredCategories
               .filter(cat => cat.name === selectedCategory)
               .map(cat => cat.items.map(item => renderDishItem(item)))}
@@ -969,7 +969,7 @@ export default function HomePage({ forcedSlug }) {
       {/* ── Floating Live Order Tracker Bar ── */}
       {liveOrdersCount > 0 && latestLiveOrder && (
         <div className="fixed bottom-22 left-0 right-0 z-40 px-4 pointer-events-none">
-          <div className="w-full max-w-md mx-auto pointer-events-auto">
+          <div className="w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto pointer-events-auto">
             <Link
               to="/orders"
               className="flex items-center justify-between p-3.5 bg-gray-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-gray-800 hover:bg-black transition-all group"
@@ -1002,7 +1002,7 @@ export default function HomePage({ forcedSlug }) {
 
       {/* ── Floating Action Buttons (Cart & Call Waiter) ── */}
       <div className="fixed bottom-6 left-0 right-0 z-50 pointer-events-none px-4 flex justify-between">
-        <div className="w-full max-w-md mx-auto flex items-center justify-between">
+        <div className="w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto flex items-center justify-between">
           {session?.table && (
             <button
               onClick={() => setIsServiceModalOpen(true)}

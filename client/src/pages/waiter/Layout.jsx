@@ -9,7 +9,7 @@ const WAITER_ROLES = ['RESTAURANT_STAFF'];
 export default function WaiterLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [restaurantName, setRestaurantName] = useState('Staff Panel');
   const authStatus = useAuthGuard(WAITER_ROLES);
 
@@ -89,6 +89,9 @@ export default function WaiterLayout() {
               <Link 
                 key={link.path}
                 to={link.path}
+                onClick={() => {
+                  if (window.innerWidth < 768) setIsSidebarOpen(false);
+                }}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
                   isActive ? 'bg-orange-600 text-white' : 'text-slate-300 hover:bg-slate-800'
                 }`}
@@ -121,7 +124,7 @@ export default function WaiterLayout() {
             <h1 className="text-xl font-bold text-gray-800 truncate">Waiter Dashboard</h1>
           </div>
         </header>
-        <div className="flex-1 overflow-auto p-4 md:p-8">
+        <div className="flex-1 overflow-auto p-3 sm:p-5 md:p-8">
           <Outlet />
         </div>
       </main>

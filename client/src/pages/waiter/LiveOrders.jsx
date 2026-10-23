@@ -296,17 +296,17 @@ export default function LiveOrders() {
       )}
 
       {/* Main Header & Sub-Tabs */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Assigned Orders & Requests</h1>
-          <p className="text-gray-500 text-sm">Real-time table orders and customer assistance requests</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Assigned Orders & Requests</h1>
+          <p className="text-gray-500 text-xs sm:text-sm">Real-time table orders and customer assistance requests</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex bg-gray-200 p-1 rounded-xl text-xs font-bold">
+        <div className="flex flex-wrap items-center justify-between w-full sm:w-auto gap-2 sm:gap-3">
+          <div className="flex bg-gray-200 p-1 rounded-xl text-xs font-bold w-full sm:w-auto">
             <button
               onClick={() => setActiveTab('ORDERS')}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
+              className={`flex-1 sm:flex-none justify-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
                 activeTab === 'ORDERS' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-600'
               }`}
             >
@@ -314,11 +314,11 @@ export default function LiveOrders() {
             </button>
             <button
               onClick={() => setActiveTab('REQUESTS')}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
+              className={`flex-1 sm:flex-none justify-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
                 activeTab === 'REQUESTS' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-600'
               }`}
             >
-              <HelpCircle size={15} /> Table Requests ({serviceRequests.length})
+              <HelpCircle size={15} /> Requests ({serviceRequests.length})
             </button>
           </div>
 
@@ -339,7 +339,7 @@ export default function LiveOrders() {
               <p className="text-xs text-gray-400 mt-1">New orders routed by the assignment engine will appear here immediately.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {myOrders.map((order, idx) => {
                 const isPendingAcceptance = order.assignmentStatus === 'PENDING_ACCEPTANCE';
                 const isOverflow = order.assignmentType === 'OVERFLOW';

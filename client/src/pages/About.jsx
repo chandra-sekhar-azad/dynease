@@ -9,20 +9,20 @@ export default function About() {
       <Navbar minimal={true} />
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-8 text-center bg-green-50 flex-1">
+      <section className="pt-32 pb-16 sm:pb-20 px-4 sm:px-8 text-center bg-green-50 flex-1">
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
             Transforming the dining experience, <br/> <span className="text-green-600">one table at a time.</span>
           </h1>
-          <p className="text-lg text-gray-600 leading-relaxed">
+          <p className="text-base sm:text-lg text-gray-600 leading-relaxed">
             Dynease was born out of a simple idea: that ordering food at a restaurant should be as delightful as eating it. We're bridging the gap between exceptional culinary craft and modern digital convenience.
           </p>
         </div>
       </section>
 
       {/* Stats */}
-      <section className="py-20 px-8">
-        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-12 text-center">
+      <section className="py-12 sm:py-20 px-4 sm:px-8">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-12 text-center">
           <div>
             <div className="w-16 h-16 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Store size={32} />

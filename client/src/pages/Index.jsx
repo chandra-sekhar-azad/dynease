@@ -171,21 +171,21 @@ export default function LandingPage() {
             <p className="text-[var(--color-primary)] font-bold text-xs tracking-widest uppercase mb-4 md:mt-2">
               QR Ordering ◉ Digital Menu ◉  Smart Restaurants
             </p>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-[1.1]">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-[1.1]">
               Modern Dining,<br />
               <span className="text-[var(--color-primary)]">Made Simple</span>
             </h1>
-            <p className="text-lg text-gray-600 mb-10 max-w-lg leading-relaxed">
-              Dynease helps restaurants go digital with QR ordering, online menus and real-time order management  for a better dining experience, every time.
+            <p className="text-base sm:text-lg text-gray-600 mb-8 sm:mb-10 max-w-lg leading-relaxed">
+              Dynease helps restaurants go digital with QR ordering, online menus and real-time order management for a better dining experience, every time.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/register" className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] text-white px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+              <Link to="/register" className="w-full sm:w-auto justify-center bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] text-white px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2">
                 Get Started Free <ArrowRight size={18} />
               </Link>
               <button 
                 onClick={handleWatchDemo}
                 disabled={isLaunchingDemo}
-                className="bg-white border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[#f0fdf4] px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto justify-center bg-white border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[#f0fdf4] px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
                 aria-label="Watch interactive Dynease product demo"
               >
                 <PlayCircle size={18} /> {isLaunchingDemo ? 'Opening Demo...' : 'Watch Demo'}
@@ -719,7 +719,7 @@ function InteractivePhoneMockup() {
   }, [stage]);
 
   return (
-    <div className="w-[300px] h-[600px] bg-white rounded-[2.5rem] border-[12px] border-gray-900 shadow-2xl relative overflow-hidden flex flex-col z-10 mx-auto group">
+    <div className="w-[300px] max-w-[calc(100vw-32px)] h-[600px] bg-white rounded-[2.5rem] border-[12px] border-gray-900 shadow-2xl relative overflow-hidden flex flex-col z-10 mx-auto group">
       {/* Notch */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-900 rounded-b-2xl z-20"></div>
 

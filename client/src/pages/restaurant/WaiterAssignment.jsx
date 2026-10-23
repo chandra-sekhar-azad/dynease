@@ -135,11 +135,11 @@ export default function WaiterAssignment() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-800">Waiter-to-Table Assignment</h1>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Waiter-to-Table Assignment</h1>
+            <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
               settings.mode === 'HYBRID' ? 'bg-purple-100 text-purple-700' :
               settings.mode === 'AUTOMATIC' ? 'bg-blue-100 text-blue-700' :
               'bg-gray-100 text-gray-700'
@@ -147,21 +147,21 @@ export default function WaiterAssignment() {
               Mode: {settings.mode}
             </span>
           </div>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">
             Manage table ownership, workload-aware auto routing, presence controls, and audit trails
           </p>
         </div>
 
         <button 
           onClick={fetchAllData}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-xs transition-colors"
+          className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-xs transition-colors"
         >
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 bg-white rounded-t-2xl px-6 pt-2 gap-4">
+      <div className="flex border-b border-gray-200 bg-white rounded-t-2xl px-3 sm:px-6 pt-2 gap-1 sm:gap-4 overflow-x-auto scrollbar-none">
         {[
           { id: 'TABLES', label: `Table Assignments (${tables.length})`, icon: ArrowRightLeft },
           { id: 'WORKLOAD', label: `Waiter Workload (${waiters.length})`, icon: BarChart3 },
@@ -172,13 +172,13 @@ export default function WaiterAssignment() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`py-3.5 px-3 font-semibold text-sm border-b-2 flex items-center gap-2 transition-colors ${
+            className={`shrink-0 py-2.5 sm:py-3.5 px-2.5 sm:px-3 font-semibold text-xs sm:text-sm border-b-2 flex items-center gap-1.5 sm:gap-2 transition-colors ${
               activeTab === tab.id
                 ? 'border-green-600 text-green-700'
                 : 'border-transparent text-gray-500 hover:text-gray-800'
             }`}
           >
-            <tab.icon size={16} />
+            <tab.icon size={15} />
             {tab.label}
           </button>
         ))}
@@ -186,8 +186,8 @@ export default function WaiterAssignment() {
 
       {/* Tab 1: Table-Level Primary Waiter Assignments */}
       {activeTab === 'TABLES' && (
-        <div className="bg-white rounded-b-2xl p-6 shadow-sm border border-gray-100 border-t-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-b-2xl p-4 sm:p-6 shadow-sm border border-gray-100 border-t-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {tables.map(table => {
               const primaryWaiter = table.primaryWaiterId;
               const isAssigned = !!primaryWaiter;
@@ -257,7 +257,7 @@ export default function WaiterAssignment() {
 
       {/* Tab 2: Waiter Presence & Live Workload */}
       {activeTab === 'WORKLOAD' && (
-        <div className="bg-white rounded-b-2xl p-6 shadow-sm border border-gray-100 border-t-0">
+        <div className="bg-white rounded-b-2xl p-4 sm:p-6 shadow-sm border border-gray-100 border-t-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -334,14 +334,14 @@ export default function WaiterAssignment() {
 
       {/* Tab 3: Customer Service Requests */}
       {activeTab === 'REQUESTS' && (
-        <div className="bg-white rounded-b-2xl p-6 shadow-sm border border-gray-100 border-t-0">
+        <div className="bg-white rounded-b-2xl p-4 sm:p-6 shadow-sm border border-gray-100 border-t-0">
           {serviceRequests.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
               <CheckCircle2 size={48} className="mx-auto mb-3 opacity-40 text-green-500" />
               <p className="font-semibold text-gray-700">All customer assistance requests are resolved!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {serviceRequests.map(req => (
                 <div key={req._id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
                   <div>
@@ -386,7 +386,7 @@ export default function WaiterAssignment() {
 
       {/* Tab 4: Engine Settings */}
       {activeTab === 'SETTINGS' && (
-        <form onSubmit={handleSaveSettings} className="bg-white rounded-b-2xl p-8 shadow-sm border border-gray-100 border-t-0 max-w-3xl space-y-6">
+        <form onSubmit={handleSaveSettings} className="bg-white rounded-b-2xl p-4 sm:p-8 shadow-sm border border-gray-100 border-t-0 max-w-3xl space-y-6">
           <div className="space-y-4">
             <h3 className="font-bold text-lg text-gray-800">Assignment Mode</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -500,7 +500,7 @@ export default function WaiterAssignment() {
 
       {/* Tab 5: Audit Trail History */}
       {activeTab === 'HISTORY' && (
-        <div className="bg-white rounded-b-2xl p-6 shadow-sm border border-gray-100 border-t-0">
+        <div className="bg-white rounded-b-2xl p-4 sm:p-6 shadow-sm border border-gray-100 border-t-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>

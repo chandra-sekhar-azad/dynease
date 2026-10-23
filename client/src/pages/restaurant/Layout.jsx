@@ -121,7 +121,7 @@ export default function RestaurantLayout() {
             <h1 className="text-xl font-bold text-gray-800 truncate">Restaurant Dashboard</h1>
           </div>
         </header>
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto p-3 sm:p-5 md:p-6 lg:p-8">
           <Outlet />
         </div>
       </main>

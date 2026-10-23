@@ -168,13 +168,13 @@ export default function TablesManagement() {
   if (loading) return <div className="p-6 flex justify-center"><Loader2 className="animate-spin text-green-500 w-8 h-8" /></div>;
 
   return (
-    <div className="p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+    <div className="p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tables & QR Codes</h1>
-          <p className="text-gray-500 mt-1">Manage your restaurant tables and stable QR codes.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Tables & QR Codes</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">Manage your restaurant tables and stable QR codes.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors">
+        <button onClick={() => setShowAddModal(true)} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors w-full sm:w-auto shrink-0 shadow-sm">
           <Plus size={20} /> Add New Table
         </button>
       </div>
@@ -187,7 +187,7 @@ export default function TablesManagement() {
           <button onClick={() => setShowAddModal(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-medium">Add Table</button>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {tables.map(table => (
             <div key={table._id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:border-green-300 transition-colors">
               <div className="flex justify-between items-start mb-6">

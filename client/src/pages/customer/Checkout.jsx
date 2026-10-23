@@ -67,7 +67,7 @@ export default function Checkout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 max-w-md mx-auto shadow-2xl flex flex-col pb-28">
+    <div className="min-h-screen bg-gray-50 max-w-md md:max-w-2xl lg:max-w-3xl mx-auto shadow-2xl flex flex-col pb-28">
       {/* Header */}
       <header className="bg-white px-4 py-4 flex items-center gap-3 shadow-sm sticky top-0 z-10">
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
@@ -146,7 +146,7 @@ export default function Checkout() {
       </div>
 
       {/* Place Order CTA */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-100 p-4 shadow-xl">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md md:max-w-2xl lg:max-w-3xl bg-white border-t border-gray-100 p-4 shadow-xl">
         <button
           onClick={handlePlaceOrder}
           disabled={loading}

@@ -66,7 +66,7 @@ export default function RestaurantDashboard() {
 
     if (subscription.renewalRequest && subscription.renewalRequest.status === 'PENDING') {
       return (
-        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl flex items-center justify-between gap-3 mb-6">
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
           <div className="flex items-start gap-3">
             <Clock className="shrink-0 mt-0.5 text-blue-600" size={20} />
             <div>
@@ -126,7 +126,7 @@ export default function RestaurantDashboard() {
 
     if (remainingDays <= 3) {
       return (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-center justify-between gap-3 mb-6">
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
           <div className="flex items-start gap-3">
             <AlertTriangle className="shrink-0 mt-0.5 text-amber-600" size={20} />
             <div>
@@ -148,8 +148,8 @@ export default function RestaurantDashboard() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto relative animate-in fade-in duration-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+    <div className="p-2 sm:p-4 md:p-6 max-w-6xl mx-auto relative animate-in fade-in duration-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold font-serif text-gray-900 tracking-tight">
             Welcome to {restaurantName}
@@ -169,7 +169,7 @@ export default function RestaurantDashboard() {
       {getSubAlert()}
 
       {/* Overview Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow-xs border border-gray-100 p-6 flex flex-col justify-center items-center h-32 hover:shadow-md transition-shadow">
           <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Today's Orders</p>
           <h3 className="text-4xl font-extrabold text-emerald-600 mt-2">{stats.todaysOrders}</h3>

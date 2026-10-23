@@ -204,9 +204,9 @@ export default function MenuManagement() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-wrap justify-between items-center gap-3">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h2 className="text-xl font-bold text-gray-800">Menu Management</h2>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap w-full sm:w-auto">
           <button
             onClick={() => navigate('/restaurant/categories')}
             className="border border-green-300 text-green-600 hover:bg-green-50 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
@@ -429,8 +429,8 @@ export default function MenuManagement() {
               <h3 className="font-bold text-lg text-gray-900">{editingItem ? 'Edit Dish' : 'Add New Dish'}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-200 transition-colors"><X size={20} /></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Dish Name *</label>
                   <input type="text" name="name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm" placeholder="e.g. Paneer Tikka" />
@@ -440,7 +440,7 @@ export default function MenuManagement() {
                   <input type="number" name="price" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required min="0" className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm" placeholder="249" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Category *</label>
                   {categories.length > 0 ? (

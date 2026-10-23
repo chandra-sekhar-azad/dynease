@@ -129,11 +129,11 @@ export default function Orders() {
   });
 
   return (
-    <div className="p-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+    <div className="p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Orders Management</h1>
-          <p className="text-gray-500 mt-1 flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Orders Management</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 flex items-center gap-2">
             View live and past orders
             <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${connected ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
               <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
@@ -142,14 +142,14 @@ export default function Orders() {
           </p>
         </div>
         
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
             <input
               type="text"
               placeholder="Search orders..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-64"
+              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-full text-sm"
             />
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
           </div>
@@ -172,7 +172,7 @@ export default function Orders() {
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-3 sm:p-6">
           {loading ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="w-8 h-8 text-green-500 animate-spin" />

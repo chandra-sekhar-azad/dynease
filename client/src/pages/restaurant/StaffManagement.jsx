@@ -176,12 +176,12 @@ export default function StaffManagement() {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 min-h-[500px] relative">
-      <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50/50 rounded-t-xl">
+      <div className="p-4 sm:p-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-gray-50/50 rounded-t-xl">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">Staff Management</h2>
-          <p className="text-sm text-gray-500 mt-1">Manage waiters, kitchen staff, and roles</p>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800">Staff Management</h2>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">Manage waiters, kitchen staff, and roles</p>
         </div>
-        <button onClick={openAddModal} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm">
+        <button onClick={openAddModal} className="w-full sm:w-auto justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm">
           <Plus size={20} /> Add Staff
         </button>
       </div>
@@ -255,16 +255,16 @@ export default function StaffManagement() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="text-xl font-bold text-gray-800">{editingId ? 'Edit Staff' : 'Add Staff'}</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden transform transition-all">
+            <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-800">{editingId ? 'Edit Staff' : 'Add Staff'}</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-200 transition-colors">
                 <X size={20} />
               </button>
             </div>
             
-            <form className="p-6 space-y-4" onSubmit={handleSubmit}>
+            <form className="p-4 sm:p-6 space-y-4 overflow-y-auto" onSubmit={handleSubmit}>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Full Name</label>
                 <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
@@ -273,7 +273,7 @@ export default function StaffManagement() {
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email (for login)</label>
                 <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
                   <select name="role" value={formData.role} onChange={handleChange} required disabled={formData.role === 'RESTAURANT_OWNER'} className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500">

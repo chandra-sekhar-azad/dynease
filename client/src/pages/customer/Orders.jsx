@@ -276,8 +276,9 @@ export default function Orders() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       {/* ── Top Header ── */}
-      <header className="bg-white px-4 py-3.5 flex items-center justify-between shadow-xs sticky top-0 z-20 border-b border-gray-100">
-        <div className="flex items-center gap-3">
+      <header className="bg-white px-4 py-3.5 shadow-xs sticky top-0 z-20 border-b border-gray-100">
+        <div className="max-w-lg md:max-w-3xl lg:max-w-4xl mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/')}
             className="p-2 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer text-gray-700"
@@ -301,23 +302,24 @@ export default function Orders() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => fetchOrders(false)}
-            disabled={refreshing}
-            className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-            title="Refresh orders"
-            aria-label="Refresh orders"
-          >
-            <RefreshCw size={18} className={refreshing ? 'animate-spin text-emerald-600' : ''} />
-          </button>
-          <Link
-            to="/cart"
-            className="p-2 text-gray-600 hover:text-emerald-700 hover:bg-gray-100 rounded-xl transition-colors"
-            title="Cart"
-          >
-            <ShoppingBag size={18} />
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => fetchOrders(false)}
+              disabled={refreshing}
+              className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              title="Refresh orders"
+              aria-label="Refresh orders"
+            >
+              <RefreshCw size={18} className={refreshing ? 'animate-spin text-emerald-600' : ''} />
+            </button>
+            <Link
+              to="/cart"
+              className="p-2 text-gray-600 hover:text-emerald-700 hover:bg-gray-100 rounded-xl transition-colors"
+              title="Cart"
+            >
+              <ShoppingBag size={18} />
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -338,7 +340,8 @@ export default function Orders() {
       )}
 
       {/* ── Tabs (Live Orders vs Past Orders) ── */}
-      <div className="bg-white border-b border-gray-100 px-4 flex gap-6 sticky top-[57px] z-10">
+      <div className="bg-white border-b border-gray-100 px-4 sticky top-[57px] z-10">
+        <div className="max-w-lg md:max-w-3xl lg:max-w-4xl mx-auto w-full flex gap-6">
         <button
           onClick={() => setTab('LIVE')}
           className={`py-3.5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
@@ -372,10 +375,11 @@ export default function Orders() {
             {pastOrders.length}
           </span>
         </button>
+        </div>
       </div>
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 p-4 pb-28 max-w-lg mx-auto w-full space-y-4">
+      <main className="flex-1 p-4 sm:p-6 pb-28 max-w-lg md:max-w-3xl lg:max-w-4xl mx-auto w-full space-y-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400 space-y-3">
             <Loader2 className="animate-spin w-9 h-9 text-emerald-600" />

@@ -66,32 +66,32 @@ export default function RestaurantSettings() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-200">
       {/* ── Page Header ── */}
-      <div className="flex items-center gap-3 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs">
-        <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl">
-          <SettingsIcon size={24} />
+      <div className="flex items-center gap-3 bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs">
+        <div className="p-2.5 sm:p-3 bg-emerald-100 text-emerald-800 rounded-xl shrink-0">
+          <SettingsIcon size={22} className="sm:w-6 sm:h-6" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold font-serif text-gray-900 tracking-tight">Restaurant Settings</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage your restaurant owner security credentials and password.</p>
+          <h1 className="text-xl sm:text-2xl font-bold font-serif text-gray-900 tracking-tight">Restaurant Settings</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Manage your restaurant owner security credentials and password.</p>
         </div>
       </div>
 
       {/* ── Change Password & Security Card ── */}
       <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+            <span className="p-2 rounded-xl bg-emerald-100 text-emerald-800 shrink-0">
               <KeyRound size={18} />
             </span>
             <div>
-              <h2 className="text-base font-bold text-gray-900">Change Account Password</h2>
-              <p className="text-xs text-gray-500">Update your restaurant owner login credentials.</p>
+              <h2 className="text-sm sm:text-base font-bold text-gray-900">Change Account Password</h2>
+              <p className="text-[11px] sm:text-xs text-gray-500">Update your restaurant owner login credentials.</p>
             </div>
           </div>
-          <ShieldCheck size={20} className="text-emerald-600" />
+          <ShieldCheck size={20} className="text-emerald-600 shrink-0" />
         </div>
 
-        <form onSubmit={handleChangePassword} className="p-6 space-y-5">
+        <form onSubmit={handleChangePassword} className="p-4 sm:p-6 space-y-5">
           {passwordSuccess && (
             <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
               <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
@@ -185,7 +185,7 @@ export default function RestaurantSettings() {
             <button
               type="submit"
               disabled={passwordLoading}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-60 cursor-pointer"
+              className="w-full sm:w-auto justify-center flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-60 cursor-pointer"
             >
               {passwordLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Lock className="w-4 h-4" />}
               <span>{passwordLoading ? 'Updating Password...' : 'Update Password'}</span>

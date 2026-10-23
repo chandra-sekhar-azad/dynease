@@ -57,7 +57,7 @@ export default function Navbar({ minimal = false }) {
 
           {/* Mobile menu overlay */}
           {isOpen && (
-            <div className="absolute top-full left-0 right-0 bg-white shadow-xl py-6 px-6 flex flex-col gap-4 md:hidden animate-in slide-in-from-top-2 duration-200 border-t border-[var(--color-border)]">
+            <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-white shadow-xl py-6 px-6 flex flex-col gap-4 md:hidden rounded-2xl animate-in slide-in-from-top-2 duration-200 border border-[var(--color-border)]">
               <NavLink to="/" onClick={() => setIsOpen(false)} className={({ isActive }) => `font-medium text-lg pb-1 transition-colors ${isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)] hover:text-[var(--color-primary)]'}`}>Home</NavLink>
               <a href="/#benefits" onClick={() => setIsOpen(false)} className="font-medium text-lg pb-1 transition-colors text-[var(--color-text)] hover:text-[var(--color-primary)]">Benefits</a>
               <NavLink to="/features" onClick={() => setIsOpen(false)} className={({ isActive }) => `font-medium text-lg pb-1 transition-colors ${isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)] hover:text-[var(--color-primary)]'}`}>Features</NavLink>

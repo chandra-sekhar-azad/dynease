@@ -134,15 +134,15 @@ export default function Features() {
           <div className="inline-block bg-green-100 text-green-700 font-bold px-4 py-1.5 rounded-full text-sm mb-4">
             ✨ Features
           </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-6">Everything Your Restaurant Needs to Go Digital</h1>
-          <p className="text-xl text-gray-600 font-medium max-w-3xl mx-auto">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 mb-4 sm:mb-6">Everything Your Restaurant Needs to Go Digital</h1>
+          <p className="text-base sm:text-xl text-gray-600 font-medium max-w-3xl mx-auto">
             Powerful tools to simplify ordering, improve kitchen operations, understand customers, and grow your restaurant.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
           {features.map((feature, idx) => (
-            <div key={idx} className="bg-gradient-to-b from-white to-[#f4faf6] p-8 rounded-3xl shadow-md border border-[#e2f5ea] hover:shadow-xl hover:border-[var(--color-primary)] transition-all transform hover:-translate-y-1">
+            <div key={idx} className="bg-gradient-to-b from-white to-[#f4faf6] p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-md border border-[#e2f5ea] hover:shadow-xl hover:border-[var(--color-primary)] transition-all transform hover:-translate-y-1">
               <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center mb-6">
                 {feature.icon}
               </div>

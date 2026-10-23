@@ -196,20 +196,20 @@ export default function CategoryManagement() {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 min-h-[500px] relative">
-      <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50/50 rounded-t-xl">
+      <div className="p-4 sm:p-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-gray-50/50 rounded-t-xl">
         <div>
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             <FolderOpen size={24} className="text-green-500" />
             Category Management
           </h2>
-          <p className="text-sm text-gray-500 mt-1">Manage categories for your menu items</p>
+          <p className="text-sm text-gray-500 mt-0.5">Manage categories for your menu items</p>
         </div>
-        <button onClick={openAddModal} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm">
+        <button onClick={openAddModal} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm shrink-0 w-full sm:w-auto justify-center">
           <Plus size={20} /> Add Category
         </button>
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {isLoading ? (
           <div className="flex justify-center p-8"><Loader2 className="animate-spin text-green-500 w-8 h-8" /></div>
         ) : categories.length === 0 ? (
@@ -222,7 +222,7 @@ export default function CategoryManagement() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {categories.map(cat => {
               const count = menuItems.filter(i => i.category === cat.name).length;
               return (
@@ -321,7 +321,7 @@ export default function CategoryManagement() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Category Type (Dietary Filter)</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
                     { id: 'all', label: 'All' },
                     { id: 'veg', label: 'Veg' },
