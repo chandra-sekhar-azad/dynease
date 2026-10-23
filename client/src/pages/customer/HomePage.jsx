@@ -295,7 +295,7 @@ export default function HomePage({ forcedSlug }) {
       const matchesSearch = !search || 
         item.name.toLowerCase().includes(search.toLowerCase()) || 
         (item.description || '').toLowerCase().includes(search.toLowerCase());
-      const matchesDiet = itemMatchesDiet(item.dietaryPreference, activeDiet);
+      const matchesDiet = selectedCategory ? true : itemMatchesDiet(item.dietaryPreference, activeDiet);
       const matchesSize = itemMatchesSize(item, activeSize);
       return matchesSearch && matchesDiet && matchesSize;
     })
@@ -847,30 +847,8 @@ export default function HomePage({ forcedSlug }) {
         </div>
       ) : (
         <div className="bg-[var(--color-background)] pb-6">
-          {/* Filters in category view */}
-          <div className="bg-white px-4 pt-2.5 pb-3.5 sticky top-[57px] z-10 border-b border-[var(--color-border)] space-y-2">
-            {/* Dietary buttons */}
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 mb-1">
-              {[
-                { value: 'ALL', label: 'All' },
-                { value: 'VEG', label: 'Veg' },
-                { value: 'NON_VEG', label: 'Non-Veg' }
-              ].map(type => (
-                <button
-                  key={type.value}
-                  onClick={() => setActiveDiet(type.value)}
-                  className={`whitespace-nowrap px-3 py-1 text-xs font-semibold rounded-full transition-colors flex-shrink-0 border cursor-pointer ${
-                    activeDiet === type.value
-                      ? 'bg-emerald-800 text-white border-emerald-800'
-                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  {type.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Size filter buttons */}
+          {/* Filters in category view: quantities / sizes only */}
+          <div className="bg-white px-4 py-2 sticky top-[57px] z-10 border-b border-[var(--color-border)]">
             {renderSizeFilterButtons()}
           </div>
 
@@ -883,12 +861,12 @@ export default function HomePage({ forcedSlug }) {
             {filteredCategories.filter(cat => cat.name === selectedCategory).length === 0 && (
               <div className="text-center py-16 text-[var(--color-text-muted)] border border-[var(--color-border)] bg-white rounded-xl">
                 <p className="font-serif text-lg mb-1">No items found</p>
-                <p className="text-sm font-light">Try adjusting your dietary or size filters</p>
+                <p className="text-sm font-light">Try adjusting your portion size filter</p>
                 <button
-                  onClick={() => { setActiveDiet('ALL'); setActiveSize('ALL'); }}
+                  onClick={() => setActiveSize('ALL')}
                   className="mt-3 text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
                 >
-                  Reset filters
+                  Show all sizes
                 </button>
               </div>
             )}
