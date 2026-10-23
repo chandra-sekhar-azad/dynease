@@ -147,7 +147,7 @@ export default function MenuManagement() {
       category: item.category,
       description: item.description || '',
       price: item.price,
-      dietaryPreference: item.dietaryPreference || 'NONE',
+      dietaryPreference: (item.dietaryPreference || 'NONE').toUpperCase(),
       preparationTime: item.preparationTime || '15'
     });
     setQuantities(item.quantities || []);
@@ -194,7 +194,7 @@ export default function MenuManagement() {
   // Filtered items
   const filtered = items.filter(item => {
     const catMatch = activeCategory === 'ALL' || item.category === activeCategory;
-    const dietMatch = activeDiet === 'ALL' || item.dietaryPreference === activeDiet;
+    const dietMatch = activeDiet === 'ALL' || (item.dietaryPreference || '').toUpperCase() === activeDiet;
     const searchMatch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase());
     return catMatch && dietMatch && searchMatch;
   });
@@ -302,7 +302,7 @@ export default function MenuManagement() {
                 {dt.label}
                 {dt.value !== 'ALL' && (
                   <span className="ml-1 text-[10px] opacity-60">
-                    ({items.filter(i => i.dietaryPreference === dt.value).length})
+                    ({items.filter(i => (i.dietaryPreference || '').toUpperCase() === dt.value).length})
                   </span>
                 )}
               </button>
@@ -371,8 +371,8 @@ export default function MenuManagement() {
                 </td>
                 <td className="p-4">
                   <div className="flex flex-col gap-1">
-                    <span className={`px-2 py-1 rounded text-xs font-bold ${DIET_BADGE[item.dietaryPreference] || DIET_BADGE.NONE}`}>
-                      {item.dietaryPreference}
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${DIET_BADGE[(item.dietaryPreference || '').toUpperCase()] || DIET_BADGE.NONE}`}>
+                      {(item.dietaryPreference || '').toUpperCase()}
                     </span>
                     {item.quantities && item.quantities.length > 0 && (
                       <span className="text-[11px] text-gray-500 font-medium">

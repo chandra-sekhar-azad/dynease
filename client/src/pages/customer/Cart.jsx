@@ -62,8 +62,8 @@ export default function Cart() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     <span className={`w-2.5 h-2.5 rounded-sm flex-shrink-0 ${
-                      item.dietaryPreference === 'VEG' ? 'bg-green-500' :
-                      item.dietaryPreference === 'NON_VEG' ? 'bg-red-500' : 'bg-gray-400'
+                      (item.dietaryPreference || '').toUpperCase() === 'VEG' || (item.dietaryPreference || '').toUpperCase() === 'VEGAN' ? 'bg-green-500' :
+                      (item.dietaryPreference || '').toUpperCase() === 'NON_VEG' ? 'bg-red-500' : 'bg-gray-400'
                     }`} />
                     <h3 className="font-semibold text-gray-900 text-sm truncate">{item.name}</h3>
                     {item.size && (

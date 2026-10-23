@@ -235,34 +235,28 @@ export default function HomePage({ forcedSlug }) {
     const cName = (cat.name || '').toLowerCase();
 
     if (diet === 'VEG') {
-      if (cType === 'veg') return true;
-      if (cType === 'non-veg' || cType === 'non-vegan') return false;
-      if (cType === 'vegan') return true;
+      if (cType === 'veg' || cType === 'vegan') return true;
+      if (cType === 'non-veg') return false;
       if (cName.includes('non-veg') || cName.includes('non veg') || cName.includes('nonveg')) return false;
       if (cName.includes('veg')) return true;
-      return (cat.items || []).some(i => i.dietaryPreference === 'VEG' || i.dietaryPreference === 'VEGAN') &&
-             !(cat.items || []).some(i => i.dietaryPreference === 'NON_VEG');
+      return (cat.items || []).some(i => {
+        const p = (i.dietaryPreference || '').toUpperCase();
+        return p === 'VEG' || p === 'VEGAN';
+      }) && !(cat.items || []).some(i => (i.dietaryPreference || '').toUpperCase() === 'NON_VEG');
     }
 
     if (diet === 'NON_VEG') {
       if (cType === 'non-veg') return true;
       if (cType === 'veg' || cType === 'vegan') return false;
       if (cName.includes('non-veg') || cName.includes('non veg') || cName.includes('nonveg')) return true;
-      return (cat.items || []).some(i => i.dietaryPreference === 'NON_VEG');
+      return (cat.items || []).some(i => (i.dietaryPreference || '').toUpperCase() === 'NON_VEG');
     }
 
     if (diet === 'VEGAN') {
       if (cType === 'vegan') return true;
-      if (cType === 'non-veg' || cType === 'non-vegan') return false;
+      if (cType === 'non-veg') return false;
       if (cName.includes('vegan')) return true;
-      return (cat.items || []).some(i => i.dietaryPreference === 'VEGAN');
-    }
-
-    if (diet === 'NON_VEGAN') {
-      if (cType === 'non-vegan') return true;
-      if (cType === 'vegan') return false;
-      if (cName.includes('non-vegan') || cName.includes('non vegan')) return true;
-      return (cat.items || []).some(i => i.dietaryPreference !== 'VEGAN');
+      return (cat.items || []).some(i => (i.dietaryPreference || '').toUpperCase() === 'VEGAN');
     }
 
     return true;
@@ -270,10 +264,10 @@ export default function HomePage({ forcedSlug }) {
 
   const itemMatchesDiet = (pref, diet) => {
     if (!diet || diet === 'ALL') return true;
-    if (diet === 'VEG') return pref === 'VEG' || pref === 'VEGAN';
-    if (diet === 'NON_VEG') return pref === 'NON_VEG';
-    if (diet === 'VEGAN') return pref === 'VEGAN';
-    if (diet === 'NON_VEGAN') return pref !== 'VEGAN';
+    const p = (pref || '').toUpperCase();
+    if (diet === 'VEG') return p === 'VEG' || p === 'VEGAN';
+    if (diet === 'NON_VEG') return p === 'NON_VEG';
+    if (diet === 'VEGAN') return p === 'VEGAN';
     return true;
   };
 
@@ -410,7 +404,11 @@ export default function HomePage({ forcedSlug }) {
           <div className="flex items-center gap-1.5 mb-0.5">
             <h4 className="font-serif font-bold text-sm text-[var(--color-text)] truncate">{item.name}</h4>
             {item.dietaryPreference && (
-              <span className={`w-2 h-2 rounded-full shrink-0 ${item.dietaryPreference === 'VEG' || item.dietaryPreference === 'VEGAN' ? 'bg-green-600' : 'bg-red-600'}`} />
+              <span className={`w-2 h-2 rounded-full shrink-0 ${
+                (item.dietaryPreference || '').toUpperCase() === 'VEG' || (item.dietaryPreference || '').toUpperCase() === 'VEGAN'
+                  ? 'bg-green-600'
+                  : 'bg-red-600'
+              }`} />
             )}
           </div>
           {categoryName && (
@@ -709,8 +707,7 @@ export default function HomePage({ forcedSlug }) {
                 { id: 'ALL', label: 'All' },
                 { id: 'VEG', label: 'Veg', dot: 'bg-green-600' },
                 { id: 'NON_VEG', label: 'Non-Veg', dot: 'bg-red-600' },
-                { id: 'VEGAN', label: 'Vegan', dot: 'bg-emerald-600' },
-                { id: 'NON_VEGAN', label: 'Non-Vegan', dot: 'bg-orange-600' }
+                { id: 'VEGAN', label: 'Vegan', dot: 'bg-emerald-600' }
               ].map(dietBtn => {
                 const isActive = activeDiet === dietBtn.id;
                 return (
@@ -853,8 +850,7 @@ export default function HomePage({ forcedSlug }) {
                 { value: 'ALL', label: 'All' },
                 { value: 'VEG', label: 'Veg' },
                 { value: 'NON_VEG', label: 'Non-Veg' },
-                { value: 'VEGAN', label: 'Vegan' },
-                { value: 'NON_VEGAN', label: 'Non-Vegan' }
+                { value: 'VEGAN', label: 'Vegan' }
               ].map(type => (
                 <button
                   key={type.value}

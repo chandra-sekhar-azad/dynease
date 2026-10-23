@@ -382,7 +382,7 @@ exports.createMenuItem = async (req, res) => {
           description: menuItem.description,
           price: parseFloat(menuItem.price),
           isAvailable: menuItem.menu_item_status === 'AVAILABLE',
-          dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
+          dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'VEG' : 'NON_VEG',
           itemSize: menuItem.item_size,
           displayOrder: menuItem.display_order,
           rating: menuItem.rating ? parseFloat(menuItem.rating) : null,
@@ -519,7 +519,7 @@ exports.updateMenuItem = async (req, res) => {
           image: menuItem.image || null,
           price: parseFloat(menuItem.price),
           isAvailable: menuItem.menu_item_status === 'AVAILABLE',
-          dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
+          dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'VEG' : 'NON_VEG',
           itemSize: menuItem.item_size,
           displayOrder: menuItem.display_order,
           rating: menuItem.rating ? parseFloat(menuItem.rating) : null,
@@ -572,7 +572,7 @@ exports.getMenu = async (req, res) => {
       image: r.image || null,
       price: parseFloat(r.price),
       isAvailable: r.menu_item_status === 'AVAILABLE',
-      dietaryPreference: r.menu_item_type === 'VEG' ? 'veg' : 'non-veg',
+      dietaryPreference: r.menu_item_type === 'VEG' ? 'VEG' : 'NON_VEG',
       preparationTime: 15,
       quantities: []
     }));

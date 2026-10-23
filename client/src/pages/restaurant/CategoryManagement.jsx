@@ -326,8 +326,7 @@ export default function CategoryManagement() {
                     { id: 'all', label: 'All' },
                     { id: 'veg', label: 'Veg' },
                     { id: 'non-veg', label: 'Non-Veg' },
-                    { id: 'vegan', label: 'Vegan' },
-                    { id: 'non-vegan', label: 'Non-Vegan' }
+                    { id: 'vegan', label: 'Vegan' }
                   ].map(t => (
                     <button
                       type="button"
