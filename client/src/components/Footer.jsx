@@ -53,7 +53,17 @@ export default function Footer({ className = "" }) {
       
       <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-[#094825] flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-400">
         <p>© {new Date().getFullYear()} Dynease. All rights reserved.</p>
-        <h5 className="font-bold text-white hover:text-black-500 transition-colors duration-200"> <a className="text-white hover:text-[#34d399] transition-colors"><a href="https://www.thewebgenixx.in" target="_blank" rel="noopener noreferrer">Designed and Developed by Webgenixx</a></a>❤️</h5>
+        <h5 className="font-bold text-white transition-colors duration-200">
+          <a
+            href="https://www.thewebgenixx.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white hover:text-[#34d399] transition-colors"
+          >
+            Designed and Developed by Webgenixx
+          </a>{' '}
+          ❤️
+        </h5>
         <p className="hidden md:block">Smarter Restaurants. Happier Customers.</p>
       </div>
     </footer>
