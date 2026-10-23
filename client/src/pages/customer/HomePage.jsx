@@ -274,15 +274,6 @@ export default function HomePage({ forcedSlug }) {
     return filter.keywords.some(kw => nameLower.includes(kw) || descLower.includes(kw));
   };
 
-  const isCategoryMatchingDietAndSize = (cat, diet, sizeId) => {
-    const dietMatches = isCategoryMatchingDiet(cat, diet);
-    if (!dietMatches) return false;
-    if (!sizeId || sizeId === 'ALL') return true;
-    return (cat.items || []).some(item => 
-      itemMatchesDiet(item.dietaryPreference, diet) && itemMatchesSize(item, sizeId)
-    );
-  };
-
   const filteredCategories = categories.map(cat => ({
     ...cat,
     items: (cat.items || []).filter(item => {
@@ -303,14 +294,6 @@ export default function HomePage({ forcedSlug }) {
       const matchesDiet = itemMatchesDiet(item.dietaryPreference, activeDiet);
       const matchesSize = itemMatchesSize(item, activeSize);
       return matchesSearch && matchesDiet && matchesSize;
-    }).map(item => ({ ...item, categoryName: cat.name }))
-  ) : [];
-
-  const sizeFilteredDishes = activeSize !== 'ALL' ? categories.flatMap(cat =>
-    (cat.items || []).filter(item => {
-      const matchesDiet = itemMatchesDiet(item.dietaryPreference, activeDiet);
-      const matchesSize = itemMatchesSize(item, activeSize);
-      return matchesDiet && matchesSize;
     }).map(item => ({ ...item, categoryName: cat.name }))
   ) : [];
 
@@ -525,7 +508,10 @@ export default function HomePage({ forcedSlug }) {
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 {selectedCategory ? (
                   <button 
-                    onClick={() => setSelectedCategory(null)} 
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setActiveSize('ALL');
+                    }} 
                     className="p-1.5 -ml-1 hover:bg-[var(--color-background)] rounded-[var(--radius-sm)] transition-colors shrink-0 cursor-pointer"
                   >
                     <ArrowLeft size={20} className="text-[var(--color-text)]" />
@@ -713,11 +699,6 @@ export default function HomePage({ forcedSlug }) {
             </div>
           </div>
 
-          {/* Size Filter Buttons (Half, Full, Small, Medium, Large, Jumbo) */}
-          <div className="px-4 pb-3.5">
-            {renderSizeFilterButtons()}
-          </div>
-
           {/* Search Results */}
           {search.trim() ? (
             <div className="px-4 pt-2 pb-6">
@@ -741,51 +722,22 @@ export default function HomePage({ forcedSlug }) {
                 <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 p-6">
                   <Search size={28} className="mx-auto text-gray-300 mb-2" />
                   <p className="font-serif font-bold text-sm text-gray-700">No dishes match "{search}"</p>
-                  <p className="text-xs text-gray-400 mt-1">Try another keyword or select another size/diet filter</p>
-                </div>
-              )}
-            </div>
-          ) : activeSize !== 'ALL' ? (
-            /* Dishes Filtered By Size on Home View */
-            <div className="px-4 pt-2 pb-6">
-              <div className="flex justify-between items-center mb-3">
-                <div>
-                  <h3 className="font-serif font-bold text-sm text-[var(--color-text)]">
-                    Dishes available in {SIZE_FILTERS.find(f => f.id === activeSize)?.label} ({sizeFilteredDishes.length})
-                  </h3>
-                  <p className="text-[11px] text-gray-500">Filtered by {SIZE_FILTERS.find(f => f.id === activeSize)?.label} size</p>
-                </div>
-                <button 
-                  onClick={() => setActiveSize('ALL')} 
-                  className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
-                >
-                  All sizes
-                </button>
-              </div>
-
-              {sizeFilteredDishes.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                  {sizeFilteredDishes.map(item => renderDishItem(item, item.categoryName))}
-                </div>
-              ) : (
-                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 p-6">
-                  <p className="font-serif font-bold text-sm text-gray-700">No dishes available in {SIZE_FILTERS.find(f => f.id === activeSize)?.label}</p>
-                  <p className="text-xs text-gray-400 mt-1">Try selecting another size filter or view all sizes</p>
-                  <button onClick={() => setActiveSize('ALL')} className="mt-3 text-xs text-emerald-700 font-bold hover:underline cursor-pointer">
-                    Show all sizes
-                  </button>
+                  <p className="text-xs text-gray-400 mt-1">Try another keyword or select another type filter</p>
                 </div>
               )}
             </div>
           ) : (
             /* Categories Grid */
             <div className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4 mt-1">
-              {categories.filter(cat => isCategoryMatchingDietAndSize(cat, activeDiet, activeSize)).map(cat => {
+              {categories.filter(cat => isCategoryMatchingDiet(cat, activeDiet)).map(cat => {
                 const catImage = cat.image || cat.items.find(i => i.imageUrl)?.imageUrl;
                 return (
                   <div 
                     key={cat.name} 
-                    onClick={() => setSelectedCategory(cat.name)}
+                    onClick={() => {
+                      setSelectedCategory(cat.name);
+                      setActiveSize('ALL');
+                    }}
                     className="bg-white rounded-[var(--radius-sm)] border border-[var(--color-border)] p-2 flex flex-col items-center text-center cursor-pointer hover:border-[var(--color-primary-light)] transition-colors group shadow-xs hover:shadow-sm"
                   >
                     <div className="w-full aspect-[4/3] bg-[var(--color-background)] rounded-[var(--radius-sm)] mb-3 overflow-hidden border border-[var(--color-border)]">
@@ -810,12 +762,12 @@ export default function HomePage({ forcedSlug }) {
                   </div>
                 );
               })}
-              {categories.filter(cat => isCategoryMatchingDietAndSize(cat, activeDiet, activeSize)).length === 0 && (
+              {categories.filter(cat => isCategoryMatchingDiet(cat, activeDiet)).length === 0 && (
                 <div className="col-span-2 text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 p-6">
                   <p className="font-serif font-bold text-sm text-gray-700">No categories found</p>
-                  <p className="text-xs text-gray-400 mt-1">No categories match the selected filter</p>
-                  <button onClick={() => { setActiveDiet('ALL'); setActiveSize('ALL'); }} className="mt-3 text-xs text-emerald-700 font-bold hover:underline cursor-pointer">
-                    Reset all filters
+                  <p className="text-xs text-gray-400 mt-1">No categories match the selected type filter</p>
+                  <button onClick={() => setActiveDiet('ALL')} className="mt-3 text-xs text-emerald-700 font-bold hover:underline cursor-pointer">
+                    Show all categories
                   </button>
                 </div>
               )}
