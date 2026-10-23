@@ -3,9 +3,10 @@ import {
   CreditCard, Plus, Edit2, Trash2, CheckCircle2, XCircle, 
   AlertTriangle, RefreshCw, Layers, Users, Store, Clock, 
   Check, X, Search, ShieldAlert, ArrowUpRight, ChevronRight,
-  Filter, Sparkles
+  Filter, Sparkles, RotateCcw, SlidersHorizontal
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
+import { useSocketEvents } from '../../lib/socket';
 
 export default function PlanManagement() {
   const [plans, setPlans] = useState([]);
@@ -39,6 +40,18 @@ export default function PlanManagement() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Override Restaurant Plan Modal State
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [selectedRestaurantForOverride, setSelectedRestaurantForOverride] = useState(null);
+  const [overrideForm, setOverrideForm] = useState({
+    planId: '',
+    selectedPlan: '',
+    isPlanOverridden: true,
+    overriddenPlan: '',
+    note: ''
+  });
+  const [isSavingOverride, setIsSavingOverride] = useState(false);
+
   // Reject Request Modal State
   const [rejectingRequest, setRejectingRequest] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -51,6 +64,14 @@ export default function PlanManagement() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Realtime updates
+  useSocketEvents({
+    restaurant_registered: () => fetchData(),
+    restaurant_updated: () => fetchData(),
+    plan_request: () => fetchData(),
+    plan_request_updated: () => fetchData(),
+  });
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -78,6 +99,92 @@ export default function PlanManagement() {
       console.error('[PlanManagement] Error loading data:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Plan Override Handlers
+  const handleOpenOverrideModal = (restaurant) => {
+    setSelectedRestaurantForOverride(restaurant);
+    const currentPlanId = restaurant.plan_id || '';
+    const matchedPlan = plans.find(p => p.id === currentPlanId);
+    const defaultPlanName = restaurant.overriden_plan || (matchedPlan ? matchedPlan.name : (restaurant.selectedPlan || 'Starter'));
+
+    setOverrideForm({
+      planId: currentPlanId || (plans[0]?.id || ''),
+      selectedPlan: defaultPlanName,
+      isPlanOverridden: restaurant.is_plan_overridden ?? true,
+      overriddenPlan: restaurant.overriden_plan || defaultPlanName,
+      note: ''
+    });
+    setOverrideModalOpen(true);
+  };
+
+  const handleSaveOverride = async (e) => {
+    e.preventDefault();
+    if (!selectedRestaurantForOverride) return;
+
+    setIsSavingOverride(true);
+    try {
+      const selectedPlanObj = plans.find(p => p.id === overrideForm.planId);
+      const effectivePlanName = overrideForm.overriddenPlan?.trim() || (selectedPlanObj ? selectedPlanObj.name : overrideForm.selectedPlan);
+
+      const payload = {
+        planId: overrideForm.planId,
+        selectedPlan: effectivePlanName,
+        isPlanOverridden: Boolean(overrideForm.isPlanOverridden),
+        overriddenPlan: overrideForm.isPlanOverridden ? effectivePlanName.toUpperCase() : null,
+        note: overrideForm.note?.trim() || `Plan override set to ${effectivePlanName} by Admin`
+      };
+
+      const resId = selectedRestaurantForOverride.id || selectedRestaurantForOverride._id;
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${resId}/billing`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setOverrideModalOpen(false);
+        setSelectedRestaurantForOverride(null);
+        await fetchData();
+        alert('Restaurant plan successfully updated!');
+      } else {
+        alert(data.message || 'Failed to update restaurant plan override');
+      }
+    } catch (err) {
+      console.error('[PlanManagement] Error saving plan override:', err);
+      alert('Network error while saving plan override');
+    } finally {
+      setIsSavingOverride(false);
+    }
+  };
+
+  const handleRemoveOverride = async (restaurant) => {
+    if (!window.confirm(`Reset "${restaurant.name}" back to standard platform plan tier?`)) return;
+    try {
+      const assignedPlan = plans.find(p => p.id === restaurant.plan_id) || plans[0];
+      const payload = {
+        planId: assignedPlan?.id,
+        selectedPlan: assignedPlan?.name || 'Starter',
+        isPlanOverridden: false,
+        overriddenPlan: null,
+        note: 'Override cleared by Admin'
+      };
+
+      const resId = restaurant.id || restaurant._id;
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${resId}/billing`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchData();
+      } else {
+        alert(data.message || 'Failed to remove plan override');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error removing plan override');
     }
   };
 
@@ -468,9 +575,18 @@ export default function PlanManagement() {
 
                   {/* Actions & Assigned Count */}
                   <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-gray-500">
-                      {assignedCount} Restaurant{assignedCount !== 1 ? 's' : ''}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPlanFilter(p.id);
+                        setActiveTab('assignments');
+                      }}
+                      className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 cursor-pointer group"
+                      title="View restaurants on this plan"
+                    >
+                      <span>{assignedCount} Restaurant{assignedCount !== 1 ? 's' : ''}</span>
+                      <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                    </button>
 
                     <div className="flex items-center gap-1.5">
                       <button
@@ -556,12 +672,13 @@ export default function PlanManagement() {
                     <th className="py-3 px-4">Plan Override</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Created Date</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-gray-700">
                   {filteredRestaurants.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-gray-400 font-medium">
+                      <td colSpan={7} className="py-8 text-center text-gray-400 font-medium">
                         No restaurants found matching filters.
                       </td>
                     </tr>
@@ -580,9 +697,19 @@ export default function PlanManagement() {
                           </td>
                           <td className="py-3.5 px-4">
                             {r.is_plan_overridden ? (
-                              <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                                Overridden: {r.overriden_plan || 'Custom'}
-                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                  <Sparkles size={10} /> Overridden: {r.overriden_plan || 'Custom'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveOverride(r)}
+                                  className="text-[10px] text-gray-400 hover:text-rose-600 underline cursor-pointer"
+                                  title="Reset to standard platform tier"
+                                >
+                                  Reset
+                                </button>
+                              </div>
                             ) : (
                               <span className="text-gray-400 font-medium">—</span>
                             )}
@@ -600,6 +727,16 @@ export default function PlanManagement() {
                           </td>
                           <td className="py-3.5 px-4 text-gray-500">
                             {new Date(r.createdat).toLocaleDateString()}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              onClick={() => handleOpenOverrideModal(r)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition shadow-2xs cursor-pointer"
+                              title="Override or change plan for this restaurant"
+                            >
+                              <Sparkles size={13} className="text-emerald-600" />
+                              Override Plan
+                            </button>
                           </td>
                         </tr>
                       );
@@ -937,6 +1074,198 @@ export default function PlanManagement() {
                 >
                   Confirm Rejection
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── OVERRIDE RESTAURANT PLAN MODAL ── */}
+      {overrideModalOpen && selectedRestaurantForOverride && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-gray-100 my-auto animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-purple-100 text-purple-700 rounded-xl">
+                  <Sparkles size={22} />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-gray-900 font-serif">
+                    Override Restaurant Plan
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    <span className="font-semibold text-gray-800">{selectedRestaurantForOverride.name}</span>
+                    <span className="mx-1.5 text-gray-300">•</span>
+                    <span className="font-mono text-gray-600">{selectedRestaurantForOverride.domain}.dynease.in</span>
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => { setOverrideModalOpen(false); setSelectedRestaurantForOverride(null); }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded-lg hover:bg-gray-100 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveOverride} className="mt-4 space-y-4 text-xs">
+              {/* Informative Callout */}
+              <div className="p-3 bg-purple-50 border border-purple-200/60 rounded-xl text-purple-900 leading-relaxed text-[11px] flex items-start gap-2.5">
+                <Sparkles size={16} className="text-purple-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Immediate Subscription Override:</span> Changing this plan will update 
+                  the restaurant's feature access and entitlements instantly without requiring owner checkout.
+                </div>
+              </div>
+
+              {/* Status Comparison Card */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div>
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">Currently Active</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-xs font-bold text-gray-900">
+                      {selectedRestaurantForOverride.overriden_plan || selectedRestaurantForOverride.selectedPlan || 'Starter'}
+                    </span>
+                    {selectedRestaurantForOverride.is_plan_overridden && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-700">
+                        Overridden
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">Selected Target Tier</span>
+                  <span className="text-xs font-bold text-emerald-700 block mt-0.5">
+                    {overrideForm.selectedPlan || 'Choose below'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Plan Picker Grid */}
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1.5">
+                  Select Subscription Plan Tier *
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {plans.map((p) => {
+                    const isSelected = overrideForm.planId === p.id;
+                    const cfg = p.configuration || {};
+                    return (
+                      <button
+                        type="button"
+                        key={p.id}
+                        onClick={() => {
+                          setOverrideForm({
+                            ...overrideForm,
+                            planId: p.id,
+                            selectedPlan: p.name,
+                            overriddenPlan: p.name.toUpperCase()
+                          });
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20'
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">{p.name}</div>
+                        <div className="text-[10px] text-gray-500 font-semibold mt-1">
+                          {cfg.monthlyDisplayPrice ? `₹${cfg.monthlyDisplayPrice}/mo` : 'Custom'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Toggle: Flag as Plan Override */}
+              <div className="pt-2 border-t border-gray-100">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={overrideForm.isPlanOverridden}
+                    onChange={(e) => setOverrideForm({ ...overrideForm, isPlanOverridden: e.target.checked })}
+                    className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-semibold text-gray-800 block text-xs">
+                      Flag as Manual Plan Override
+                    </span>
+                    <span className="text-[11px] text-gray-500 block">
+                      Marks this restaurant with the purple Override badge and prevents automatic tier downgrades.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Custom Override Label */}
+              {overrideForm.isPlanOverridden && (
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">
+                    Override Plan Label / Display Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={overrideForm.overriddenPlan}
+                    onChange={(e) => setOverrideForm({ ...overrideForm, overriddenPlan: e.target.value.toUpperCase() })}
+                    placeholder="e.g. STARTER, GROWTH, BUSINESS, PRO, ENTERPRISE"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-emerald-500 font-mono text-xs font-bold uppercase tracking-wider text-purple-900"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    This label will be shown in the restaurant admin dashboard and system reports.
+                  </p>
+                </div>
+              )}
+
+              {/* Admin Note */}
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">Reason / Note for Audit Trail</label>
+                <input
+                  type="text"
+                  value={overrideForm.note}
+                  onChange={(e) => setOverrideForm({ ...overrideForm, note: e.target.value })}
+                  placeholder="e.g. Special custom plan approved by Director / promo offer"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-emerald-500 text-xs"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                {selectedRestaurantForOverride.is_plan_overridden ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleRemoveOverride(selectedRestaurantForOverride);
+                      setOverrideModalOpen(false);
+                    }}
+                    className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer"
+                    title="Remove override flag and reset to standard tier"
+                  >
+                    <RotateCcw size={12} />
+                    Reset Override
+                  </button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setOverrideModalOpen(false); setSelectedRestaurantForOverride(null); }}
+                    className="px-4 py-2 border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 cursor-pointer text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingOverride}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 text-xs transition"
+                  >
+                    <Sparkles size={14} />
+                    {isSavingOverride ? 'Saving...' : 'Apply Plan Override'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

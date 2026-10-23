@@ -296,7 +296,16 @@ exports.updateRestaurantBilling = async (req, res, next) => {
       updateData.overriden_plan = overriddenPlan;
     }
 
-    if (selectedPlan) {
+    if (req.body.planId) {
+      const [p] = await db.select().from(plans).where(
+        and(eq(plans.id, req.body.planId), eq(plans.is_deleted, false))
+      ).limit(1);
+      if (p) {
+        updateData.plan_id = p.id;
+        updateData.overriden_plan = (overriddenPlan || p.name).toUpperCase();
+        updateData.is_plan_overridden = isPlanOverridden !== undefined ? Boolean(isPlanOverridden) : true;
+      }
+    } else if (selectedPlan) {
       const [p] = await db.select().from(plans).where(
         and(
           or(
@@ -309,6 +318,12 @@ exports.updateRestaurantBilling = async (req, res, next) => {
 
       if (p) {
         updateData.plan_id = p.id;
+        updateData.overriden_plan = (overriddenPlan || p.name).toUpperCase();
+      } else {
+        updateData.overriden_plan = (overriddenPlan || selectedPlan).toUpperCase();
+      }
+      if (isPlanOverridden !== undefined) {
+        updateData.is_plan_overridden = Boolean(isPlanOverridden);
       }
     }
 
@@ -321,16 +336,30 @@ exports.updateRestaurantBilling = async (req, res, next) => {
         action: 'UPDATE_BILLING',
         entity_type: 'RESTAURANT',
         entity_id: id,
-        details: { ...updateData, note: note || 'Billing updated by admin' }
+        details: { ...updateData, note: note || 'Plan/Billing updated by admin' }
       });
     });
 
     const [updated] = await db.select().from(restaurants).where(eq(restaurants.id, id)).limit(1);
 
+    RealtimeService.adminEvent('restaurant_updated', {
+      id,
+      name: updated.name,
+      plan_id: updated.plan_id,
+      selectedPlan: (updated.overriden_plan || 'Starter').toUpperCase(),
+      is_plan_overridden: updated.is_plan_overridden,
+      overriden_plan: updated.overriden_plan
+    });
+
     res.status(200).json({
       success: true,
       message: 'Subscription & billing updated successfully in PostgreSQL',
-      data: { restaurant: updated }
+      data: { 
+        restaurant: {
+          ...updated,
+          selectedPlan: (updated.overriden_plan || 'Starter').toUpperCase()
+        } 
+      }
     });
   } catch (error) {
     next(error);

@@ -413,15 +413,18 @@ export default function RestaurantsManagement() {
 
     setIsSavingBilling(true);
     try {
+      const resId = editingRestaurantBilling.id || editingRestaurantBilling._id;
       const payload = {
         daysRemaining: parseInt(editDaysRemaining, 10),
         subscriptionEndDate: editEndDate ? new Date(editEndDate).toISOString() : undefined,
         selectedPlan: editPlan,
+        isPlanOverridden: true,
+        overriddenPlan: editPlan.toUpperCase(),
         subscriptionStatus: editStatus,
         note: editNote || `Admin updated plan to ${editPlan} (${editDaysRemaining} days remaining)`
       };
 
-      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${editingRestaurantBilling._id}/billing`, {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${resId}/billing`, {
         method: 'PUT',
         body: JSON.stringify(payload)
       });
@@ -1217,6 +1220,84 @@ export default function RestaurantsManagement() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Restaurant Plan Overrides Table */}
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-gray-900 font-serif flex items-center gap-2">
+                  <Sparkles size={18} className="text-emerald-600" />
+                  Restaurant Plan Overrides
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Directly override or adjust the subscription tier of any registered restaurant.
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase font-semibold">
+                  <tr>
+                    <th className="py-3 px-4">Restaurant</th>
+                    <th className="py-3 px-4">Subdomain</th>
+                    <th className="py-3 px-4">Current Plan</th>
+                    <th className="py-3 px-4">Override Status</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-gray-700">
+                  {restaurants.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-gray-400">
+                        No restaurants available.
+                      </td>
+                    </tr>
+                  ) : (
+                    restaurants.map(r => (
+                      <tr key={r.id || r._id} className="hover:bg-gray-50/60 transition">
+                        <td className="py-3 px-4 font-semibold text-gray-900">{r.name}</td>
+                        <td className="py-3 px-4 font-mono text-gray-500 text-[11px]">{r.domain || r.slug}.dynease.in</td>
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md">
+                            {r.selectedPlan || 'STARTER'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {r.is_plan_overridden ? (
+                            <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                              <Sparkles size={10} /> Overridden: {r.overriden_plan || 'Custom'}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 font-medium">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            r.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {r.status || 'ACTIVE'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => openBillingModal(r)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition shadow-2xs cursor-pointer"
+                            title="Override plan for this restaurant"
+                          >
+                            <Sparkles size={13} className="text-emerald-600" />
+                            Override Plan
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

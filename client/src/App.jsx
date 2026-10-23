@@ -269,8 +269,8 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="restaurants" element={<RestaurantsManagement />} />
             <Route path="billing" element={<Navigate to="/admin/restaurants?tab=billing" replace />} />
-            <Route path="plans" element={<Navigate to="/admin/restaurants?tab=plans" replace />} />
-            <Route path="plan-management" element={<Navigate to="/admin/restaurants?tab=plans" replace />} />
+            <Route path="plans" element={<PlanManagement />} />
+            <Route path="plan-management" element={<PlanManagement />} />
             <Route path="requests" element={<Navigate to="/admin/restaurants?tab=requests" replace />} />
             <Route path="ads" element={<AdsManagement />} />
             <Route path="messages" element={<CustomMessage />} />
