@@ -38,17 +38,35 @@ exports.getCategories = async (req, res) => {
       )
     ).orderBy(menu_categories.display_order, menu_categories.category);
 
-    const categories = categoryRows.map(c => ({
-      _id: c.id,
-      id: c.id,
-      restaurantId: c.restaurant_id,
-      name: c.category,
-      description: c.description || '',
-      image: c.image || null,
-      displayOrder: c.display_order ?? 0,
-      isActive: c.menu_category_status === 'ACTIVE',
-      type: c.type || 'all'
-    }));
+    const categories = categoryRows.map(c => {
+      const explicitType = (c.type || '').toLowerCase().trim();
+      const catLower = (c.category || '').toLowerCase();
+      const isNonVeg = explicitType === 'non-veg' || (
+        explicitType !== 'veg' && (
+          catLower.includes('non-veg') ||
+          catLower.includes('non veg') ||
+          catLower.includes('nonveg') ||
+          catLower.includes('chicken') ||
+          catLower.includes('mutton') ||
+          catLower.includes('fish') ||
+          catLower.includes('prawn') ||
+          catLower.includes('seafood') ||
+          catLower.includes('egg')
+        )
+      );
+
+      return {
+        _id: c.id,
+        id: c.id,
+        restaurantId: c.restaurant_id,
+        name: c.category,
+        description: c.description || '',
+        image: c.image || null,
+        displayOrder: c.display_order ?? 0,
+        isActive: c.menu_category_status === 'ACTIVE',
+        type: isNonVeg ? 'non-veg' : 'veg'
+      };
+    });
 
     res.status(200).json({ success: true, data: { categories } });
   } catch (error) {
@@ -91,11 +109,12 @@ exports.createCategory = async (req, res) => {
       }
     }
 
+    const normType = (type?.trim()?.toLowerCase() === 'non-veg') ? 'non-veg' : 'veg';
     const [category] = await db.insert(menu_categories).values({
       restaurant_id: restaurantId,
       category: name.trim(),
       description: description?.trim() || '',
-      type: type?.trim()?.toLowerCase() || 'all',
+      type: normType,
       image,
       display_order: displayOrder !== undefined && displayOrder !== '' ? parseInt(displayOrder, 10) : 0,
       menu_category_status: 'ACTIVE'
@@ -112,7 +131,7 @@ exports.createCategory = async (req, res) => {
           name: category.category,
           description: category.description,
           displayOrder: category.display_order,
-          type: category.type || 'all',
+          type: category.type === 'non-veg' ? 'non-veg' : 'veg',
           isActive: category.menu_category_status === 'ACTIVE',
           image
         }
@@ -136,7 +155,7 @@ exports.updateCategory = async (req, res) => {
 
     if (name) updateFields.category = name.trim();
     if (description !== undefined) updateFields.description = description.trim();
-    if (type !== undefined) updateFields.type = type.trim().toLowerCase();
+    if (type !== undefined) updateFields.type = (type.trim().toLowerCase() === 'non-veg') ? 'non-veg' : 'veg';
     if (displayOrder !== undefined && displayOrder !== '') updateFields.display_order = parseInt(displayOrder, 10);
     if (isActive !== undefined) {
       updateFields.menu_category_status = (isActive === true || isActive === 'true') ? 'ACTIVE' : 'INACTIVE';

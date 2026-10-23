@@ -7,14 +7,11 @@ const DIET_TYPES = [
   { value: 'ALL', label: 'All Types', color: 'gray' },
   { value: 'VEG', label: 'Veg', color: 'green' },
   { value: 'NON_VEG', label: 'Non-Veg', color: 'red' },
-  { value: 'NONE', label: 'None', color: 'gray' },
 ];
 
 const DIET_BADGE = {
   VEG: 'bg-green-100 text-green-700',
   NON_VEG: 'bg-red-100 text-red-700',
-  VEGAN: 'bg-emerald-100 text-emerald-700',
-  NONE: 'bg-gray-100 text-gray-600',
 };
 
 export default function MenuManagement() {
@@ -146,7 +143,7 @@ export default function MenuManagement() {
       category: item.category,
       description: item.description || '',
       price: item.price,
-      dietaryPreference: (item.dietaryPreference || 'NONE').toUpperCase(),
+      dietaryPreference: (item.dietaryPreference || '').toUpperCase().includes('NON') ? 'NON_VEG' : 'VEG',
       preparationTime: item.preparationTime || '15'
     });
     setQuantities(item.quantities || []);
@@ -193,7 +190,10 @@ export default function MenuManagement() {
   // Filtered items
   const filtered = items.filter(item => {
     const catMatch = activeCategory === 'ALL' || item.category === activeCategory;
-    const dietMatch = activeDiet === 'ALL' || (item.dietaryPreference || '').toUpperCase() === activeDiet;
+    const isItemNonVeg = (item.dietaryPreference || '').toUpperCase().includes('NON');
+    let dietMatch = true;
+    if (activeDiet === 'VEG') dietMatch = !isItemNonVeg;
+    else if (activeDiet === 'NON_VEG') dietMatch = isItemNonVeg;
     const searchMatch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase());
     return catMatch && dietMatch && searchMatch;
   });
@@ -301,7 +301,10 @@ export default function MenuManagement() {
                 {dt.label}
                 {dt.value !== 'ALL' && (
                   <span className="ml-1 text-[10px] opacity-60">
-                    ({items.filter(i => (i.dietaryPreference || '').toUpperCase() === dt.value).length})
+                    ({items.filter(i => {
+                      const isNon = (i.dietaryPreference || '').toUpperCase().includes('NON');
+                      return dt.value === 'NON_VEG' ? isNon : !isNon;
+                    }).length})
                   </span>
                 )}
               </button>
@@ -370,8 +373,15 @@ export default function MenuManagement() {
                 </td>
                 <td className="p-4">
                   <div className="flex flex-col gap-1">
-                    <span className={`px-2 py-1 rounded text-xs font-bold ${DIET_BADGE[(item.dietaryPreference || '').toUpperCase()] || DIET_BADGE.NONE}`}>
-                      {(item.dietaryPreference || '').toUpperCase()}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold w-fit ${
+                      (item.dietaryPreference || '').toUpperCase().includes('NON')
+                        ? 'bg-red-50 text-red-700 border border-red-200'
+                        : 'bg-green-50 text-green-700 border border-green-200'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${
+                        (item.dietaryPreference || '').toUpperCase().includes('NON') ? 'bg-red-600' : 'bg-green-600'
+                      }`} />
+                      {(item.dietaryPreference || '').toUpperCase().includes('NON') ? 'Non-Veg' : 'Veg'}
                     </span>
                     {item.quantities && item.quantities.length > 0 && (
                       <span className="text-[11px] text-gray-500 font-medium">
@@ -455,10 +465,14 @@ export default function MenuManagement() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-gray-700">Type *</label>
-                  <select name="dietaryPreference" value={formData.dietaryPreference} onChange={e => setFormData({...formData, dietaryPreference: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm">
+                  <select
+                    name="dietaryPreference"
+                    value={(formData.dietaryPreference || '').toUpperCase().includes('NON') ? 'NON_VEG' : 'VEG'}
+                    onChange={e => setFormData({...formData, dietaryPreference: e.target.value})}
+                    className="w-full p-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm"
+                  >
                     <option value="VEG">🟢 Veg</option>
                     <option value="NON_VEG">🔴 Non-Veg</option>
-                    <option value="NONE">⚪ None</option>
                   </select>
                 </div>
               </div>

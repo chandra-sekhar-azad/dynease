@@ -15,7 +15,7 @@ export default function CategoryManagement() {
   // Modal form states
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDesc, setNewCategoryDesc] = useState('');
-  const [categoryType, setCategoryType] = useState('all');
+  const [categoryType, setCategoryType] = useState('veg');
   const [categoryDisplayOrder, setCategoryDisplayOrder] = useState(0);
   const [categoryImage, setCategoryImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
@@ -97,7 +97,7 @@ export default function CategoryManagement() {
     setEditingCategory(null);
     setNewCategoryName('');
     setNewCategoryDesc('');
-    setCategoryType('all');
+    setCategoryType('veg');
     // Default priority order to next sequential integer
     const maxOrder = categories.reduce((max, c) => Math.max(max, c.displayOrder ?? 0), -1);
     setCategoryDisplayOrder(maxOrder + 1);
@@ -110,7 +110,7 @@ export default function CategoryManagement() {
     setEditingCategory(cat);
     setNewCategoryName(cat.name);
     setNewCategoryDesc(cat.description || '');
-    setCategoryType(cat.type || 'all');
+    setCategoryType((cat.type || '').toLowerCase() === 'non-veg' ? 'non-veg' : 'veg');
     setCategoryDisplayOrder(cat.displayOrder ?? 0);
     setCategoryImage(null);
     setPreviewImage(cat.image?.secure_url || null);
@@ -237,20 +237,16 @@ export default function CategoryManagement() {
       cat.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
       (cat.description && cat.description.toLowerCase().includes(searchQuery.trim().toLowerCase()));
 
-    const cType = (cat.type || 'all').toLowerCase();
+    const isNonVeg = (cat.type || '').toLowerCase() === 'non-veg';
     let matchesType = true;
-    if (selectedTypeFilter === 'VEG') matchesType = (cType === 'veg' || cType === 'vegan');
-    else if (selectedTypeFilter === 'NON_VEG') matchesType = (cType === 'non-veg');
-    else if (selectedTypeFilter === 'ALL_TYPES') matchesType = (cType === 'all');
+    if (selectedTypeFilter === 'VEG') matchesType = !isNonVeg;
+    else if (selectedTypeFilter === 'NON_VEG') matchesType = isNonVeg;
 
     return matchesSearch && matchesType;
   });
 
-  const vegCount = categories.filter(c => {
-    const t = (c.type || '').toLowerCase();
-    return t === 'veg' || t === 'vegan';
-  }).length;
   const nonVegCount = categories.filter(c => (c.type || '').toLowerCase() === 'non-veg').length;
+  const vegCount = categories.length - nonVegCount;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 min-h-[500px] relative">
@@ -449,24 +445,21 @@ export default function CategoryManagement() {
                         </div>
                       </td>
 
-                      {/* Type Column (Veg / Non-Veg / All) */}
+                      {/* Type Column (Veg / Non-Veg) */}
                       <td className="py-3.5 px-4">
-                        <div className="relative inline-block w-full max-w-[140px]">
+                        <div className="relative inline-block w-full max-w-[130px]">
                           <select
-                            value={currentType === 'vegan' ? 'veg' : currentType}
+                            value={currentType === 'non-veg' ? 'non-veg' : 'veg'}
                             onChange={(e) => handleQuickUpdate(cat._id, { type: e.target.value })}
                             disabled={isBusy}
                             className={`w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer transition-colors ${
-                              currentType === 'veg' || currentType === 'vegan'
-                                ? 'bg-green-50 text-green-800 border-green-300' 
-                                : currentType === 'non-veg'
+                              currentType === 'non-veg'
                                 ? 'bg-red-50 text-red-800 border-red-300'
-                                : 'bg-gray-50 text-gray-700 border-gray-300'
+                                : 'bg-green-50 text-green-800 border-green-300'
                             }`}
                           >
                             <option value="veg">🟢 Veg</option>
                             <option value="non-veg">🔴 Non-Veg</option>
-                            <option value="all">⚪ All Types</option>
                           </select>
                         </div>
                       </td>
@@ -542,17 +535,13 @@ export default function CategoryManagement() {
                           </span>
                         </div>
                         <div className="mt-1">
-                          {currentType === 'veg' || currentType === 'vegan' ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-50 text-green-800 border border-green-200 uppercase tracking-wider">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Veg
-                            </span>
-                          ) : currentType === 'non-veg' ? (
+                          {currentType === 'non-veg' ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-50 text-red-800 border border-red-200 uppercase tracking-wider">
                               <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span> Non-Veg
                             </span>
                           ) : (
-                            <span className="inline-block text-[10px] font-medium text-gray-500 px-2 py-0.5 rounded bg-gray-100 uppercase tracking-wider">
-                              All types
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-50 text-green-800 border border-green-200 uppercase tracking-wider">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Veg
                             </span>
                           )}
                         </div>
@@ -662,9 +651,8 @@ export default function CategoryManagement() {
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Category Type (Dietary Preference)
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'all', label: 'All Types', icon: '⚪' },
                     { id: 'veg', label: 'Veg', icon: '🟢', highlight: 'text-green-800 bg-green-50 border-green-500' },
                     { id: 'non-veg', label: 'Non-Veg', icon: '🔴', highlight: 'text-red-800 bg-red-50 border-red-500' }
                   ].map(t => (
@@ -674,7 +662,7 @@ export default function CategoryManagement() {
                       onClick={() => setCategoryType(t.id)}
                       className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center flex items-center justify-center gap-1.5 ${
                         categoryType === t.id
-                          ? `ring-2 ring-green-500 ${t.highlight || 'bg-green-50 border-green-500 text-green-800'} shadow-sm`
+                          ? `ring-2 ring-green-500 ${t.highlight} shadow-sm`
                           : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                       }`}
                     >

@@ -233,30 +233,14 @@ export default function HomePage({ forcedSlug }) {
     if (!diet || diet === 'ALL') return true;
     const cType = (cat.type || '').toLowerCase();
     const cName = (cat.name || '').toLowerCase();
+    const isCatNonVeg = cType === 'non-veg' || cName.includes('non-veg') || cName.includes('non veg') || cName.includes('nonveg');
 
     if (diet === 'VEG') {
-      if (cType === 'veg' || cType === 'vegan') return true;
-      if (cType === 'non-veg') return false;
-      if (cName.includes('non-veg') || cName.includes('non veg') || cName.includes('nonveg')) return false;
-      if (cName.includes('veg')) return true;
-      return (cat.items || []).some(i => {
-        const p = (i.dietaryPreference || '').toUpperCase();
-        return p === 'VEG' || p === 'VEGAN';
-      }) && !(cat.items || []).some(i => (i.dietaryPreference || '').toUpperCase() === 'NON_VEG');
+      return !isCatNonVeg;
     }
 
     if (diet === 'NON_VEG') {
-      if (cType === 'non-veg') return true;
-      if (cType === 'veg' || cType === 'vegan') return false;
-      if (cName.includes('non-veg') || cName.includes('non veg') || cName.includes('nonveg')) return true;
-      return (cat.items || []).some(i => (i.dietaryPreference || '').toUpperCase() === 'NON_VEG');
-    }
-
-    if (diet === 'VEGAN') {
-      if (cType === 'vegan') return true;
-      if (cType === 'non-veg') return false;
-      if (cName.includes('vegan')) return true;
-      return (cat.items || []).some(i => (i.dietaryPreference || '').toUpperCase() === 'VEGAN');
+      return isCatNonVeg;
     }
 
     return true;
@@ -265,9 +249,9 @@ export default function HomePage({ forcedSlug }) {
   const itemMatchesDiet = (pref, diet) => {
     if (!diet || diet === 'ALL') return true;
     const p = (pref || '').toUpperCase();
-    if (diet === 'VEG') return p === 'VEG' || p === 'VEGAN';
-    if (diet === 'NON_VEG') return p === 'NON_VEG';
-    if (diet === 'VEGAN') return p === 'VEGAN';
+    const isNonVeg = p.includes('NON');
+    if (diet === 'VEG') return !isNonVeg;
+    if (diet === 'NON_VEG') return isNonVeg;
     return true;
   };
 
@@ -405,9 +389,9 @@ export default function HomePage({ forcedSlug }) {
             <h4 className="font-serif font-bold text-sm text-[var(--color-text)] truncate">{item.name}</h4>
             {item.dietaryPreference && (
               <span className={`w-2 h-2 rounded-full shrink-0 ${
-                (item.dietaryPreference || '').toUpperCase() === 'VEG' || (item.dietaryPreference || '').toUpperCase() === 'VEGAN'
-                  ? 'bg-green-600'
-                  : 'bg-red-600'
+                (item.dietaryPreference || '').toUpperCase().includes('NON')
+                  ? 'bg-red-600'
+                  : 'bg-green-600'
               }`} />
             )}
           </div>
@@ -814,14 +798,13 @@ export default function HomePage({ forcedSlug }) {
                       )}
                     </div>
                     <h3 className="font-serif font-semibold text-[var(--color-text)] text-sm leading-tight mb-1 pb-1 tracking-wide">{cat.name}</h3>
-                    {cat.type && cat.type !== 'all' && (
+                    {cat.type && (
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider mb-1 ${
-                        cat.type === 'veg' ? 'bg-green-50 text-green-700' :
-                        cat.type === 'non-veg' ? 'bg-red-50 text-red-700' :
-                        cat.type === 'vegan' ? 'bg-emerald-50 text-emerald-700' :
-                        'bg-orange-50 text-orange-700'
+                        (cat.type || '').toLowerCase() === 'non-veg'
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : 'bg-green-50 text-green-700 border border-green-200'
                       }`}>
-                        {cat.type}
+                        {(cat.type || '').toLowerCase() === 'non-veg' ? 'Non-Veg' : 'Veg'}
                       </span>
                     )}
                   </div>

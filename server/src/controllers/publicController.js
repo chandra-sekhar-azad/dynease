@@ -19,12 +19,24 @@ const RealtimeService = require('../services/RealtimeService');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const inferCategoryType = (name, explicitType) => {
-  if (explicitType && explicitType !== 'all') return explicitType.toLowerCase();
+  const exp = (explicitType || '').toLowerCase().trim();
+  if (exp === 'non-veg') return 'non-veg';
+  if (exp === 'veg') return 'veg';
   const lower = (name || '').toLowerCase();
-  if (lower.includes('non-veg') || lower.includes('non veg') || lower.includes('nonveg')) return 'non-veg';
-  if (lower.includes('vegan')) return 'vegan';
-  if (lower.includes('veg')) return 'veg';
-  return explicitType || 'all';
+  if (
+    lower.includes('non-veg') || 
+    lower.includes('non veg') || 
+    lower.includes('nonveg') ||
+    lower.includes('chicken') ||
+    lower.includes('mutton') ||
+    lower.includes('fish') ||
+    lower.includes('prawn') ||
+    lower.includes('seafood') ||
+    lower.includes('egg')
+  ) {
+    return 'non-veg';
+  }
+  return 'veg';
 };
 
 /**
@@ -171,7 +183,7 @@ async function fetchMenuForRestaurant(restaurantId) {
   for (const c of categoryDocs) {
     categoriesMap.set(c.id, {
       name: c.category,
-      type: c.type && c.type !== 'all' ? c.type : inferCategoryType(c.category, 'all'),
+      type: inferCategoryType(c.category, c.type),
       image: c.image?.secure_url || null,
       items: []
     });
@@ -180,7 +192,7 @@ async function fetchMenuForRestaurant(restaurantId) {
   for (const item of menuItems) {
     let targetCat = categoriesMap.get(item.category_id);
     if (!targetCat) {
-      targetCat = { name: 'General', type: 'all', image: null, items: [] };
+      targetCat = { name: 'General', type: 'veg', image: null, items: [] };
       categoriesMap.set(item.category_id || 'general', targetCat);
     }
     targetCat.items.push({
