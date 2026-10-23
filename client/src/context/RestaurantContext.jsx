@@ -47,6 +47,11 @@ export function RestaurantProvider({ children }) {
     } catch { return null; }
   });
 
+  // Cart helper functions
+  const normSize = (s) => (s ? String(s).trim().toLowerCase() : '');
+  const sizeMatch = (s1, s2) => normSize(s1) === normSize(s2);
+  const sanitizeQuantity = (qty) => Math.min(Math.max(1, Number(qty) || 1), 99);
+
   // Cart: persisted per restaurant+table
   const cartKey = session
     ? `cart:${session.restaurant.slug}:${session.table.tableNumber}`
@@ -56,7 +61,17 @@ export function RestaurantProvider({ children }) {
     if (!cartKey) return [];
     try {
       const raw = localStorage.getItem(cartKey);
-      return raw ? JSON.parse(raw) : [];
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter(i => i && i.menuItemId && i.price > 0)
+        .map(i => ({
+          ...i,
+          menuItemId: String(i.menuItemId),
+          size: i.size ? String(i.size).trim() : null,
+          quantity: sanitizeQuantity(i.quantity)
+        }));
     } catch { return []; }
   });
 
@@ -72,7 +87,22 @@ export function RestaurantProvider({ children }) {
     if (cartKey) {
       try {
         const raw = localStorage.getItem(cartKey);
-        setCart(raw ? JSON.parse(raw) : []);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const sanitized = parsed
+              .filter(i => i && i.menuItemId && i.price > 0)
+              .map(i => ({
+                ...i,
+                menuItemId: String(i.menuItemId),
+                size: i.size ? String(i.size).trim() : null,
+                quantity: sanitizeQuantity(i.quantity)
+              }));
+            setCart(sanitized);
+            return;
+          }
+        }
+        setCart([]);
       } catch { setCart([]); }
     }
   }, [cartKey]);
@@ -98,49 +128,77 @@ export function RestaurantProvider({ children }) {
   // ── Cart helpers ──────────────────────────────────────────────
 
   const addToCart = useCallback((item) => {
-    // item = { menuItemId, name, price, imageUrl, dietaryPreference, size }
+    // item = { menuItemId, name, price, imageUrl, dietaryPreference, size, quantity }
+    if (!item || !item.menuItemId) return;
+    const targetId = String(item.menuItemId);
+    const targetSize = item.size ? String(item.size).trim() : null;
+    const addQty = sanitizeQuantity(item.quantity || 1);
+
     setCart(prev => {
       const existing = prev.find(i => 
-        i.menuItemId === item.menuItemId && (i.size || '') === (item.size || '')
+        String(i.menuItemId) === targetId && sizeMatch(i.size, targetSize)
       );
       if (existing) {
         return prev.map(i =>
-          i.menuItemId === item.menuItemId && (i.size || '') === (item.size || '')
-            ? { ...i, quantity: i.quantity + (item.quantity || 1) }
+          String(i.menuItemId) === targetId && sizeMatch(i.size, targetSize)
+            ? { ...i, quantity: Math.min(i.quantity + addQty, 99) }
             : i
         );
       }
-      return [...prev, { ...item, quantity: item.quantity || 1, size: item.size || null }];
+      return [...prev, {
+        ...item,
+        menuItemId: targetId,
+        size: targetSize,
+        quantity: addQty
+      }];
     });
   }, []);
 
   const removeFromCart = useCallback((menuItemId, size = null) => {
+    const targetId = String(menuItemId);
     setCart(prev => prev.filter(i => {
-      if (size !== null) {
-        return !(i.menuItemId === menuItemId && (i.size || '') === (size || ''));
+      if (String(i.menuItemId) !== targetId) return true;
+      if (size !== null && size !== undefined) {
+        return !sizeMatch(i.size, size);
       }
-      return i.menuItemId !== menuItemId;
+      return false;
     }));
   }, []);
 
   const updateQuantity = useCallback((menuItemId, quantity, size = null) => {
-    if (quantity < 1) {
-      setCart(prev => prev.filter(i => {
-        if (size !== null) {
-          return !(i.menuItemId === menuItemId && (i.size || '') === (size || ''));
+    const targetId = String(menuItemId);
+    const targetQty = Number(quantity);
+
+    setCart(prev => {
+      // Find matching items for this menuItemId
+      const matchingItems = prev.filter(i => String(i.menuItemId) === targetId);
+      if (matchingItems.length === 0) return prev;
+
+      // Determine which item to update
+      let targetItem = null;
+      if (size !== null && size !== undefined) {
+        targetItem = matchingItems.find(i => sizeMatch(i.size, size));
+      } else if (matchingItems.length === 1) {
+        targetItem = matchingItems[0];
+      }
+
+      if (!targetItem) {
+        // Ambiguous: size was not provided and there are multiple sizes in cart
+        return prev;
+      }
+
+      if (targetQty < 1) {
+        return prev.filter(i => !(String(i.menuItemId) === targetId && sizeMatch(i.size, targetItem.size)));
+      }
+
+      const clampedQty = Math.min(targetQty, 99);
+      return prev.map(i => {
+        if (String(i.menuItemId) === targetId && sizeMatch(i.size, targetItem.size)) {
+          return { ...i, quantity: clampedQty };
         }
-        return i.menuItemId !== menuItemId;
-      }));
-    } else {
-      setCart(prev =>
-        prev.map(i => {
-          const match = size !== null
-            ? (i.menuItemId === menuItemId && (i.size || '') === (size || ''))
-            : (i.menuItemId === menuItemId);
-          return match ? { ...i, quantity } : i;
-        })
-      );
-    }
+        return i;
+      });
+    });
   }, []);
 
   const clearCart = useCallback(() => setCart([]), []);

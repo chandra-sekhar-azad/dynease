@@ -180,10 +180,12 @@ export default function HomePage({ forcedSlug }) {
   };
 
   const getItemQty = (id, size = null) => {
+    const targetId = String(id);
     if (size) {
-      return cart.find(i => i.menuItemId === String(id) && (i.size || '').toLowerCase() === size.toLowerCase())?.quantity || 0;
+      const norm = String(size).trim().toLowerCase();
+      return cart.find(i => String(i.menuItemId) === targetId && (i.size || '').trim().toLowerCase() === norm)?.quantity || 0;
     }
-    return cart.filter(i => i.menuItemId === String(id)).reduce((sum, i) => sum + i.quantity, 0);
+    return cart.filter(i => String(i.menuItemId) === targetId).reduce((sum, i) => sum + i.quantity, 0);
   };
 
   const handleAdd = (item, chosenSize = null, chosenPrice = null) => {
@@ -214,8 +216,21 @@ export default function HomePage({ forcedSlug }) {
       }
     }
 
-    if (Array.isArray(item.quantities) && item.quantities.length > 0) {
+    if (Array.isArray(item.quantities) && item.quantities.length > 1) {
       setSizeSelectModalItem(item);
+      return;
+    }
+
+    if (Array.isArray(item.quantities) && item.quantities.length === 1) {
+      const q = item.quantities[0];
+      addToCart({
+        menuItemId: String(item.id),
+        name: item.name,
+        price: q.price || item.price,
+        imageUrl: item.imageUrl,
+        dietaryPreference: item.dietaryPreference,
+        size: q.size || null
+      });
       return;
     }
 
@@ -354,9 +369,15 @@ export default function HomePage({ forcedSlug }) {
 
   const renderDishItem = (item, categoryName = null) => {
     const variant = getItemVariantForActiveSize(item, activeSize);
-    const displayPrice = variant ? variant.price : item.price;
-    const displaySizeLabel = variant ? variant.size : null;
-    const itemQty = variant ? getItemQty(item.id, variant.size) : getItemQty(item.id);
+    const hasMultipleSizes = Array.isArray(item.quantities) && item.quantities.length > 1;
+    const singlePortion = (!hasMultipleSizes && Array.isArray(item.quantities) && item.quantities.length === 1) ? item.quantities[0] : null;
+
+    const displayPrice = variant ? variant.price : (singlePortion ? singlePortion.price : item.price);
+    const displaySizeLabel = variant ? variant.size : (singlePortion ? singlePortion.size : null);
+
+    const totalDishQty = getItemQty(item.id);
+    const activePortionSize = variant ? variant.size : (singlePortion ? singlePortion.size : null);
+    const portionQty = activePortionSize ? getItemQty(item.id, activePortionSize) : totalDishQty;
 
     return (
       <div key={`${item.id}_${displaySizeLabel || 'default'}`} className="bg-white border border-[var(--color-border)] rounded-xl flex gap-3 p-3 items-center shadow-xs">
@@ -389,7 +410,7 @@ export default function HomePage({ forcedSlug }) {
               <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded">
                 {displaySizeLabel}
               </span>
-            ) : (activeSize === 'ALL' && item.quantities && item.quantities.length > 0 && (
+            ) : (activeSize === 'ALL' && hasMultipleSizes && (
               <span className="text-[10px] text-gray-400 font-medium">
                 ({item.quantities.length} sizes)
               </span>
@@ -397,11 +418,43 @@ export default function HomePage({ forcedSlug }) {
           </div>
 
           {/* Quick clickable size chips when on ALL view */}
-          {activeSize === 'ALL' && item.quantities && item.quantities.length > 0 && (
+          {activeSize === 'ALL' && hasMultipleSizes && (
             <div className="flex flex-wrap gap-1 mt-1">
               {item.quantities.map((q, qIdx) => {
                 const qQty = getItemQty(item.id, q.size);
-                return (
+                return qQty > 0 ? (
+                  <div
+                    key={qIdx}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 rounded px-1.5 py-0.5"
+                  >
+                    <span>{q.size}: ₹{q.price}</span>
+                    <div className="flex items-center gap-1 ml-0.5 bg-white border border-emerald-200 rounded px-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateQuantity(String(item.id), qQty - 1, q.size);
+                        }}
+                        className="text-emerald-700 hover:text-emerald-950 font-bold px-0.5 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
+                        title={`Decrease ${q.size}`}
+                      >
+                        <Minus size={9} />
+                      </button>
+                      <span className="font-bold text-[10px] min-w-[12px] text-center">{qQty}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateQuantity(String(item.id), qQty + 1, q.size);
+                        }}
+                        className="text-emerald-700 hover:text-emerald-950 font-bold px-0.5 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
+                        title={`Increase ${q.size}`}
+                      >
+                        <Plus size={9} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                   <button
                     key={qIdx}
                     type="button"
@@ -409,14 +462,10 @@ export default function HomePage({ forcedSlug }) {
                       e.stopPropagation();
                       handleAdd(item, q.size, q.price);
                     }}
-                    className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border transition-all active:scale-95 cursor-pointer ${
-                      qQty > 0
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold'
-                        : 'bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-emerald-800 border-gray-200'
-                    }`}
+                    className="text-[10px] font-medium bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-emerald-800 border border-gray-200 hover:border-emerald-300 px-1.5 py-0.5 rounded transition-all active:scale-95 cursor-pointer"
                     title={`Add ${q.size} (₹${q.price})`}
                   >
-                    {q.size}: ₹{q.price} {qQty > 0 ? `(${qQty})` : '+'}
+                    {q.size}: ₹{q.price} <span className="font-bold text-emerald-700">+</span>
                   </button>
                 );
               })}
@@ -424,9 +473,29 @@ export default function HomePage({ forcedSlug }) {
           )}
         </div>
         <div className="shrink-0">
-          {itemQty === 0 ? (
+          {activeSize === 'ALL' && hasMultipleSizes ? (
+            totalDishQty === 0 ? (
+              <button
+                onClick={() => setSizeSelectModalItem(item)}
+                className="flex items-center gap-1 bg-white border border-emerald-700 text-emerald-800 font-bold px-3 py-1 rounded-lg text-xs hover:bg-emerald-700 hover:text-white transition-colors shadow-xs cursor-pointer"
+              >
+                <Plus size={12} /> Add
+              </button>
+            ) : (
+              <button
+                onClick={() => setSizeSelectModalItem(item)}
+                className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-700 text-emerald-800 font-bold px-2.5 py-1 rounded-lg text-xs transition-colors shadow-xs cursor-pointer"
+                title="View and adjust sizes"
+              >
+                <span className="w-4 h-4 rounded-full bg-emerald-700 text-white flex items-center justify-center text-[10px] font-bold">
+                  {totalDishQty}
+                </span>
+                <span>Sizes</span>
+              </button>
+            )
+          ) : portionQty === 0 ? (
             <button
-              onClick={() => handleAdd(item, variant?.size, variant?.price)}
+              onClick={() => handleAdd(item, activePortionSize, variant?.price || singlePortion?.price || item.price)}
               className="flex items-center gap-1 bg-white border border-emerald-700 text-emerald-800 font-bold px-3 py-1 rounded-lg text-xs hover:bg-emerald-700 hover:text-white transition-colors shadow-xs cursor-pointer"
             >
               <Plus size={12} /> Add
@@ -434,15 +503,17 @@ export default function HomePage({ forcedSlug }) {
           ) : (
             <div className="flex items-center gap-2 border border-emerald-700 bg-emerald-50/50 rounded-lg text-emerald-800 px-1 py-0.5">
               <button
-                onClick={() => updateQuantity(String(item.id), itemQty - 1, variant?.size)}
+                onClick={() => updateQuantity(String(item.id), portionQty - 1, activePortionSize)}
                 className="p-1 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
+                title="Decrease"
               >
                 <Minus size={11} />
               </button>
-              <span className="font-bold text-xs w-3 text-center">{itemQty}</span>
+              <span className="font-bold text-xs w-3 text-center">{portionQty}</span>
               <button
-                onClick={() => updateQuantity(String(item.id), itemQty + 1, variant?.size)}
+                onClick={() => updateQuantity(String(item.id), portionQty + 1, activePortionSize)}
                 className="p-1 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
+                title="Increase"
               >
                 <Plus size={11} />
               </button>
