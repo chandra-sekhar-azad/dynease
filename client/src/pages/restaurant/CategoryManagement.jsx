@@ -514,7 +514,6 @@ export default function CategoryManagement() {
           <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {filteredCategories.map(cat => {
               const count = menuItems.filter(i => i.category === cat.name).length;
-              const currentType = (cat.type || 'all').toLowerCase();
 
               return (
                 <div key={cat._id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow relative group">
@@ -533,17 +532,6 @@ export default function CategoryManagement() {
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
                             #{cat.displayOrder ?? 0}
                           </span>
-                        </div>
-                        <div className="mt-1">
-                          {currentType === 'non-veg' ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-50 text-red-800 border border-red-200 uppercase tracking-wider">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span> Non-Veg
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-50 text-green-800 border border-green-200 uppercase tracking-wider">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Veg
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>

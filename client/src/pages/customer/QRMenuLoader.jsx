@@ -1,104 +1,397 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, QrCode, RefreshCw } from 'lucide-react';
+import {
+  Loader2,
+  QrCode,
+  MapPin,
+  AlertTriangle,
+  RefreshCw,
+  CheckCircle2,
+  ShieldCheck,
+  User,
+  Phone,
+  ArrowRight
+} from 'lucide-react';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
 
 export default function QRMenuLoader() {
   const { qrToken } = useParams();
   const navigate = useNavigate();
   const { saveSession } = useRestaurant();
-  const [status, setStatus] = useState('loading'); // loading | success | error
+
+  // Step states: 'requesting_location' | 'verifying' | 'collect_details' | 'confirm_details' | 'allocating' | 'success' | 'occupied' | 'out_of_range' | 'location_error' | 'error'
+  const [step, setStep] = useState('requesting_location');
+  const [coords, setCoords] = useState(null);
+  const [tableData, setTableData] = useState(null);
+  const [restaurantData, setRestaurantData] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
-  const [tableInfo, setTableInfo] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Form details
+  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [formError, setFormError] = useState('');
 
-    const resolveQR = async () => {
-      setStatus('loading');
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/public/qr/${qrToken}`,
-          { headers: getTenantHeaders() }
-        );
-        const data = await res.json();
+  // ── Step 1: Request Geolocation & Verify Proximity ─────────────────────────
+  const requestLocationAndVerify = useCallback(() => {
+    setStep('requesting_location');
+    setErrorMsg('');
 
-        if (cancelled) return;
+    if (!navigator.geolocation) {
+      // Fallback: Proceed with verification attempt without coords (backend will check if restaurant requires coords)
+      verifyLocation(null, null);
+      return;
+    }
 
-        if (data.success) {
-          const { restaurant, table, session } = data.data;
-          saveSession(restaurant, table, session.qrToken);
-          setTableInfo({ restaurant, table });
-          setStatus('success');
-          // Show brief confirmation, then go to menu
-          setTimeout(() => {
-            if (!cancelled) navigate('/', { replace: true });
-          }, 1800);
-        } else {
-          setErrorMsg(data.message || 'Invalid or inactive QR code.');
-          setStatus('error');
-        }
-      } catch {
-        if (!cancelled) {
-          setErrorMsg('Network error. Please check your connection.');
-          setStatus('error');
-        }
-      }
-    };
-
-    resolveQR();
-    return () => { cancelled = true; };
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const userCoords = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude
+        };
+        setCoords(userCoords);
+        verifyLocation(userCoords.latitude, userCoords.longitude);
+      },
+      (err) => {
+        console.warn('Geolocation error or denied:', err);
+        // Attempt verify without coords; if restaurant has geofence it will return LOCATION_REQUIRED
+        verifyLocation(null, null);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   }, [qrToken]);
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col items-center justify-center p-6">
-        <div className="bg-white rounded-3xl shadow-xl p-10 text-center max-w-xs w-full">
-          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <QrCode className="text-green-500" size={36} />
-          </div>
-          <Loader2 className="w-8 h-8 text-green-500 animate-spin mx-auto mb-3" />
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Scanning Table</h2>
-          <p className="text-gray-500 text-sm">Setting up your session…</p>
-        </div>
-      </div>
-    );
-  }
+  const verifyLocation = async (latitude, longitude) => {
+    setStep('verifying');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/public/tables/verify-location`, {
+        method: 'POST',
+        headers: getTenantHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ qrToken, latitude, longitude })
+      });
+      const data = await res.json();
 
-  if (status === 'success' && tableInfo) {
+      if (res.status === 409 || data.code === 'TABLE_OCCUPIED') {
+        setStep('occupied');
+        return;
+      }
+
+      if (res.status === 403 && data.code === 'LOCATION_OUT_OF_RANGE') {
+        setErrorMsg(data.message || 'You are outside the permitted 50-metre radius of the restaurant.');
+        setStep('out_of_range');
+        return;
+      }
+
+      if (res.status === 400 && data.code === 'LOCATION_REQUIRED') {
+        setErrorMsg('Location permission is required to verify table proximity. Please allow location access in your browser settings.');
+        setStep('location_error');
+        return;
+      }
+
+      if (data.success && data.data) {
+        setTableData(data.data.table);
+        setRestaurantData(data.data.restaurant);
+        setStep('collect_details');
+      } else {
+        setErrorMsg(data.message || 'Invalid or inactive table QR code.');
+        setStep('error');
+      }
+    } catch (err) {
+      setErrorMsg('Network connection error. Please check your internet connection.');
+      setStep('error');
+    }
+  };
+
+  useEffect(() => {
+    requestLocationAndVerify();
+  }, [requestLocationAndVerify]);
+
+  // ── Step 2: Validate Phone and Show Confirmation ───────────────────────────
+  const handleProceedToConfirm = (e) => {
+    e.preventDefault();
+    setFormError('');
+
+    const clean = phone.trim().replace(/\D/g, '');
+    if (!clean || clean.length < 10) {
+      setFormError('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    setStep('confirm_details');
+  };
+
+  // ── Step 3: Atomic Session Allocation ──────────────────────────────────────
+  const handleConfirmAndAllocate = async () => {
+    setStep('allocating');
+    setFormError('');
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/public/tables/start-session`, {
+        method: 'POST',
+        headers: getTenantHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          qrToken,
+          phone: phone.trim(),
+          name: name.trim() || undefined,
+          latitude: coords?.latitude,
+          longitude: coords?.longitude
+        })
+      });
+      const data = await res.json();
+
+      if (res.status === 409 || data.code === 'TABLE_OCCUPIED') {
+        setStep('occupied');
+        return;
+      }
+
+      if (data.success && data.data) {
+        saveSession(data.data.restaurant, data.data.table, data.data.visitId);
+        setStep('success');
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 1600);
+      } else {
+        setFormError(data.message || 'Failed to allocate table. Please try again.');
+        setStep('collect_details');
+      }
+    } catch {
+      setFormError('Network error. Please try again.');
+      setStep('collect_details');
+    }
+  };
+
+  // ── Render States ─────────────────────────────────────────────────────────
+
+  // 1. Loading / Verifying
+  if (step === 'requesting_location' || step === 'verifying' || step === 'allocating') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col items-center justify-center p-6">
-        <div className="bg-white rounded-3xl shadow-xl p-10 text-center max-w-xs w-full">
-          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">✓</span>
+        <div className="bg-white rounded-3xl shadow-xl p-8 sm:p-10 text-center max-w-sm w-full border border-gray-100">
+          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-green-600">
+            {step === 'requesting_location' ? (
+              <MapPin size={34} className="animate-bounce" />
+            ) : (
+              <QrCode size={34} />
+            )}
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">{tableInfo.restaurant.name}</h2>
-          <div className="inline-flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 font-semibold px-4 py-2 rounded-full text-sm mt-2 mb-4">
-            Table {tableInfo.table.tableNumber}
-          </div>
-          <p className="text-green-600 font-medium text-sm">
-            ✓ You're ordering from Table {tableInfo.table.tableNumber}
+          <Loader2 className="w-8 h-8 text-green-600 animate-spin mx-auto mb-3" />
+          <h2 className="text-xl font-extrabold text-gray-900 mb-1">
+            {step === 'requesting_location'
+              ? 'Verifying Location…'
+              : step === 'verifying'
+              ? 'Checking Proximity & Table…'
+              : 'Allocating Table…'}
+          </h2>
+          <p className="text-gray-500 text-xs sm:text-sm">
+            {step === 'requesting_location'
+              ? 'Requesting browser location to confirm you are at the restaurant.'
+              : step === 'verifying'
+              ? 'Checking that you are within 50 metres of the restaurant.'
+              : 'Preparing your secure dining session…'}
           </p>
-          <p className="text-gray-400 text-xs mt-3">Loading menu…</p>
         </div>
       </div>
     );
   }
 
-  // error state
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-      <div className="bg-white rounded-3xl shadow-xl p-10 text-center max-w-xs w-full border border-red-100">
-        <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <QrCode className="text-red-400" size={36} />
+  // 2. Table Occupied
+  if (step === 'occupied') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white rounded-3xl shadow-xl p-8 sm:p-10 max-w-sm w-full border border-amber-200">
+          <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={34} />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Table Occupied</h2>
+          <p className="text-gray-600 text-sm leading-relaxed mb-6 font-medium">
+            This table is currently occupied. Please choose another table or contact a waiter.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-xl transition-colors text-sm"
+          >
+            <RefreshCw size={16} /> Check Again
+          </button>
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Invalid QR Code</h2>
-        <p className="text-gray-500 text-sm mb-6">{errorMsg}</p>
+      </div>
+    );
+  }
+
+  // 3. Location Out of Range (> 50m)
+  if (step === 'out_of_range' || step === 'location_error') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white rounded-3xl shadow-xl p-8 sm:p-10 max-w-sm w-full border border-red-100">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <MapPin size={34} />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            {step === 'location_error' ? 'Location Access Required' : 'Outside Restaurant Area'}
+          </h2>
+          <p className="text-gray-600 text-sm leading-relaxed mb-6">
+            {errorMsg || 'You must be within 50 metres of the restaurant to allocate a table and start ordering.'}
+          </p>
+          <button
+            onClick={requestLocationAndVerify}
+            className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors text-sm shadow-sm"
+          >
+            <RefreshCw size={16} /> Retry Verification
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Collect Customer Details (Mandatory Mobile, Optional Name)
+  if (step === 'collect_details' && tableData && restaurantData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col items-center justify-center p-4 sm:p-6">
+        <div className="bg-white rounded-3xl shadow-xl p-6 sm:p-8 max-w-md w-full border border-gray-100">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+            <div>
+              <h2 className="text-lg sm:text-xl font-extrabold text-gray-900">{restaurantData.name}</h2>
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-full mt-1 border border-green-200">
+                <CheckCircle2 size={13} /> Within 50m Verified
+              </span>
+            </div>
+            <div className="bg-green-600 text-white text-xs font-black px-3.5 py-2 rounded-xl shadow-xs">
+              Table {tableData.tableNumber}
+            </div>
+          </div>
+
+          <h3 className="text-base font-bold text-gray-800 mb-1">Start Table Session</h3>
+          <p className="text-gray-500 text-xs mb-5">
+            Please enter your mobile number. We will associate your visit and orders with this number. No OTP required!
+          </p>
+
+          <form onSubmit={handleProceedToConfirm} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Mobile Number <span className="text-red-500">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3.5 text-xs font-extrabold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  required
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="9876543210"
+                  className="w-full pl-16 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Your Name <span className="text-gray-400 font-normal lowercase">(optional)</span>
+              </label>
+              <div className="relative flex items-center">
+                <User size={18} className="absolute left-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Rahul Sharma"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            {formError && (
+              <p className="text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                {formError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="w-full mt-2 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition-colors text-sm shadow-md cursor-pointer"
+            >
+              Continue <ArrowRight size={16} />
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // 5. Explicit Confirmation Dialog
+  if (step === 'confirm_details') {
+    return (
+      <div className="min-h-screen bg-gray-900/40 backdrop-blur-xs flex flex-col items-center justify-center p-4 sm:p-6">
+        <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-sm w-full border border-gray-100 animate-in zoom-in-95 duration-200 text-center">
+          <div className="w-14 h-14 bg-green-100 text-green-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <Phone size={28} />
+          </div>
+          <h2 className="text-lg font-extrabold text-gray-900 mb-1">Confirm Mobile Number</h2>
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-3.5 my-3">
+            <span className="text-xs font-bold text-green-700 uppercase tracking-wider block mb-0.5">
+              Associated Mobile
+            </span>
+            <span className="text-xl font-extrabold text-green-900 tracking-wide">
+              +91 {phone}
+            </span>
+            {name && <p className="text-xs text-gray-600 mt-1 font-semibold">{name}</p>}
+          </div>
+
+          <p className="text-[11px] text-gray-500 leading-relaxed mb-5 text-left bg-amber-50/80 border border-amber-200 rounded-xl p-3">
+            ⚠️ <strong>Important:</strong> We will link this table visit and order receipts to this number. Entering an incorrect number may assign your loyalty points and orders to another profile.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleConfirmAndAllocate}
+              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors text-sm shadow-sm cursor-pointer"
+            >
+              Confirm & Start Ordering
+            </button>
+            <button
+              onClick={() => setStep('collect_details')}
+              className="w-full py-2.5 text-gray-600 hover:text-gray-900 font-semibold text-xs"
+            >
+              Change Mobile Number
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 6. Success State
+  if (step === 'success') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-xs w-full border border-green-100">
+          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <CheckCircle2 size={38} />
+          </div>
+          <h2 className="text-xl font-extrabold text-gray-900 mb-1">Table Allocated!</h2>
+          <p className="text-xs text-green-700 font-bold mb-3">✓ Proximity verified & session active</p>
+          <p className="text-gray-400 text-xs">Opening menu…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 7. General Error State
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
+      <div className="bg-white rounded-3xl shadow-xl p-8 max-w-xs w-full border border-red-100">
+        <div className="w-16 h-16 bg-red-100 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <QrCode size={34} />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">QR Code Issue</h2>
+        <p className="text-gray-500 text-xs mb-6">{errorMsg || 'Could not verify table QR code.'}</p>
         <button
           onClick={() => window.location.reload()}
-          className="flex items-center gap-2 mx-auto bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-3 rounded-xl transition-colors"
+          className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors text-sm"
         >
-          <RefreshCw size={18} /> Try Again
+          <RefreshCw size={16} /> Try Again
         </button>
       </div>
     </div>

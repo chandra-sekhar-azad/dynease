@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { setCookie, getCookie } from '../utils/cookies';
+import { io } from 'socket.io-client';
+import { setCookie, getCookie, deleteCookie } from '../utils/cookies';
 
 const RestaurantContext = createContext(null);
 
@@ -269,34 +270,44 @@ export function RestaurantProvider({ children }) {
   const [liveOrdersCount, setLiveOrdersCount] = useState(0);
   const [latestLiveOrder, setLatestLiveOrder] = useState(null);
 
+  const resetDiningSession = useCallback((tableOrdersKey, cartKeyToClear) => {
+    const oKey = tableOrdersKey || myOrdersKey;
+    const cKey = cartKeyToClear || cartKey;
+    if (oKey) {
+      deleteCookie(oKey);
+      try { localStorage.removeItem(oKey); } catch {}
+    }
+    if (cKey) {
+      try { localStorage.removeItem(cKey); } catch {}
+    }
+    try {
+      localStorage.removeItem('customerPhone');
+      localStorage.removeItem('customerName');
+    } catch {}
+    setMyOrders([]);
+    setCart([]);
+    setLiveOrdersCount(0);
+    setLatestLiveOrder(null);
+  }, [myOrdersKey, cartKey]);
+
   const refreshOrders = useCallback(async () => {
-    if (!session && myOrders.length === 0) {
+    if (myOrders.length === 0) {
       setLiveOrdersCount(0);
       setLatestLiveOrder(null);
       return [];
     }
 
     try {
-      const tableId = session?.table?.id || session?.table?.tableId || '';
       const orderIdsQuery = myOrders.join(',');
       const params = new URLSearchParams();
       if (orderIdsQuery) params.append('orderIds', orderIdsQuery);
-      if (tableId) params.append('tableId', tableId);
 
       const url = `${import.meta.env.VITE_API_URL}/public/orders?${params.toString()}`;
-      const res = await fetch(url, { headers: getTenantHeaders() });
+      const res = await fetch(url, { headers: getTenantHeaders(), credentials: 'include' });
       const data = await res.json();
 
       if (data.success && Array.isArray(data.data?.orders)) {
         const fetchedOrders = data.data.orders;
-
-        // Sync any orders found by tableId back into myOrders
-        fetchedOrders.forEach(o => {
-          const oId = o.id || o._id;
-          if (oId && !myOrders.includes(oId)) {
-            addOrderId(oId);
-          }
-        });
 
         const active = fetchedOrders.filter(o => 
           !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
@@ -310,14 +321,61 @@ export function RestaurantProvider({ children }) {
       console.warn('Could not refresh orders:', e);
     }
     return [];
-  }, [session, myOrders, addOrderId]);
+  }, [myOrders]);
 
   // Initial and periodic check for live orders count
   useEffect(() => {
     refreshOrders();
     const interval = setInterval(refreshOrders, 3000);
     return () => clearInterval(interval);
-  }, [session?.table?.id, myOrders.length]);
+  }, [refreshOrders]);
+
+  // Real-time table session synchronization
+  const [sessionAlert, setSessionAlert] = useState(null);
+
+  useEffect(() => {
+    if (!session?.table?.id) return;
+
+    let socket;
+    try {
+      const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
+      socket = io(socketUrl, { withCredentials: true });
+
+      socket.on('connect', () => {
+        socket.emit('customer:join_table', session.table.id);
+      });
+
+      socket.on('allocation_cancelled', (payload) => {
+        setSessionAlert({
+          type: 'CANCELLED',
+          title: 'Table Allocation Cancelled',
+          message: payload.reason || 'Your table allocation was cancelled by staff. Please contact a waiter.'
+        });
+        resetDiningSession();
+        clearSession();
+      });
+
+      socket.on('visit_closed', () => {
+        setSessionAlert({
+          type: 'COMPLETED',
+          title: 'Visit Completed',
+          message: 'Thank you for dining with us! Your table visit has been completed.'
+        });
+        resetDiningSession();
+        clearSession();
+      });
+
+      socket.on('order_item_updated', () => {
+        refreshOrders();
+      });
+    } catch (err) {
+      // socket.io-client may be imported at top level if ESM
+    }
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [session?.table?.id, resetDiningSession, clearSession, refreshOrders]);
 
   return (
     <RestaurantContext.Provider value={{
@@ -325,6 +383,7 @@ export function RestaurantProvider({ children }) {
       session,
       saveSession,
       clearSession,
+      resetDiningSession,
       cart,
       cartCount,
       cartSubtotal,
@@ -338,7 +397,9 @@ export function RestaurantProvider({ children }) {
       setLiveOrdersCount,
       latestLiveOrder,
       setLatestLiveOrder,
-      refreshOrders
+      refreshOrders,
+      sessionAlert,
+      setSessionAlert
     }}>
       {children}
     </RestaurantContext.Provider>

@@ -7,6 +7,8 @@ const {
   boolean,
   timestamp,
   index,
+  numeric,
+  integer,
 } = require('drizzle-orm/pg-core');
 
 const { plans } = require('./plans');
@@ -23,6 +25,9 @@ const restaurants = pgTable(
     restaurant_name: varchar('restaurant_name', { length: 255 }).notNull(),
     address: text('address'),
     phone_number: varchar('phone_number', { length: 30 }),
+    latitude: numeric('latitude', { precision: 10, scale: 7 }),
+    longitude: numeric('longitude', { precision: 10, scale: 7 }),
+    geofence_radius_meters: integer('geofence_radius_meters').notNull().default(50),
     restaurant_status: restaurantStatusEnum('restaurant_status')
       .notNull()
       .default('ACTIVE'),

@@ -37,8 +37,10 @@ app.use(corsMw);
 // path is the supported equivalent.
 app.options(/.*/, corsMw);
 
+const cookieParser = require('cookie-parser');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

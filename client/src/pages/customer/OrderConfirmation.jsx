@@ -47,10 +47,12 @@ export default function OrderConfirmation() {
       if (!updatedId || updatedId === String(orderId)) fetchOrder();
     };
     socket.on('order_updated', onOrderUpdated);
+    socket.on('more_items_added', onOrderUpdated);
 
     return () => {
       cancelled = true;
       socket.off('order_updated', onOrderUpdated);
+      socket.off('more_items_added', onOrderUpdated);
     };
   }, [orderId]);
 

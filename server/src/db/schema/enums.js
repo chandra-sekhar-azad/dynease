@@ -77,6 +77,12 @@ const shiftTypeEnum = pgEnum('shift_type', [
   'LEAVE',
 ]);
 
+const sessionStatusEnum = pgEnum('session_status', [
+  'ACTIVE',
+  'COMPLETED',
+  'CANCELLED',
+]);
+
 module.exports = {
   userTypeEnum,
   userStatusEnum,
@@ -92,4 +98,5 @@ module.exports = {
   itemSizeEnum,
   orderStatusEnum,
   shiftTypeEnum,
+  sessionStatusEnum,
 };

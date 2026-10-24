@@ -28,6 +28,9 @@ router.patch('/orders/:id/status', restaurantController.updateOrderStatus);
 router.patch('/orders/:id/accept', restaurantController.acceptOrder);
 router.patch('/orders/:id/reject', restaurantController.rejectOrder);
 router.patch('/orders/:id/reassign', restrictTo('RESTAURANT_OWNER'), restaurantController.reassignOrder);
+router.patch('/orders/items/:id/quantity', restaurantController.updateOrderItemQuantity);
+router.post('/tables/:tableId/cancel-allocation', restaurantController.cancelTableAllocation);
+router.post('/visits/:id/complete', restaurantController.completeVisit);
 
 // ── Assignment & Workload routes ──
 router.get('/assignment/settings', restaurantController.getAssignmentSettings);

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle, Plus, UtensilsCrossed } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { session, cart, cartSubtotal, clearCart, addOrderId } = useRestaurant();
+  const { session, cart, cartSubtotal, clearCart, addOrderId, latestLiveOrder } = useRestaurant();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -39,7 +39,8 @@ export default function Checkout() {
         tableId: session.table.id,
         customerName: name.trim() || 'Guest',
         customerPhone: phone.trim() || undefined,
-        items: cart.map(i => ({ menuItemId: i.menuItemId, quantity: i.quantity, size: i.size || undefined }))
+        items: cart.map(i => ({ menuItemId: i.menuItemId, quantity: i.quantity, size: i.size || undefined })),
+        orderId: latestLiveOrder?.id || undefined
       };
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/public/orders`, {
@@ -80,9 +81,24 @@ export default function Checkout() {
       </header>
 
       <div className="flex-1 p-4 space-y-4">
+        {/* Existing Order Notice */}
+        {latestLiveOrder && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3 text-emerald-900 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Plus size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Adding to Current Order</p>
+              <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate">
+                These items will be appended to your active order ({latestLiveOrder.orderNumber || `#${String(latestLiveOrder.id).substring(0, 8)}`}).
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Order Summary */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 className="font-bold text-gray-800 mb-3">Order Summary</h2>
+          <h2 className="font-bold text-gray-800 mb-3">{latestLiveOrder ? 'New Items to Add' : 'Order Summary'}</h2>
           <div className="space-y-2">
             {cart.map((item, idx) => (
               <div key={item.size ? `${item.menuItemId}_${item.size}` : `${item.menuItemId}_${idx}`} className="flex justify-between text-sm">
@@ -105,8 +121,8 @@ export default function Checkout() {
               </div>
             )}
             <div className="flex justify-between font-extrabold text-gray-900 text-base pt-1">
-              <span>Total</span>
-              <span>₹{total.toFixed(2)}</span>
+              <span>{latestLiveOrder ? 'Additional Total' : 'Total'}</span>
+              <span className="text-emerald-700">₹{total.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -150,12 +166,12 @@ export default function Checkout() {
         <button
           onClick={handlePlaceOrder}
           disabled={loading}
-          className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-green-200 transition-colors"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 transition-colors cursor-pointer"
         >
           {loading ? (
-            <><Loader2 size={20} className="animate-spin" /> Placing Order…</>
+            <><Loader2 size={20} className="animate-spin" /> {latestLiveOrder ? 'Adding Items to Order…' : 'Placing Order…'}</>
           ) : (
-            <><CheckCircle size={20} /> Place Order · ₹{total.toFixed(2)}</>
+            <><CheckCircle size={20} /> {latestLiveOrder ? 'Add to Current Order' : 'Place Order'} · ₹{total.toFixed(2)}</>
           )}
         </button>
       </div>

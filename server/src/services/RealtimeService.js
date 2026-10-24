@@ -64,6 +64,31 @@ const orderUpdated = ({ restaurantId, order, orderId, tableId }) => {
   orderRooms(restaurantId, { orderId, tableId }).forEach((room) => emit(room, 'order_updated', payload));
 };
 
+/** Additional items were added to an existing order. Intimates waiters and updates kitchen/table. */
+const orderItemsAdded = ({ restaurantId, order, orderId, tableId, waiterId, newItems, addedCount }) => {
+  if (!io) return;
+  const payload = {
+    ...normalizeOrder(order),
+    newItems,
+    addedCount,
+    hasNewItems: true,
+    addedAt: new Date().toISOString()
+  };
+
+  // Broadcast order_updated and more_items_added to all order rooms
+  orderRooms(restaurantId, { orderId, tableId }).forEach((room) => {
+    emit(room, 'order_updated', payload);
+    emit(room, 'more_items_added', payload);
+  });
+
+  // Direct alert to the specific assigned waiter if set
+  if (waiterId) {
+    emit(`waiter_user:${waiterId}`, 'more_items_added', payload);
+    emit(`waiter_user:${waiterId}`, 'order_updated', payload);
+    emit(`waiter_user:${waiterId}`, 'assigned_order', payload);
+  }
+};
+
 /** Push a freshly assigned order to a specific waiter. */
 const orderAssigned = ({ waiterId, order }) => {
   if (!io || !waiterId) return;
@@ -128,10 +153,47 @@ const bannersUpdated = (payload = {}) => {
   io.emit('banners_updated', payload);
 };
 
+/** A new table allocation was created. */
+const tableAllocated = ({ restaurantId, tableId, tableNumber, visitId, leadName, waiterId }) => {
+  if (!io || !restaurantId) return;
+  const payload = { tableId, tableNumber, visitId, customerName: leadName || 'Guest', allocatedAt: new Date().toISOString() };
+  emit(`restaurant:${restaurantId}`, 'table_allocated', payload);
+  emit(`waiter:${restaurantId}`, 'table_allocated', payload);
+  if (waiterId) emit(`waiter_user:${waiterId}`, 'table_allocated', payload);
+};
+
+/** Waiter cancelled an allocated visit. */
+const allocationCancelled = ({ restaurantId, tableId, visitId, reason }) => {
+  if (!io || !restaurantId) return;
+  const payload = { tableId, visitId, reason: reason || 'Cancelled by staff', cancelledAt: new Date().toISOString() };
+  emit(`table:${tableId}`, 'allocation_cancelled', payload);
+  emit(`restaurant:${restaurantId}`, 'table_updated', { tableId, status: 'AVAILABLE' });
+  emit(`waiter:${restaurantId}`, 'table_updated', { tableId, status: 'AVAILABLE' });
+};
+
+/** Waiter modified an order item quantity/status. */
+const orderItemUpdated = ({ restaurantId, orderId, visitId, tableId, item }) => {
+  if (!io || !restaurantId) return;
+  emit(`order:${orderId}`, 'order_item_updated', item);
+  if (tableId) emit(`table:${tableId}`, 'order_item_updated', item);
+  emit(`kitchen:${restaurantId}`, 'order_item_updated', { orderId, item });
+  emit(`waiter:${restaurantId}`, 'order_item_updated', { orderId, item });
+};
+
+/** Waiter completed the visit -> frees the table and revokes customer session. */
+const visitClosed = ({ restaurantId, tableId, visitId, tableNumber }) => {
+  if (!io || !restaurantId) return;
+  const payload = { tableId, visitId, tableNumber, closedAt: new Date().toISOString() };
+  emit(`table:${tableId}`, 'visit_closed', payload);
+  emit(`restaurant:${restaurantId}`, 'table_updated', { tableId, tableNumber, status: 'AVAILABLE' });
+  emit(`waiter:${restaurantId}`, 'table_updated', { tableId, tableNumber, status: 'AVAILABLE' });
+};
+
 module.exports = {
   init,
   orderCreated,
   orderUpdated,
+  orderItemsAdded,
   orderAssigned,
   serviceRequestCreated,
   serviceRequestUpdated,
@@ -142,4 +204,8 @@ module.exports = {
   staffUpdated,
   adminEvent,
   bannersUpdated,
+  tableAllocated,
+  allocationCancelled,
+  orderItemUpdated,
+  visitClosed,
 };

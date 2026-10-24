@@ -820,16 +820,7 @@ export default function HomePage({ forcedSlug }) {
                         </div>
                       )}
                     </div>
-                    <h3 className="font-serif font-semibold text-[var(--color-text)] text-sm leading-tight mb-1 pb-1 tracking-wide">{cat.name}</h3>
-                    {cat.type && (
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider mb-1 ${
-                        (cat.type || '').toLowerCase() === 'non-veg'
-                          ? 'bg-red-50 text-red-700 border border-red-200'
-                          : 'bg-green-50 text-green-700 border border-green-200'
-                      }`}>
-                        {(cat.type || '').toLowerCase() === 'non-veg' ? 'Non-Veg' : 'Veg'}
-                      </span>
-                    )}
+                    <h3 className="font-serif font-semibold text-[var(--color-text)] text-sm leading-tight tracking-wide">{cat.name}</h3>
                   </div>
                 );
               })}

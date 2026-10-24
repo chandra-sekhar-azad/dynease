@@ -8,12 +8,15 @@ const { plans } = require('./plans');
 const { tables } = require('./tables');
 const { tables_assignment } = require('./tables_assignment');
 const { menu_categories, menu_categories_items } = require('./menu');
-const { order_details, order_items } = require('./orders');
+const { order_details, customer_orders, order_items } = require('./orders');
 const { leads } = require('./leads');
 const { shifts, rosters } = require('./staff');
 const { audit_log } = require('./audit-log');
 const { service_requests, assignment_events } = require('./compat');
 const { plan_requests } = require('./plan_requests');
+const { restaurant_info } = require('./restaurant_info');
+const { table_session } = require('./table_session');
+const { ads_visibility } = require('./ads_visibility');
 
 module.exports = {
   ...enums,
@@ -26,6 +29,7 @@ module.exports = {
   menu_categories,
   menu_categories_items,
   order_details,
+  customer_orders,
   order_items,
   leads,
   shifts,
@@ -34,5 +38,8 @@ module.exports = {
   service_requests,
   assignment_events,
   plan_requests,
+  restaurant_info,
+  table_session,
+  ads_visibility,
 };
 

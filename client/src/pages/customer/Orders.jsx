@@ -25,7 +25,7 @@ import ServiceRequestModal from '../../components/customer/ServiceRequestModal';
 
 export default function Orders() {
   const navigate = useNavigate();
-  const { session, myOrders, addToCart, setLiveOrdersCount } = useRestaurant();
+  const { session, myOrders, addToCart, setLiveOrdersCount, resetDiningSession } = useRestaurant();
   const [ordersData, setOrdersData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,7 +55,7 @@ export default function Orders() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Fetch orders from API
+  // Fetch orders from API - only fetch this specific user's orders
   const fetchOrders = useCallback(async (isSilent = false) => {
     if (!isSilent) setRefreshing(true);
 
@@ -64,12 +64,12 @@ export default function Orders() {
       const savedPhone = localStorage.getItem('customerPhone') || session?.customerPhone || '';
       const params = new URLSearchParams();
       if (orderIdsQuery) params.append('orderIds', orderIdsQuery);
-      if (tableId) params.append('tableId', tableId);
       if (savedPhone) params.append('phone', savedPhone);
 
-      // If we have neither order IDs nor tableId nor phone, nothing to query
-      if (!orderIdsQuery && !tableId && !savedPhone) {
+      // If we have neither order IDs nor phone, customer has no orders yet
+      if (!orderIdsQuery && !savedPhone) {
         setOrdersData([]);
+        if (setLiveOrdersCount) setLiveOrdersCount(0);
         setLoading(false);
         setRefreshing(false);
         return;
@@ -99,7 +99,7 @@ export default function Orders() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [myOrders, tableId, setLiveOrdersCount]);
+  }, [myOrders, session?.customerPhone, setLiveOrdersCount]);
 
   // Initial fetch and polling fallback
   useEffect(() => {
@@ -158,6 +158,10 @@ export default function Orders() {
       });
     });
 
+    socket.on('more_items_added', (updatedOrder) => {
+      fetchOrders(true);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -183,12 +187,14 @@ export default function Orders() {
     setTimeout(() => setReorderSuccessMsg(''), 4000);
   };
 
-  // Filter orders
+  // Filter orders - ensure only orders belonging to this user are shown
+  const currentSavedPhone = localStorage.getItem('customerPhone') || session?.customerPhone || '';
   const liveOrders = ordersData.filter(
     o => !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
   );
   const pastOrders = ordersData.filter(
-    o => ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
+    o => ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status) &&
+         (myOrders.includes(o.id || o._id) || (currentSavedPhone && o.customerPhone === currentSavedPhone))
   );
   const displayedOrders = tab === 'LIVE' ? liveOrders : pastOrders;
 
@@ -410,6 +416,22 @@ export default function Orders() {
         ) : (
           /* Orders List */
           <div className="space-y-4">
+            {tab === 'PAST' && pastOrders.length > 0 && resetDiningSession && (
+              <div className="flex items-center justify-between px-2 pt-1 pb-1">
+                <span className="text-xs text-gray-400">Past settled meals on this device</span>
+                <button
+                  onClick={() => {
+                    if (window.confirm('Start a new dining session? This will clear finished past orders from this device.')) {
+                      resetDiningSession();
+                      setOrdersData([]);
+                    }
+                  }}
+                  className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold underline cursor-pointer"
+                >
+                  Start New Session
+                </button>
+              </div>
+            )}
             {displayedOrders.map((order, idx) => {
               const orderId = order.id || order._id || idx;
               const badge = getStatusBadge(order.status);

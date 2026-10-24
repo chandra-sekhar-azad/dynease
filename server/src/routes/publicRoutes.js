@@ -12,9 +12,22 @@ const orderLimiter = rateLimit({
   message: { success: false, message: 'Too many orders placed. Please wait a moment.' }
 });
 
-// QR resolution (QR code itself should resolve, but ordering/menu access might be blocked)
+// Rate limit for table allocation & verification attempts
+const allocationLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 30,
+  message: { success: false, message: 'Too many table allocation attempts. Please wait a moment.' }
+});
+
+// QR resolution & Table Occupation
 router.get('/qr/:qrToken', publicController.getTableByQR);
 router.get('/table/:tableNumber', publicController.getTableByNumber);
+router.post('/tables/verify-location', allocationLimiter, publicController.verifyTableLocation);
+router.post('/tables/start-session', allocationLimiter, publicController.startTableSession);
+
+// Active Dining Visit Bill & Orders
+router.get('/visit/bill', publicController.getVisitBill);
+router.get('/visit/orders', publicController.getVisitOrders);
 
 // Menu (subdomain-based) - check subscription
 router.get('/menu', checkSubscription, publicController.getMenu);

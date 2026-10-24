@@ -78,6 +78,14 @@ export default function Orders() {
       setOrders(prev => prev.map(o => o.id === updatedOrder._id || o._id === updatedOrder._id ? { ...o, ...updatedOrder } : o));
     });
 
+    socket.on('more_items_added', (updatedOrder) => {
+      setOrders(prev => prev.map(o => (o.id === (updatedOrder._id || updatedOrder.id) || o._id === (updatedOrder._id || updatedOrder.id)) ? { ...o, ...updatedOrder } : o));
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(e => console.log('Audio play failed', e));
+      } catch(e){}
+    });
+
     return () => {
       socket.disconnect();
     };

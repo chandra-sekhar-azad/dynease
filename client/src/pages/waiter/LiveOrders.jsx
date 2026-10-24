@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Bell, CheckCircle, XCircle, Clock, AlertTriangle, UserCheck, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Bell, CheckCircle, XCircle, Clock, AlertTriangle, UserCheck, ShieldCheck, HelpCircle, Sparkles, PlusCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function LiveOrders() {
@@ -9,6 +9,7 @@ export default function LiveOrders() {
   const [waiter, setWaiter] = useState(null);
   const [connected, setConnected] = useState(false);
   const [activeTab, setActiveTab] = useState('ORDERS'); // 'ORDERS' | 'REQUESTS'
+  const [moreItemsAlert, setMoreItemsAlert] = useState(null);
   const navigate = useNavigate();
 
   const getHeaders = () => {
@@ -94,6 +95,32 @@ export default function LiveOrders() {
 
     socket.on('new_order', (orderPayload) => {
       fetchData();
+    });
+
+    socket.on('more_items_added', (orderPayload) => {
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(e => console.log('Audio error:', e));
+      } catch(e){}
+
+      const targetId = orderPayload._id || orderPayload.id;
+      setMoreItemsAlert({
+        id: targetId,
+        tableNumber: orderPayload.tableNumber || orderPayload.table,
+        orderNumber: orderPayload.orderNumber || targetId?.substring(0, 8),
+        newItems: orderPayload.newItems || [],
+        addedCount: orderPayload.addedCount || 1,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+
+      setOrders(prev => {
+        const exists = prev.find(o => o.id === targetId || o._id === targetId);
+        if (exists) {
+          return prev.map(o => (o.id === targetId || o._id === targetId) ? { ...o, ...orderPayload, hasNewItems: true } : o);
+        } else {
+          return [{ ...orderPayload, id: targetId, hasNewItems: true }, ...prev];
+        }
+      });
     });
 
     socket.on('order_updated', (updatedOrder) => {
@@ -295,6 +322,36 @@ export default function LiveOrders() {
         </div>
       )}
 
+      {/* Alert Banner for More Items Added */}
+      {moreItemsAlert && (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-top-3 duration-300">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+              <Sparkles className="animate-pulse" size={22} />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+                <span>Table {moreItemsAlert.tableNumber} added more items!</span>
+                <span className="text-[10px] font-bold bg-white text-amber-800 px-2 py-0.5 rounded-full uppercase">
+                  Order {moreItemsAlert.orderNumber}
+                </span>
+              </h4>
+              <p className="text-xs text-amber-100 mt-0.5">
+                {moreItemsAlert.newItems?.length > 0 
+                  ? moreItemsAlert.newItems.map(i => `${i.quantity}x ${i.name}`).join(', ')
+                  : `${moreItemsAlert.addedCount} new item(s) added`} · {moreItemsAlert.time}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setMoreItemsAlert(null)}
+            className="px-3 py-1.5 bg-white text-amber-900 rounded-lg text-xs font-bold hover:bg-amber-50 transition-colors shrink-0 cursor-pointer shadow-xs"
+          >
+            Acknowledge
+          </button>
+        </div>
+      )}
+
       {/* Main Header & Sub-Tabs */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
@@ -346,16 +403,21 @@ export default function LiveOrders() {
 
                 return (
                   <div key={order.id || idx} className={`bg-white rounded-2xl shadow-sm p-5 border-l-4 flex flex-col justify-between ${
-                    isPendingAcceptance ? 'border-amber-500 bg-amber-50/20' : 'border-green-600'
+                    isPendingAcceptance ? 'border-amber-500 bg-amber-50/20' : order.hasNewItems ? 'border-amber-500 ring-2 ring-amber-300' : 'border-green-600'
                   }`}>
                     <div>
                       <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-100">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-bold text-lg text-gray-900">Table {order.tableNumber || order.table}</h3>
                             {isOverflow && (
                               <span className="bg-purple-100 text-purple-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
                                 OVERFLOW
+                              </span>
+                            )}
+                            {order.hasNewItems && (
+                              <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-300 animate-pulse flex items-center gap-1">
+                                <Sparkles size={10} /> MORE ITEMS
                               </span>
                             )}
                           </div>

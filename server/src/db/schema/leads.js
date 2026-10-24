@@ -6,6 +6,7 @@ const {
   integer,
   timestamp,
   index,
+  uniqueIndex,
 } = require('drizzle-orm/pg-core');
 
 const { restaurants } = require('./restaurants');
@@ -29,6 +30,10 @@ const leads = pgTable(
     deletedat: timestamp('deletedat', { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex('leads_restaurant_number_unique').on(
+      table.restaurant_id,
+      table.number
+    ),
     index('leads_restaurant_idx').on(table.restaurant_id),
     index('leads_number_idx').on(table.number),
   ]

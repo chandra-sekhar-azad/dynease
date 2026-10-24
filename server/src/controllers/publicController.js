@@ -7,14 +7,19 @@ const {
   menu_categories,
   menu_categories_items,
   order_details,
+  customer_orders,
   order_items,
   leads,
   service_requests,
   ads,
-  audit_log
+  audit_log,
+  table_session
 } = schema;
 
 const RealtimeService = require('../services/RealtimeService');
+const CustomerSessionService = require('../services/CustomerSessionService');
+const { verifyProximity } = require('../utils/geo');
+const { normalizePhoneNumber } = require('../utils/phone');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -98,6 +103,229 @@ exports.getTableByQR = async (req, res, next) => {
       }
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/public/tables/verify-location
+ * Verifies QR token, 50-metre proximity, and atomic table availability
+ */
+exports.verifyTableLocation = async (req, res, next) => {
+  try {
+    const { qrToken, latitude, longitude } = req.body;
+
+    if (!qrToken) {
+      return res.status(400).json({ success: false, message: 'QR token is required.' });
+    }
+
+    const [table] = await db.select().from(tables).where(
+      and(
+        eq(tables.qr_token, qrToken),
+        eq(tables.table_status, 'ACTIVE'),
+        eq(tables.is_deleted, false)
+      )
+    ).limit(1);
+
+    if (!table) {
+      return res.status(404).json({
+        success: false,
+        code: 'INVALID_QR',
+        message: 'This table QR code is invalid or inactive.'
+      });
+    }
+
+    const [restaurant] = await db.select().from(restaurants).where(
+      and(
+        eq(restaurants.id, table.restaurant_id),
+        eq(restaurants.is_deleted, false)
+      )
+    ).limit(1);
+
+    if (!restaurant || restaurant.restaurant_status !== 'ACTIVE') {
+      return res.status(403).json({
+        success: false,
+        code: 'RESTAURANT_UNAVAILABLE',
+        message: 'This restaurant is currently unavailable.'
+      });
+    }
+
+    // Geolocation verification (50 meters)
+    if (restaurant.latitude && restaurant.longitude) {
+      if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
+        return res.status(400).json({
+          success: false,
+          code: 'LOCATION_REQUIRED',
+          message: 'Location permission is required to verify proximity to the restaurant.'
+        });
+      }
+
+      try {
+        const radius = restaurant.geofence_radius_meters || 50;
+        const prox = verifyProximity(latitude, longitude, restaurant.latitude, restaurant.longitude, radius);
+        if (!prox.isWithin) {
+          return res.status(403).json({
+            success: false,
+            code: 'LOCATION_OUT_OF_RANGE',
+            message: `You are outside the permitted ${radius}-metre radius of the restaurant (${prox.distanceMeters}m away).`
+          });
+        }
+      } catch (geoErr) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_LOCATION',
+          message: geoErr.message || 'Invalid geolocation coordinates.'
+        });
+      }
+    }
+
+    // Atomic Table Availability Check
+    const [activeSession] = await db.select().from(table_session).where(
+      and(
+        eq(table_session.table_id, table.id),
+        eq(table_session.session_status, 'ACTIVE')
+      )
+    ).limit(1);
+
+    const [activeVisit] = await db.select().from(order_details).where(
+      and(
+        eq(order_details.table_id, table.id),
+        sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED')`
+      )
+    ).limit(1);
+
+    if (activeSession || activeVisit) {
+      return res.status(409).json({
+        success: false,
+        code: 'TABLE_OCCUPIED',
+        message: 'This table is currently occupied. Please choose another table or contact a waiter.'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        verified: true,
+        restaurant: {
+          id: restaurant.id,
+          name: restaurant.restaurant_name || restaurant.name,
+          slug: restaurant.domain,
+          logo: null,
+          taxPercent: restaurant.taxPercent || 0
+        },
+        table: {
+          id: table.id,
+          tableNumber: table.table_code,
+          tableName: table.table_code
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/public/tables/start-session
+ * Allocates table, registers/reuses lead, creates 256-bit secure session token in HttpOnly cookie
+ */
+exports.startTableSession = async (req, res, next) => {
+  try {
+    const { qrToken, phone, name, latitude, longitude } = req.body;
+
+    if (!qrToken) {
+      return res.status(400).json({ success: false, message: 'QR token is required.' });
+    }
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Mobile number is required to start your dining session.' });
+    }
+
+    const [table] = await db.select().from(tables).where(
+      and(
+        eq(tables.qr_token, qrToken),
+        eq(tables.table_status, 'ACTIVE'),
+        eq(tables.is_deleted, false)
+      )
+    ).limit(1);
+
+    if (!table) {
+      return res.status(404).json({ success: false, code: 'INVALID_QR', message: 'Invalid or inactive table QR code.' });
+    }
+
+    const [restaurant] = await db.select().from(restaurants).where(
+      and(eq(restaurants.id, table.restaurant_id), eq(restaurants.is_deleted, false))
+    ).limit(1);
+
+    if (!restaurant || restaurant.restaurant_status !== 'ACTIVE') {
+      return res.status(403).json({ success: false, code: 'RESTAURANT_UNAVAILABLE', message: 'Restaurant is currently unavailable.' });
+    }
+
+    // Geolocation verification
+    if (restaurant.latitude && restaurant.longitude) {
+      if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
+        return res.status(400).json({
+          success: false,
+          code: 'LOCATION_REQUIRED',
+          message: 'Location permission is required to verify table proximity.'
+        });
+      }
+      const radius = restaurant.geofence_radius_meters || 50;
+      const prox = verifyProximity(latitude, longitude, restaurant.latitude, restaurant.longitude, radius);
+      if (!prox.isWithin) {
+        return res.status(403).json({
+          success: false,
+          code: 'LOCATION_OUT_OF_RANGE',
+          message: `You are outside the permitted ${radius}-metre radius of the restaurant.`
+        });
+      }
+    }
+
+    // Allocate table and create session
+    const allocation = await CustomerSessionService.allocateTableAndCreateSession({
+      restaurantId: restaurant.id,
+      tableId: table.id,
+      rawPhone: phone,
+      customerName: name
+    });
+
+    // Set HttpOnly, Secure cookie
+    CustomerSessionService.setSessionCookie(res, allocation.rawToken);
+
+    // Notify assigned waiter in real time
+    RealtimeService.tableAllocated({
+      restaurantId: restaurant.id,
+      tableId: table.id,
+      tableNumber: table.table_code,
+      visitId: allocation.visit.id,
+      leadName: name || 'Guest',
+      waiterId: table.assigned_waiter_id || null
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Table ${table.table_code} allocated successfully.`,
+      data: {
+        sessionStatus: allocation.session.session_status,
+        visitId: allocation.visit.id,
+        table: {
+          id: table.id,
+          tableNumber: table.table_code
+        },
+        restaurant: {
+          id: restaurant.id,
+          name: restaurant.restaurant_name || restaurant.name,
+          slug: restaurant.domain
+        }
+      }
+    });
+  } catch (error) {
+    if (error.code === 'TABLE_OCCUPIED') {
+      return res.status(409).json({
+        success: false,
+        code: 'TABLE_OCCUPIED',
+        message: error.message
+      });
+    }
     next(error);
   }
 };
@@ -295,11 +523,11 @@ exports.getRestaurantMenu = async (req, res, next) => {
 
 /**
  * POST /api/public/orders
- * Create a customer order
+ * Create a customer order or append items to an existing active order
  */
 exports.createOrder = async (req, res, next) => {
   try {
-    const { tableId, customerName, customerPhone, items } = req.body;
+    const { tableId, customerName, customerPhone, items, orderId } = req.body;
 
     if (!tableId) {
       return res.status(400).json({ success: false, message: 'Table is required.' });
@@ -327,37 +555,62 @@ exports.createOrder = async (req, res, next) => {
 
     const restaurantId = table.restaurant_id;
     const OrderService = require('../services/OrderService');
-
-    const result = await OrderService.createOrder({
-      restaurant_id: restaurantId,
-      table_id: table.id,
-      customer_name: customerName?.trim() || 'Guest',
-      customer_phone: customerPhone?.trim() || null,
-      items: items.map(i => ({
-        menu_item_id: i.menuItemId,
-        quantity: parseInt(i.quantity, 10),
-        customizations: i.size || ''
-      }))
-    });
-
-    const order = result.order;
-    const orderItemsList = result.items;
-
-    // Dynamic Waiter Assignment
     const WaiterAssignmentService = require('../services/waiterAssignmentService');
-    const assignment = await WaiterAssignmentService.assignWaiterForOrder(
-      null,
-      restaurantId,
-      table,
-      order.id
-    );
 
-    RealtimeService.orderCreated({
-      restaurantId,
-      order: {
+    const orderPayloadItems = items.map(i => ({
+      menu_item_id: i.menuItemId,
+      quantity: parseInt(i.quantity, 10),
+      customizations: i.size || ''
+    }));
+
+    // ── Check if active customer visit session exists (via middleware or cookie) ──
+    let customerSession = req.customerSession;
+    if (!customerSession) {
+      const rawToken = req.cookies?.dynease_table_session || req.headers['x-table-session-token'];
+      if (rawToken) {
+        customerSession = await CustomerSessionService.findActiveSession(rawToken);
+      }
+    }
+
+    if (customerSession && customerSession.visit) {
+      const visit = customerSession.visit;
+      const table = customerSession.table;
+      const currentRestaurantId = customerSession.restaurantId;
+      const idempotencyKey = req.body.idempotencyKey || req.headers['idempotency-key'] || req.body.orderId || null;
+
+      const result = await OrderService.submitOrderInVisit({
+        visitId: visit.id,
+        restaurantId: currentRestaurantId,
+        items: orderPayloadItems,
+        special_instructions: req.body.specialInstructions || '',
+        idempotency_key: idempotencyKey
+      });
+
+      const order = result.order;
+      const orderItemsList = result.items;
+
+      // Dynamic Waiter Assignment if not already assigned on visit
+      let assignedWaiterId = visit.assigned_waiter_id;
+      if (!assignedWaiterId) {
+        const assignment = await WaiterAssignmentService.assignWaiterForOrder(
+          null,
+          currentRestaurantId,
+          table,
+          order.id
+        );
+        assignedWaiterId = assignment?.assignedWaiterId || null;
+        if (assignedWaiterId) {
+          await db.update(order_details)
+            .set({ assigned_waiter_id: assignedWaiterId })
+            .where(eq(order_details.id, visit.id));
+        }
+      }
+
+      const formattedOrder = {
         id: order.id,
         _id: order.id,
-        orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+        orderNumber: order.order_number,
+        visitId: visit.id,
         tableId: table.id,
         tableNumber: table.table_code,
         items: orderItemsList.map(oi => ({
@@ -365,41 +618,224 @@ exports.createOrder = async (req, res, next) => {
           itemName: oi.item_name,
           unitPrice: parseFloat(oi.unit_price),
           quantity: oi.quantity,
-          total: parseFloat(oi.total)
+          requestedQuantity: oi.requested_quantity || oi.quantity,
+          acceptedQuantity: oi.accepted_quantity !== null ? oi.accepted_quantity : oi.quantity,
+          total: parseFloat(oi.total),
+          size: oi.customizations || null,
+          status: oi.item_status || 'PENDING'
         })),
+        subtotal: parseFloat(order.subtotal || 0),
+        status: order.order_status,
+        assignedWaiterId,
+        createdAt: order.createdat
+      };
+
+      RealtimeService.orderCreated({
+        restaurantId: currentRestaurantId,
+        order: formattedOrder,
+        orderId: order.id,
+        tableId: table.id,
+        waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
+      });
+
+      return res.status(201).json({
+        success: true,
+        data: {
+          order: formattedOrder,
+          visitId: visit.id,
+          duplicate: result.duplicate || false
+        }
+      });
+    }
+
+    // ── Check if there is an active existing order on this table (legacy fallback) ──
+    let existingActiveOrder = null;
+
+    if (orderId && UUID_RE.test(String(orderId))) {
+      const [found] = await db.select().from(order_details).where(
+        and(
+          eq(order_details.id, orderId),
+          eq(order_details.restaurant_id, restaurantId),
+          eq(order_details.table_id, table.id),
+          sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED', 'PAID')`
+        )
+      ).limit(1);
+      if (found) existingActiveOrder = found;
+    }
+
+    // ── Case A: Append new items to the existing active order ──
+    if (existingActiveOrder) {
+      const result = await OrderService.addItemsToOrder({
+        restaurant_id: restaurantId,
+        order_id: existingActiveOrder.id,
+        items: orderPayloadItems
+      });
+
+      const order = result.order;
+      const allOrderItemsList = result.items;
+      const newItemsList = result.newItems;
+
+      // Ensure assigned waiter is present
+      let assignedWaiterId = order.assigned_waiter_id;
+      if (!assignedWaiterId) {
+        const assignment = await WaiterAssignmentService.assignWaiterForOrder(
+          null,
+          restaurantId,
+          table,
+          order.id
+        );
+        assignedWaiterId = assignment?.assignedWaiterId || null;
+        if (assignedWaiterId) {
+          await db.update(order_details)
+            .set({ assigned_waiter_id: assignedWaiterId })
+            .where(eq(order_details.id, order.id));
+        }
+      }
+
+      const formattedOrder = {
+        id: order.id,
+        _id: order.id,
+        orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+        tableId: table.id,
+        tableNumber: table.table_code,
+        items: allOrderItemsList.map(oi => ({
+          id: oi.id,
+          itemName: oi.item_name,
+          unitPrice: parseFloat(oi.unit_price),
+          quantity: oi.quantity,
+          total: parseFloat(oi.total),
+          size: oi.customizations || null
+        })),
+        subtotal: parseFloat(order.total_amount || 0),
+        taxAmount: parseFloat(order.tax_amount || 0),
         total: parseFloat(order.final_amount || order.total_amount || 0),
         status: order.order_status,
-        assignedWaiterId: assignment?.assignedWaiterId || null,
-        assignmentType: assignment?.assignmentType || 'DYNAMIC',
-        assignmentStatus: assignment?.assignmentStatus || 'ASSIGNED',
-        createdAt: order.createdat || order.date
-      },
+        assignedWaiterId: assignedWaiterId || null,
+        createdAt: order.createdat || order.date,
+        updatedAt: order.updatedat,
+        hasNewItems: true,
+        newItemsCount: newItemsList.reduce((acc, i) => acc + i.quantity, 0)
+      };
+
+      // 1. Create a service_request record so it appears in the Waiter's Requests queue
+      const itemsSummary = newItemsList.map(ni => `${ni.quantity}x ${ni.item_name}`).join(', ');
+      try {
+        const [sr] = await db.insert(service_requests).values({
+          restaurant_id: restaurantId,
+          table_id: table.id,
+          request_type: 'MORE_ITEMS_ADDED',
+          request_status: 'OPEN',
+          details: {
+            orderId: order.id,
+            orderNumber: formattedOrder.orderNumber,
+            tableNumber: table.table_code,
+            newItemsSummary: itemsSummary,
+            note: `Table ${table.table_code} added items: ${itemsSummary}`
+          }
+        }).returning();
+
+        RealtimeService.serviceRequestCreated(restaurantId, {
+          id: sr.id,
+          _id: sr.id,
+          tableId: table.id,
+          tableNumber: table.table_code,
+          type: 'MORE_ITEMS_ADDED',
+          note: `Added items: ${itemsSummary}`,
+          status: 'OPEN',
+          createdAt: sr.createdat
+        });
+      } catch (srErr) {
+        console.error('Failed to create service request for more items:', srErr);
+      }
+
+      // 2. Broadcast orderItemsAdded (emits order_updated and more_items_added to waiters & kitchen)
+      RealtimeService.orderItemsAdded({
+        restaurantId,
+        order: formattedOrder,
+        orderId: order.id,
+        tableId: table.id,
+        waiterId: assignedWaiterId ? assignedWaiterId.toString() : null,
+        newItems: newItemsList.map(ni => ({
+          name: ni.item_name,
+          quantity: ni.quantity,
+          size: ni.customizations
+        })),
+        addedCount: newItemsList.reduce((acc, i) => acc + i.quantity, 0)
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Items added to your existing order successfully',
+        data: {
+          order: formattedOrder,
+          isAppended: true
+        }
+      });
+    }
+
+    // ── Case B: Brand new order creation ──
+    const result = await OrderService.createOrder({
+      restaurant_id: restaurantId,
+      table_id: table.id,
+      customer_name: customerName?.trim() || 'Guest',
+      customer_phone: customerPhone?.trim() || null,
+      items: orderPayloadItems
+    });
+
+    const order = result.order;
+    const orderItemsList = result.items;
+
+    // Dynamic Waiter Assignment
+    const assignment = await WaiterAssignmentService.assignWaiterForOrder(
+      null,
+      restaurantId,
+      table,
+      order.id
+    );
+
+    const assignedWaiterId = assignment?.assignedWaiterId || null;
+    if (assignedWaiterId) {
+      await db.update(order_details)
+        .set({ assigned_waiter_id: assignedWaiterId })
+        .where(eq(order_details.id, order.id));
+    }
+
+    const formattedOrder = {
+      id: order.id,
+      _id: order.id,
+      orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+      tableId: table.id,
+      tableNumber: table.table_code,
+      items: orderItemsList.map(oi => ({
+        id: oi.id,
+        itemName: oi.item_name,
+        unitPrice: parseFloat(oi.unit_price),
+        quantity: oi.quantity,
+        total: parseFloat(oi.total),
+        size: oi.customizations || null
+      })),
+      subtotal: parseFloat(order.total_amount || 0),
+      taxAmount: parseFloat(order.tax_amount || 0),
+      total: parseFloat(order.final_amount || order.total_amount || 0),
+      status: order.order_status,
+      assignedWaiterId,
+      assignmentType: assignment?.assignmentType || 'DYNAMIC',
+      assignmentStatus: assignment?.assignmentStatus || 'ASSIGNED',
+      createdAt: order.createdat || order.date
+    };
+
+    RealtimeService.orderCreated({
+      restaurantId,
+      order: formattedOrder,
       orderId: order.id,
       tableId: table.id,
-      waiterId: assignment?.assignedWaiterId ? assignment.assignedWaiterId.toString() : null
+      waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
     });
 
     res.status(201).json({
       success: true,
       data: {
-        order: {
-          id: order.id,
-          _id: order.id,
-          orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
-          tableNumber: table.table_code,
-          items: orderItemsList.map(oi => ({
-            id: oi.id,
-            itemName: oi.item_name,
-            unitPrice: parseFloat(oi.unit_price),
-            quantity: oi.quantity,
-            total: parseFloat(oi.total)
-          })),
-          subtotal: parseFloat(order.total_amount || 0),
-          taxAmount: parseFloat(order.tax_amount || 0),
-          total: parseFloat(order.final_amount || order.total_amount || 0),
-          status: order.order_status,
-          createdAt: order.createdat || order.date
-        }
+        order: formattedOrder
       }
     });
   } catch (error) {
@@ -427,7 +863,12 @@ exports.getCustomerOrders = async (req, res, next) => {
     }
 
     if (tableId && UUID_RE.test(String(tableId).trim())) {
-      conditions.push(eq(order_details.table_id, String(tableId).trim()));
+      conditions.push(
+        and(
+          eq(order_details.table_id, String(tableId).trim()),
+          sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED', 'PAID')`
+        )
+      );
     }
 
     if (phone) {
@@ -690,3 +1131,102 @@ exports.createAdInquiry = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/public/visit/bill
+ * Retrieve aggregated bill for the active dining visit
+ */
+exports.getVisitBill = async (req, res, next) => {
+  try {
+    let session = req.customerSession;
+    if (!session) {
+      const rawToken = req.cookies?.dynease_table_session || req.headers['x-table-session-token'];
+      if (rawToken) {
+        session = await CustomerSessionService.findActiveSession(rawToken);
+      }
+    }
+
+    if (!session || !session.visit) {
+      return res.status(401).json({ success: false, code: 'UNAUTHORIZED_SESSION', message: 'Active visit session is required.' });
+    }
+
+    const OrderService = require('../services/OrderService');
+    const bill = await OrderService.getVisitBill(session.visit.id, session.restaurantId);
+
+    res.status(200).json({
+      success: true,
+      data: { bill }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/public/visit/orders
+ * Retrieve all orders submitted during the active visit
+ */
+exports.getVisitOrders = async (req, res, next) => {
+  try {
+    let session = req.customerSession;
+    if (!session) {
+      const rawToken = req.cookies?.dynease_table_session || req.headers['x-table-session-token'];
+      if (rawToken) {
+        session = await CustomerSessionService.findActiveSession(rawToken);
+      }
+    }
+
+    if (!session || !session.visit) {
+      return res.status(401).json({ success: false, code: 'UNAUTHORIZED_SESSION', message: 'Active visit session is required.' });
+    }
+
+    const orders = await db.select().from(customer_orders).where(
+      eq(customer_orders.visit_id, session.visit.id)
+    ).orderBy(desc(customer_orders.createdat));
+
+    const allItems = await db.select().from(order_items).where(
+      eq(order_items.visit_id, session.visit.id)
+    ).orderBy(order_items.createdat);
+
+    const itemsByOrder = new Map();
+    for (const item of allItems) {
+      if (!itemsByOrder.has(item.order_id)) {
+        itemsByOrder.set(item.order_id, []);
+      }
+      itemsByOrder.get(item.order_id).push({
+        id: item.id,
+        name: item.item_name,
+        requestedQuantity: item.requested_quantity || item.quantity,
+        acceptedQuantity: item.accepted_quantity !== null && item.accepted_quantity !== undefined ? item.accepted_quantity : item.quantity,
+        unitPrice: parseFloat(item.unit_price),
+        total: parseFloat(item.total),
+        status: item.item_status || 'ACCEPTED',
+        rejectionReason: item.rejection_reason || null,
+        size: item.customizations || null
+      });
+    }
+
+    const formattedOrders = orders.map(o => ({
+      id: o.id,
+      _id: o.id,
+      orderNumber: o.order_number,
+      status: o.order_status,
+      subtotal: parseFloat(o.subtotal),
+      items: itemsByOrder.get(o.id) || [],
+      createdAt: o.createdat
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        visitId: session.visit.id,
+        tableId: session.tableId,
+        orderStatus: session.visit.order_status,
+        orders: formattedOrders
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

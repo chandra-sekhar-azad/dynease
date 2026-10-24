@@ -21,6 +21,8 @@ const { uploadToCloudinary } = require('../utils/cloudinary');
 const RealtimeService = require('../services/RealtimeService');
 const SubscriptionService = require('../services/SubscriptionService');
 const WaiterAssignmentService = require('../services/waiterAssignmentService');
+const OrderService = require('../services/OrderService');
+const CustomerSessionService = require('../services/CustomerSessionService');
 const { getPlan, getPublicPlans } = require('../config/plans');
 
 
@@ -1254,6 +1256,9 @@ exports.getProfile = async (req, res) => {
           phone: restaurant.phone_number,
           address: restaurant.address,
           isActive: restaurant.restaurant_status === 'ACTIVE',
+          latitude: restaurant.latitude ? parseFloat(restaurant.latitude) : null,
+          longitude: restaurant.longitude ? parseFloat(restaurant.longitude) : null,
+          geofenceRadiusMeters: restaurant.geofence_radius_meters || 50,
           googleReviewLink: null,
           taxInfo: { taxPercentage: 0 }
         }
@@ -1268,7 +1273,7 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const { name, phone, address } = req.body;
+    const { name, phone, address, latitude, longitude, geofenceRadiusMeters } = req.body;
 
     const updateFields = {
       updatedat: new Date()
@@ -1278,7 +1283,10 @@ exports.updateProfile = async (req, res) => {
       updateFields.name = name.trim();
     }
     if (phone) updateFields.phone_number = phone.trim();
-    if (address) updateFields.address = address;
+    if (address !== undefined) updateFields.address = address;
+    if (latitude !== undefined) updateFields.latitude = latitude !== null ? String(latitude) : null;
+    if (longitude !== undefined) updateFields.longitude = longitude !== null ? String(longitude) : null;
+    if (geofenceRadiusMeters !== undefined) updateFields.geofence_radius_meters = parseInt(geofenceRadiusMeters, 10) || 50;
 
     const [restaurant] = await db.update(restaurants).set(updateFields).where(
       and(eq(restaurants.id, restaurantId), eq(restaurants.is_deleted, false))
@@ -1299,6 +1307,9 @@ exports.updateProfile = async (req, res) => {
           subtitle: '',
           phone: restaurant.phone_number,
           address: restaurant.address,
+          latitude: restaurant.latitude ? parseFloat(restaurant.latitude) : null,
+          longitude: restaurant.longitude ? parseFloat(restaurant.longitude) : null,
+          geofenceRadiusMeters: restaurant.geofence_radius_meters || 50,
           isActive: restaurant.restaurant_status === 'ACTIVE'
         }
       }
@@ -1566,3 +1577,134 @@ exports.renewSubscription = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
+
+/**
+ * PATCH /api/restaurant/orders/items/:id/quantity
+ * Waiter adjustment of live order items (partial or complete unavailability)
+ * Strict role check: Waiters only! Restaurant administrators must not directly edit live items.
+ */
+exports.updateOrderItemQuantity = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params;
+    const { acceptedQuantity, reason } = req.body;
+
+    // Strict role check: Only assigned or authorized waiters may edit live order items
+    if (req.user.userType !== 'STAFF' && req.user.role !== 'RESTAURANT_STAFF') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only assigned or authorized waiters may edit live order items.'
+      });
+    }
+
+    if (acceptedQuantity === undefined || acceptedQuantity === null) {
+      return res.status(400).json({ success: false, message: 'Accepted quantity is required.' });
+    }
+
+    const result = await OrderService.updateOrderItemQuantity({
+      itemId: id,
+      acceptedQuantity: parseInt(acceptedQuantity, 10),
+      reason: reason || '',
+      waiterId: req.user.id,
+      restaurantId
+    });
+
+    RealtimeService.orderItemUpdated({
+      restaurantId,
+      orderId: result.order?.id,
+      visitId: result.visit?.id,
+      tableId: result.visit?.table_id,
+      item: {
+        id: result.item.id,
+        name: result.item.item_name,
+        requestedQuantity: result.item.requested_quantity,
+        acceptedQuantity: result.item.accepted_quantity,
+        unitPrice: parseFloat(result.item.unit_price),
+        total: parseFloat(result.item.total),
+        status: result.item.item_status,
+        rejectionReason: result.item.rejection_reason,
+        modifiedAt: result.item.modified_at
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Item quantity updated successfully.',
+      data: result
+    });
+  } catch (error) {
+    console.error('[RestaurantController] Error updating item quantity:', error);
+    res.status(400).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+/**
+ * POST /api/restaurant/tables/:tableId/cancel-allocation
+ * Waiter cancellation of an allocated table visit
+ */
+exports.cancelTableAllocation = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { tableId } = req.params;
+    const { reason, visitId } = req.body;
+
+    const result = await CustomerSessionService.cancelAllocation({
+      tableId,
+      visitId,
+      restaurantId,
+      cancelledByUserId: req.user.id,
+      reason: reason || 'Cancelled by staff'
+    });
+
+    RealtimeService.allocationCancelled({
+      restaurantId,
+      tableId,
+      visitId: result.visit?.id,
+      reason
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Table allocation cancelled and table released.',
+      data: result
+    });
+  } catch (error) {
+    console.error('[RestaurantController] Error cancelling table allocation:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+/**
+ * POST /api/restaurant/visits/:id/complete
+ * Waiter final "Order Completed" action closing visit and releasing table
+ */
+exports.completeVisit = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params; // visitId
+
+    const result = await CustomerSessionService.completeVisit({
+      visitId: id,
+      restaurantId,
+      closedByUserId: req.user.id
+    });
+
+    RealtimeService.visitClosed({
+      restaurantId,
+      tableId: result.tableId,
+      visitId: result.visit.id
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Visit completed, billing finalized, and table released.',
+      data: {
+        visit: result.visit
+      }
+    });
+  } catch (error) {
+    console.error('[RestaurantController] Error completing visit:', error);
+    res.status(400).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
