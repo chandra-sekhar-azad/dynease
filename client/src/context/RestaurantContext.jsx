@@ -28,9 +28,13 @@ export function getSubdomainSlug() {
 export function getTenantHeaders(extra = {}) {
   const slug = getSubdomainSlug();
   const token = localStorage.getItem('token');
+  const validToken = token && token !== 'undefined' && token !== 'null' && token.trim() !== '';
+  if (token && !validToken) {
+    try { localStorage.removeItem('token'); } catch {}
+  }
   const headers = { 
     'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(validToken ? { 'Authorization': `Bearer ${token}` } : {}),
     ...extra 
   };
   if (slug) headers['x-tenant-subdomain'] = slug;

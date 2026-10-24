@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders, getStoredToken } from '../utils/api';
 
 /**
  * Client-side authentication + role guard.
@@ -25,7 +25,7 @@ export default function useAuthGuard(allowedRoles) {
       navigate('/login', { replace: true });
     };
 
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (!token) {
       deny();
       return () => { mounted = false; };

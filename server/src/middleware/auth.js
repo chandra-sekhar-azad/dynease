@@ -9,7 +9,7 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
     }
 
-    if (!token) {
+    if (!token || token === 'undefined' || token === 'null' || !token.trim()) {
       return res.status(401).json({ success: false, message: 'You are not logged in. Please log in to get access.' });
     }
 

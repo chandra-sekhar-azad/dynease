@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle, User, LogOut, Menu, X, Bell, Settings } from 'lucide-react';
 import useAuthGuard from '../../hooks/useAuthGuard';
+import { getStoredToken, getAuthHeaders } from '../../utils/api';
 
 // Waiters/kitchen staff both map to the RESTAURANT_STAFF role server-side.
 const WAITER_ROLES = ['RESTAURANT_STAFF'];
@@ -14,26 +15,13 @@ export default function WaiterLayout() {
   const authStatus = useAuthGuard(WAITER_ROLES);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (!token) {
       navigate('/login');
       return;
     }
 
-    const hostname = window.location.hostname;
-    const headers = { 
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-    let subdomain = '';
-    if (hostname.includes('dynease.in') && hostname !== 'dynease.in' && hostname !== 'www.dynease.in') {
-      subdomain = hostname.split('.')[0];
-    } else if (hostname.includes('localhost') && hostname !== 'localhost') {
-      subdomain = hostname.split('.')[0];
-    }
-    if (subdomain) headers['x-tenant-subdomain'] = subdomain;
-
-    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { headers })
+    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { headers: getAuthHeaders() })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data.user && data.data.user.restaurantId) {

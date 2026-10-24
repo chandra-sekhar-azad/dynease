@@ -141,7 +141,7 @@ function App() {
               <Route path="/demo" element={<DemoPage />} />
               <Route path="/item/:id" element={<ItemDescription />} />
               <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/checkout" element={<Navigate to="/cart" replace />} />
               <Route path="/order/:orderId" element={<OrderConfirmation />} />
               <Route path="/orders" element={<CustomerOrders />} />
               <Route path="/my-orders" element={<CustomerOrders />} />
@@ -229,7 +229,7 @@ function App() {
           <Route path="/r/:slug" element={<CustomerRoot />} />
           <Route path="/item/:id" element={<ItemDescription />} />
           <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/checkout" element={<Navigate to="/cart" replace />} />
           <Route path="/order/:orderId" element={<OrderConfirmation />} />
           <Route path="/orders" element={<CustomerOrders />} />
           <Route path="/my-orders" element={<CustomerOrders />} />

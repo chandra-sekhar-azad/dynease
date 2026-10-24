@@ -146,6 +146,10 @@ export default function QRMenuLoader() {
       }
 
       if (data.success && data.data) {
+        try {
+          if (phone.trim()) localStorage.setItem('customerPhone', phone.trim());
+          if (name.trim()) localStorage.setItem('customerName', name.trim());
+        } catch {}
         saveSession(data.data.restaurant, data.data.table, data.data.visitId);
         setStep('success');
         setTimeout(() => {

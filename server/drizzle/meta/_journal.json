@@ -43,6 +43,13 @@
       "when": 1792853531319,
       "tag": "0005_broken_pestilence",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792865052927,
+      "tag": "0006_careful_havok",
+      "breakpoints": true
     }
   ]
 }

@@ -1,44 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QrCode, Keyboard, Loader2 } from 'lucide-react';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
+import CameraQRScanner from '../../components/common/CameraQRScanner';
 
 export default function LandingPage({ onSessionEstablished }) {
-  const [activeTab, setActiveTab] = useState('code'); // 'code' | 'scan'
+  // Default to 'scan' so camera permission is requested immediately upon opening
+  const [activeTab, setActiveTab] = useState('scan'); // 'scan' | 'code'
   const [tableCode, setTableCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const { saveSession } = useRestaurant();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    let scanner = null;
-    if (activeTab === 'scan') {
-      scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
-      scanner.render(
-        (decodedText) => {
-          const match = decodedText.match(/\/(?:t|menu)\/([^/?#]+)/);
-          if (match) {
-            scanner.clear();
-            navigate(`/t/${match[1]}`);
-          } else {
-            scanner.clear();
-            navigate(`/t/${decodedText}`);
-          }
-        },
-        (error) => {
-          // Ignore scanning errors as they happen constantly during scanning
-        }
-      );
-    }
-    
-    return () => {
-      if (scanner) {
-        scanner.clear().catch(e => console.error(e));
-      }
-    };
-  }, [activeTab, navigate]);
 
   const handleSubmitCode = async (e) => {
     e.preventDefault();
@@ -73,62 +46,62 @@ export default function LandingPage({ onSessionEstablished }) {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] flex flex-col items-center justify-center p-6 relative">
+    <div className="min-h-screen bg-[var(--color-background)] flex flex-col items-center justify-center p-4 sm:p-6 relative">
       <div className="w-full max-w-sm">
         {/* Logo Area */}
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-serif text-[var(--color-text)] mb-3 tracking-wide">Dynease</h1>
-          <p className="text-[var(--color-text-muted)] font-light">Welcome to the digital menu</p>
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-3xl sm:text-4xl font-serif text-[var(--color-text)] mb-2 tracking-wide">Dynease</h1>
+          <p className="text-[var(--color-text-muted)] text-sm font-light">Scan table QR code to view menu and order</p>
         </div>
 
-        <div className="bg-white rounded-[var(--radius-sm)] shadow-sm border border-[var(--color-border)] overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-xl border border-[var(--color-border)] overflow-hidden">
           <div className="flex border-b border-[var(--color-border)]">
             <button
-              onClick={() => setActiveTab('code')}
-              className={`flex-1 py-4 font-medium text-xs tracking-wide uppercase flex items-center justify-center gap-2 transition-colors ${
-                activeTab === 'code' ? 'text-[var(--color-primary)] border-b-2 border-[var(--color-primary)] bg-[var(--color-background)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)]'
-              }`}
-            >
-              <Keyboard size={16} /> Enter Code
-            </button>
-            <button
               onClick={() => setActiveTab('scan')}
-              className={`flex-1 py-4 font-medium text-xs tracking-wide uppercase flex items-center justify-center gap-2 transition-colors border-l border-[var(--color-border)] ${
+              className={`flex-1 py-3.5 font-bold text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 activeTab === 'scan' ? 'text-[var(--color-primary)] border-b-2 border-[var(--color-primary)] bg-[var(--color-background)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)]'
               }`}
             >
               <QrCode size={16} /> Scan QR
             </button>
+            <button
+              onClick={() => setActiveTab('code')}
+              className={`flex-1 py-3.5 font-bold text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-colors border-l border-[var(--color-border)] cursor-pointer ${
+                activeTab === 'code' ? 'text-[var(--color-primary)] border-b-2 border-[var(--color-primary)] bg-[var(--color-background)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)]'
+              }`}
+            >
+              <Keyboard size={16} /> Enter Code
+            </button>
           </div>
 
-          <div className="p-8">
-            {activeTab === 'code' ? (
-              <form onSubmit={handleSubmitCode}>
+          <div className="p-4 sm:p-6">
+            {activeTab === 'scan' ? (
+              <CameraQRScanner
+                onSwitchToManual={() => setActiveTab('code')}
+              />
+            ) : (
+              <form onSubmit={handleSubmitCode} className="p-2">
                 <div className="mb-6">
-                  <label className="block text-[var(--color-text)] text-xs font-medium uppercase tracking-wide mb-3">Table Code</label>
+                  <label className="block text-[var(--color-text)] text-xs font-bold uppercase tracking-wider mb-2">Table Code</label>
                   <input
                     type="text"
                     value={tableCode}
                     onChange={(e) => setTableCode(e.target.value)}
                     placeholder="e.g. 5"
-                    className="w-full px-4 py-3 bg-[var(--color-background)] border border-[var(--color-border)] rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--color-primary)] font-serif text-lg text-center transition-colors"
+                    className="w-full px-4 py-3 bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] font-serif text-lg text-center transition-colors font-bold"
                     required
+                    autoFocus
                   />
                 </div>
-                {errorMsg && <p className="text-red-700 bg-red-50 p-3 rounded-[var(--radius-sm)] text-sm mb-6 font-medium text-center border border-red-200">{errorMsg}</p>}
+                {errorMsg && <p className="text-red-700 bg-red-50 p-3 rounded-xl text-xs mb-5 font-bold text-center border border-red-200">{errorMsg}</p>}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[var(--color-primary)] text-white font-medium text-sm tracking-wide uppercase py-3.5 rounded-[var(--radius-sm)] hover:bg-[var(--color-primary-light)] transition-colors flex items-center justify-center gap-2"
+                  className="w-full bg-[var(--color-primary)] text-white font-bold text-xs tracking-wider uppercase py-3.5 rounded-xl hover:bg-[var(--color-primary-light)] transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   {loading ? <Loader2 size={18} className="animate-spin" /> : 'Open Menu'}
                 </button>
               </form>
-            ) : (
-              <div className="text-center">
-                <div id="reader" className="overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-border)] mb-6 bg-[var(--color-background)]"></div>
-                <p className="text-[var(--color-text-muted)] text-sm font-light">Point your camera at the QR code on your table.</p>
-              </div>
             )}
           </div>
         </div>

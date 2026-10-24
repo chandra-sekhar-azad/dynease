@@ -774,7 +774,10 @@ exports.getOrders = async (req, res) => {
     const orders = [];
     for (const ord of orderRows) {
       const items = await db.select().from(order_items).where(
-        eq(order_items.order_id, ord.id)
+        or(
+          eq(order_items.visit_id, ord.id),
+          eq(order_items.order_id, ord.id)
+        )
       );
 
       const [tbl] = ord.table_id ? await db.select().from(tables).where(eq(tables.id, ord.table_id)).limit(1) : [null];
@@ -1344,7 +1347,12 @@ exports.getStats = async (req, res) => {
     const todaysOrdersCount = todaysOrders.length;
     let revenue = 0;
     for (const ord of todaysOrders) {
-      const items = await db.select().from(order_items).where(eq(order_items.order_id, ord.id));
+      const items = await db.select().from(order_items).where(
+        or(
+          eq(order_items.visit_id, ord.id),
+          eq(order_items.order_id, ord.id)
+        )
+      );
       const orderTotal = items.reduce((sum, it) => sum + parseFloat(it.total || 0), 0);
       revenue += orderTotal;
     }

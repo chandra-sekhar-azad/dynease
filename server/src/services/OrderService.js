@@ -56,18 +56,40 @@ class OrderService {
 
       // 3. Idempotency check: if order with this idempotency key already exists, return it
       if (idempotency_key) {
-        const [existingOrder] = await tx.select().from(order_details).where(
+        const [existingCustOrder] = await tx.select().from(customer_orders).where(
           and(
-            eq(order_details.restaurant_id, restaurant_id),
-            eq(order_details.order_number, idempotency_key)
+            eq(customer_orders.restaurant_id, restaurant_id),
+            eq(customer_orders.idempotency_key, idempotency_key)
           )
         ).limit(1);
 
-        if (existingOrder) {
+        if (existingCustOrder) {
           const existingItems = await tx.select().from(order_items).where(
-            eq(order_items.order_id, existingOrder.id)
+            eq(order_items.order_id, existingCustOrder.id)
           );
-          return { order: existingOrder, items: existingItems, duplicate: true };
+          const [visit] = await tx.select().from(order_details).where(
+            eq(order_details.id, existingCustOrder.visit_id)
+          ).limit(1);
+
+          return {
+            order: {
+              ...existingCustOrder,
+              id: existingCustOrder.id,
+              visitId: visit?.id,
+              total_amount: visit?.total_amount || existingCustOrder.subtotal,
+              final_amount: visit?.final_amount || existingCustOrder.subtotal,
+              tax_amount: visit?.tax_amount || '0.00',
+              discount_amount: visit?.discount_amount || '0.00',
+              table_id: visit?.table_id || table_id,
+              customer_name: visit?.customer_name,
+              customer_phone: visit?.customer_phone,
+              assigned_waiter_id: visit?.assigned_waiter_id,
+              app_status: visit?.app_status || 'PENDING'
+            },
+            visit,
+            items: existingItems,
+            duplicate: true
+          };
         }
       }
 
@@ -146,58 +168,113 @@ class OrderService {
         }
       }
 
-      // 6. Generate order details
-      const orderNumber = idempotency_key || ('ORD-' + Date.now().toString(36).toUpperCase());
+      // 6. Check if table currently has an active dining visit
+      const [existingVisit] = await tx.select().from(order_details).where(
+        and(
+          eq(order_details.table_id, table_id),
+          eq(order_details.restaurant_id, restaurant_id),
+          sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED')`
+        )
+      ).for('update').limit(1);
 
-      const [order] = await tx.insert(order_details).values({
+      let visit;
+      if (existingVisit) {
+        const newTotalAmount = (parseFloat(existingVisit.total_amount || 0) + totalAmount).toFixed(2);
+        const newFinalAmount = (parseFloat(existingVisit.final_amount || 0) + totalAmount).toFixed(2);
+
+        const [updatedVisit] = await tx.update(order_details).set({
+          order_status: 'ORDERED',
+          app_status: 'PENDING',
+          total_amount: newTotalAmount,
+          final_amount: newFinalAmount,
+          customer_name: (customer_name && customer_name !== 'Guest') ? customer_name : existingVisit.customer_name,
+          customer_phone: customer_phone || existingVisit.customer_phone,
+          lead_id: leadId || existingVisit.lead_id,
+          assigned_waiter_id: assigned_waiter_id || existingVisit.assigned_waiter_id,
+          updatedat: new Date()
+        }).where(eq(order_details.id, existingVisit.id)).returning();
+        visit = updatedVisit;
+      } else {
+        const visitNumber = idempotency_key ? `VISIT-${idempotency_key.slice(0, 8).toUpperCase()}` : ('VISIT-' + Date.now().toString(36).toUpperCase());
+        const [newVisit] = await tx.insert(order_details).values({
+          restaurant_id,
+          table_id,
+          lead_id: leadId,
+          order_status: 'ORDERED',
+          date: new Date(),
+          order_number: visitNumber,
+          customer_name,
+          customer_phone,
+          total_amount: totalAmount.toFixed(2),
+          tax_amount: '0.00',
+          discount_amount: '0.00',
+          final_amount: totalAmount.toFixed(2),
+          payment_status: 'PENDING',
+          payment_method: 'CASH',
+          special_instructions,
+          assigned_waiter_id,
+          app_status: 'PENDING'
+        }).returning();
+        visit = newVisit;
+      }
+
+      // 7. Create individual customer_orders record
+      const orderNumber = idempotency_key || ('ORD-' + Date.now().toString(36).toUpperCase());
+      const [order] = await tx.insert(customer_orders).values({
         restaurant_id,
-        table_id,
-        lead_id: leadId,
-        order_status: 'ORDERED',
-        date: new Date(),
+        visit_id: visit.id,
         order_number: orderNumber,
-        customer_name,
-        customer_phone,
-        total_amount: totalAmount.toFixed(2),
-        tax_amount: '0.00',
-        discount_amount: '0.00',
-        final_amount: totalAmount.toFixed(2),
-        payment_status: 'PENDING',
-        payment_method: 'CASH',
-        special_instructions,
-        assigned_waiter_id,
-        app_status: 'PENDING'
+        order_status: 'SUBMITTED',
+        idempotency_key: idempotency_key || null,
+        subtotal: totalAmount.toFixed(2),
+        special_instructions
       }).returning();
 
-      const orderId = order.id;
-
-      // 7. Insert all order items
+      // 8. Insert all order items referencing customer_orders.id (order_id) and order_details.id (visit_id)
       const createdItems = [];
       for (const vi of validatedItems) {
         const [oi] = await tx.insert(order_items).values({
           restaurant_id,
-          order_id: orderId,
+          order_id: order.id,
+          visit_id: visit.id,
           item_name: vi.item_name,
           menu_item_id: vi.menu_item_id,
           quantity: vi.quantity,
+          requested_quantity: vi.quantity,
+          accepted_quantity: vi.quantity,
           unit_price: vi.unit_price,
           total: vi.total,
+          item_status: 'PENDING',
           customizations: vi.customizations
         }).returning();
         createdItems.push(oi);
       }
 
-      // 8. Audit log
+      // 9. Audit log
       await logAudit({
         restaurant_id,
         action: 'ORDER_CREATED',
         entity_type: 'ORDER',
-        entity_id: orderId,
-        details: { orderNumber, final_amount: order.final_amount, itemsCount: createdItems.length }
+        entity_id: order.id,
+        details: { orderNumber, final_amount: visit.final_amount, itemsCount: createdItems.length }
       }, tx);
 
       return {
-        order,
+        order: {
+          ...order,
+          id: order.id,
+          visitId: visit.id,
+          total_amount: visit.total_amount,
+          final_amount: visit.final_amount,
+          tax_amount: visit.tax_amount,
+          discount_amount: visit.discount_amount,
+          table_id: visit.table_id,
+          customer_name: visit.customer_name,
+          customer_phone: visit.customer_phone,
+          assigned_waiter_id: visit.assigned_waiter_id,
+          app_status: visit.app_status
+        },
+        visit,
         items: createdItems,
         duplicate: false
       };
@@ -293,17 +370,31 @@ class OrderService {
         });
       }
 
-      // 3. Insert new items into order_items
+      // 3. Create customer_orders record and insert new items into order_items
+      const addOrderNumber = 'ORD-' + Date.now().toString(36).toUpperCase();
+      const [addCustOrder] = await tx.insert(customer_orders).values({
+        restaurant_id,
+        visit_id: existingOrder.id,
+        order_number: addOrderNumber,
+        order_status: 'SUBMITTED',
+        subtotal: additionalAmount.toFixed(2),
+        special_instructions
+      }).returning();
+
       const createdItems = [];
       for (const vi of validatedItems) {
         const [oi] = await tx.insert(order_items).values({
           restaurant_id,
-          order_id: existingOrder.id,
+          order_id: addCustOrder.id,
+          visit_id: existingOrder.id,
           item_name: vi.item_name,
           menu_item_id: vi.menu_item_id,
           quantity: vi.quantity,
+          requested_quantity: vi.quantity,
+          accepted_quantity: vi.quantity,
           unit_price: vi.unit_price,
           total: vi.total,
+          item_status: 'PENDING',
           customizations: vi.customizations
         }).returning();
         createdItems.push(oi);
@@ -326,9 +417,12 @@ class OrderService {
         updatedat: new Date()
       }).where(eq(order_details.id, existingOrder.id)).returning();
 
-      // 5. Fetch all items for this order
+      // 5. Fetch all items for this visit/order
       const allItems = await tx.select().from(order_items).where(
-        eq(order_items.order_id, existingOrder.id)
+        or(
+          eq(order_items.visit_id, existingOrder.id),
+          eq(order_items.order_id, existingOrder.id)
+        )
       ).orderBy(order_items.createdat);
 
       // 6. Audit log
@@ -347,6 +441,7 @@ class OrderService {
 
       return {
         order: updatedOrder,
+        customerOrder: addCustOrder,
         items: allItems,
         newItems: createdItems,
         isExistingOrder: true
@@ -359,9 +454,25 @@ class OrderService {
    */
   async completeOrder(orderId, restaurantId, actorId = null) {
     return await db.transaction(async (tx) => {
-      const [order] = await tx.select().from(order_details).where(
+      let [order] = await tx.select().from(order_details).where(
         and(eq(order_details.id, orderId), eq(order_details.restaurant_id, restaurantId))
       ).limit(1);
+
+      if (!order) {
+        const [custOrder] = await tx.select().from(customer_orders).where(
+          and(eq(customer_orders.id, orderId), eq(customer_orders.restaurant_id, restaurantId))
+        ).limit(1);
+
+        if (custOrder) {
+          [order] = await tx.select().from(order_details).where(
+            and(eq(order_details.id, custOrder.visit_id), eq(order_details.restaurant_id, restaurantId))
+          ).limit(1);
+          await tx.update(customer_orders).set({
+            order_status: 'COMPLETED',
+            updatedat: new Date()
+          }).where(eq(customer_orders.id, custOrder.id));
+        }
+      }
 
       if (!order) throw new Error('Order not found');
 

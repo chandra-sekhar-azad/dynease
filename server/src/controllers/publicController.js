@@ -648,35 +648,33 @@ exports.createOrder = async (req, res, next) => {
       });
     }
 
-    // ── Check if there is an active existing order on this table (legacy fallback) ──
-    let existingActiveOrder = null;
+    // ── Check if there is an active dining visit on this table ──
+    let activeTableVisit = null;
+    const [foundVisit] = await db.select().from(order_details).where(
+      and(
+        eq(order_details.table_id, table.id),
+        eq(order_details.restaurant_id, restaurantId),
+        sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED')`
+      )
+    ).limit(1);
+    if (foundVisit) activeTableVisit = foundVisit;
 
-    if (orderId && UUID_RE.test(String(orderId))) {
-      const [found] = await db.select().from(order_details).where(
-        and(
-          eq(order_details.id, orderId),
-          eq(order_details.restaurant_id, restaurantId),
-          eq(order_details.table_id, table.id),
-          sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED', 'PAID')`
-        )
-      ).limit(1);
-      if (found) existingActiveOrder = found;
-    }
+    if (activeTableVisit) {
+      const visit = activeTableVisit;
+      const idempotencyKey = req.body.idempotencyKey || req.headers['idempotency-key'] || req.body.orderId || null;
 
-    // ── Case A: Append new items to the existing active order ──
-    if (existingActiveOrder) {
-      const result = await OrderService.addItemsToOrder({
-        restaurant_id: restaurantId,
-        order_id: existingActiveOrder.id,
-        items: orderPayloadItems
+      const result = await OrderService.submitOrderInVisit({
+        visitId: visit.id,
+        restaurantId,
+        items: orderPayloadItems,
+        special_instructions: req.body.specialInstructions || '',
+        idempotency_key: idempotencyKey
       });
 
       const order = result.order;
-      const allOrderItemsList = result.items;
-      const newItemsList = result.newItems;
+      const orderItemsList = result.items;
 
-      // Ensure assigned waiter is present
-      let assignedWaiterId = order.assigned_waiter_id;
+      let assignedWaiterId = visit.assigned_waiter_id;
       if (!assignedWaiterId) {
         const assignment = await WaiterAssignmentService.assignWaiterForOrder(
           null,
@@ -688,87 +686,48 @@ exports.createOrder = async (req, res, next) => {
         if (assignedWaiterId) {
           await db.update(order_details)
             .set({ assigned_waiter_id: assignedWaiterId })
-            .where(eq(order_details.id, order.id));
+            .where(eq(order_details.id, visit.id));
         }
       }
 
       const formattedOrder = {
         id: order.id,
         _id: order.id,
-        orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+        orderNumber: order.order_number,
+        visitId: visit.id,
         tableId: table.id,
         tableNumber: table.table_code,
-        items: allOrderItemsList.map(oi => ({
+        items: orderItemsList.map(oi => ({
           id: oi.id,
           itemName: oi.item_name,
           unitPrice: parseFloat(oi.unit_price),
           quantity: oi.quantity,
+          requestedQuantity: oi.requested_quantity || oi.quantity,
+          acceptedQuantity: oi.accepted_quantity !== null ? oi.accepted_quantity : oi.quantity,
           total: parseFloat(oi.total),
-          size: oi.customizations || null
+          size: oi.customizations || null,
+          status: oi.item_status || 'PENDING'
         })),
-        subtotal: parseFloat(order.total_amount || 0),
-        taxAmount: parseFloat(order.tax_amount || 0),
-        total: parseFloat(order.final_amount || order.total_amount || 0),
+        subtotal: parseFloat(order.subtotal || 0),
         status: order.order_status,
-        assignedWaiterId: assignedWaiterId || null,
-        createdAt: order.createdat || order.date,
-        updatedAt: order.updatedat,
-        hasNewItems: true,
-        newItemsCount: newItemsList.reduce((acc, i) => acc + i.quantity, 0)
+        assignedWaiterId,
+        createdAt: order.createdat
       };
 
-      // 1. Create a service_request record so it appears in the Waiter's Requests queue
-      const itemsSummary = newItemsList.map(ni => `${ni.quantity}x ${ni.item_name}`).join(', ');
-      try {
-        const [sr] = await db.insert(service_requests).values({
-          restaurant_id: restaurantId,
-          table_id: table.id,
-          request_type: 'MORE_ITEMS_ADDED',
-          request_status: 'OPEN',
-          details: {
-            orderId: order.id,
-            orderNumber: formattedOrder.orderNumber,
-            tableNumber: table.table_code,
-            newItemsSummary: itemsSummary,
-            note: `Table ${table.table_code} added items: ${itemsSummary}`
-          }
-        }).returning();
-
-        RealtimeService.serviceRequestCreated(restaurantId, {
-          id: sr.id,
-          _id: sr.id,
-          tableId: table.id,
-          tableNumber: table.table_code,
-          type: 'MORE_ITEMS_ADDED',
-          note: `Added items: ${itemsSummary}`,
-          status: 'OPEN',
-          createdAt: sr.createdat
-        });
-      } catch (srErr) {
-        console.error('Failed to create service request for more items:', srErr);
-      }
-
-      // 2. Broadcast orderItemsAdded (emits order_updated and more_items_added to waiters & kitchen)
-      RealtimeService.orderItemsAdded({
+      RealtimeService.orderCreated({
         restaurantId,
         order: formattedOrder,
         orderId: order.id,
         tableId: table.id,
-        waiterId: assignedWaiterId ? assignedWaiterId.toString() : null,
-        newItems: newItemsList.map(ni => ({
-          name: ni.item_name,
-          quantity: ni.quantity,
-          size: ni.customizations
-        })),
-        addedCount: newItemsList.reduce((acc, i) => acc + i.quantity, 0)
+        waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
       });
 
-      return res.status(200).json({
+      return res.status(201).json({
         success: true,
-        message: 'Items added to your existing order successfully',
         data: {
           order: formattedOrder,
-          isAppended: true
+          visitId: visit.id,
+          duplicate: result.duplicate || false
         }
       });
     }
@@ -779,11 +738,14 @@ exports.createOrder = async (req, res, next) => {
       table_id: table.id,
       customer_name: customerName?.trim() || 'Guest',
       customer_phone: customerPhone?.trim() || null,
-      items: orderPayloadItems
+      items: orderPayloadItems,
+      special_instructions: req.body.specialInstructions || '',
+      idempotency_key: req.body.idempotencyKey || req.headers['idempotency-key'] || null
     });
 
     const order = result.order;
     const orderItemsList = result.items;
+    const visit = result.visit;
 
     // Dynamic Waiter Assignment
     const assignment = await WaiterAssignmentService.assignWaiterForOrder(
@@ -794,16 +756,17 @@ exports.createOrder = async (req, res, next) => {
     );
 
     const assignedWaiterId = assignment?.assignedWaiterId || null;
-    if (assignedWaiterId) {
+    if (assignedWaiterId && visit?.id) {
       await db.update(order_details)
         .set({ assigned_waiter_id: assignedWaiterId })
-        .where(eq(order_details.id, order.id));
+        .where(eq(order_details.id, visit.id));
     }
 
     const formattedOrder = {
       id: order.id,
       _id: order.id,
       orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+      visitId: visit?.id,
       tableId: table.id,
       tableNumber: table.table_code,
       items: orderItemsList.map(oi => ({
@@ -814,9 +777,9 @@ exports.createOrder = async (req, res, next) => {
         total: parseFloat(oi.total),
         size: oi.customizations || null
       })),
-      subtotal: parseFloat(order.total_amount || 0),
+      subtotal: parseFloat(order.subtotal || order.total_amount || 0),
       taxAmount: parseFloat(order.tax_amount || 0),
-      total: parseFloat(order.final_amount || order.total_amount || 0),
+      total: parseFloat(order.subtotal || order.final_amount || order.total_amount || 0),
       status: order.order_status,
       assignedWaiterId,
       assignmentType: assignment?.assignmentType || 'DYNAMIC',
@@ -835,7 +798,8 @@ exports.createOrder = async (req, res, next) => {
     res.status(201).json({
       success: true,
       data: {
-        order: formattedOrder
+        order: formattedOrder,
+        visitId: visit?.id
       }
     });
   } catch (error) {
@@ -852,14 +816,14 @@ exports.getCustomerOrders = async (req, res, next) => {
     const { orderIds, tableId, phone } = req.query;
     const conditions = [];
 
-    if (orderIds) {
-      const rawIds = (Array.isArray(orderIds) ? orderIds : String(orderIds).split(','))
-        .map(s => String(s).trim())
-        .filter(id => UUID_RE.test(id));
+    const rawIds = orderIds
+      ? (Array.isArray(orderIds) ? orderIds : String(orderIds).split(','))
+          .map(s => String(s).trim())
+          .filter(id => UUID_RE.test(id))
+      : [];
 
-      if (rawIds.length > 0) {
-        conditions.push(inArray(order_details.id, rawIds));
-      }
+    if (rawIds.length > 0) {
+      conditions.push(inArray(order_details.id, rawIds));
     }
 
     if (tableId && UUID_RE.test(String(tableId).trim())) {
@@ -881,49 +845,167 @@ exports.getCustomerOrders = async (req, res, next) => {
       }
     }
 
-    if (conditions.length === 0) {
+    // Also check if rawIds contains any customer_orders IDs
+    let custOrders = [];
+    if (rawIds.length > 0) {
+      custOrders = await db.select().from(customer_orders).where(
+        inArray(customer_orders.id, rawIds)
+      );
+    }
+
+    if (conditions.length === 0 && custOrders.length === 0) {
       return res.status(200).json({ success: true, data: { orders: [] } });
     }
 
-    const orders = await db.select().from(order_details)
-      .where(or(...conditions))
-      .orderBy(desc(order_details.date))
-      .limit(50);
+    let orders = [];
+    if (conditions.length > 0) {
+      orders = await db.select().from(order_details)
+        .where(or(...conditions))
+        .orderBy(desc(order_details.date))
+        .limit(50);
+    }
 
     const formattedOrders = [];
-    for (const ord of orders) {
+    const seenOrderIds = new Set();
+
+    // 1. Process individual customer_orders if any were explicitly queried
+    for (const co of custOrders) {
+      if (seenOrderIds.has(co.id)) continue;
+      seenOrderIds.add(co.id);
+
       const items = await db.select().from(order_items).where(
-        eq(order_items.order_id, ord.id)
+        eq(order_items.order_id, co.id)
       );
 
-      const [tbl] = ord.table_id ? await db.select().from(tables).where(eq(tables.id, ord.table_id)).limit(1) : [null];
+      const [visit] = await db.select().from(order_details).where(
+        eq(order_details.id, co.visit_id)
+      ).limit(1);
+
+      const [tbl] = visit?.table_id ? await db.select().from(tables).where(eq(tables.id, visit.table_id)).limit(1) : [null];
 
       formattedOrders.push({
-        id: ord.id,
-        _id: ord.id,
-        orderNumber: ord.order_number || `ORD-${ord.id.slice(0, 8).toUpperCase()}`,
-        restaurantId: ord.restaurant_id,
-        tableId: ord.table_id,
+        id: co.id,
+        _id: co.id,
+        orderNumber: co.order_number || `ORD-${co.id.slice(0, 8).toUpperCase()}`,
+        visitId: co.visit_id,
+        restaurantId: co.restaurant_id,
+        tableId: visit?.table_id,
         tableNumber: tbl?.table_code || 'Table',
-        customerName: ord.customer_name || 'Guest',
-        customerPhone: ord.customer_phone || null,
+        customerName: visit?.customer_name || 'Guest',
+        customerPhone: visit?.customer_phone || null,
         items: items.map(oi => ({
           id: oi.id,
           itemName: oi.item_name,
           unitPrice: parseFloat(oi.unit_price),
           quantity: oi.quantity,
-          total: parseFloat(oi.total)
+          requestedQuantity: oi.requested_quantity || oi.quantity,
+          acceptedQuantity: oi.accepted_quantity !== null && oi.accepted_quantity !== undefined ? oi.accepted_quantity : oi.quantity,
+          total: parseFloat(oi.total),
+          size: oi.customizations || null,
+          status: oi.item_status || 'PENDING'
         })),
-        subtotal: parseFloat(ord.total_amount || 0),
+        subtotal: parseFloat(co.subtotal || 0),
         taxPercent: 0,
-        taxAmount: parseFloat(ord.tax_amount || 0),
-        discount: parseFloat(ord.discount_amount || 0),
-        total: parseFloat(ord.final_amount || ord.total_amount || 0),
-        status: ord.order_status,
-        paymentStatus: ord.payment_status || 'PENDING',
-        createdAt: ord.date || ord.createdat,
-        updatedAt: ord.updatedat
+        taxAmount: 0,
+        discount: 0,
+        total: parseFloat(co.subtotal || 0),
+        status: co.order_status,
+        paymentStatus: visit?.payment_status || 'PENDING',
+        createdAt: co.createdat,
+        updatedAt: co.updatedat
       });
+    }
+
+    // 2. Process visit-level orders
+    for (const ord of orders) {
+      const childCustOrders = await db.select().from(customer_orders).where(
+        eq(customer_orders.visit_id, ord.id)
+      ).orderBy(desc(customer_orders.createdat));
+
+      if (childCustOrders.length > 0) {
+        for (const cco of childCustOrders) {
+          if (seenOrderIds.has(cco.id)) continue;
+          seenOrderIds.add(cco.id);
+
+          const items = await db.select().from(order_items).where(
+            eq(order_items.order_id, cco.id)
+          );
+          const [tbl] = ord.table_id ? await db.select().from(tables).where(eq(tables.id, ord.table_id)).limit(1) : [null];
+
+          formattedOrders.push({
+            id: cco.id,
+            _id: cco.id,
+            orderNumber: cco.order_number,
+            visitId: ord.id,
+            restaurantId: ord.restaurant_id,
+            tableId: ord.table_id,
+            tableNumber: tbl?.table_code || 'Table',
+            customerName: ord.customer_name || 'Guest',
+            customerPhone: ord.customer_phone || null,
+            items: items.map(oi => ({
+              id: oi.id,
+              itemName: oi.item_name,
+              unitPrice: parseFloat(oi.unit_price),
+              quantity: oi.quantity,
+              requestedQuantity: oi.requested_quantity || oi.quantity,
+              acceptedQuantity: oi.accepted_quantity !== null && oi.accepted_quantity !== undefined ? oi.accepted_quantity : oi.quantity,
+              total: parseFloat(oi.total),
+              size: oi.customizations || null,
+              status: oi.item_status || 'PENDING'
+            })),
+            subtotal: parseFloat(cco.subtotal || 0),
+            taxPercent: 0,
+            taxAmount: 0,
+            discount: 0,
+            total: parseFloat(cco.subtotal || 0),
+            status: cco.order_status,
+            paymentStatus: ord.payment_status || 'PENDING',
+            createdAt: cco.createdat,
+            updatedAt: cco.updatedat
+          });
+        }
+      } else {
+        if (seenOrderIds.has(ord.id)) continue;
+        seenOrderIds.add(ord.id);
+
+        const items = await db.select().from(order_items).where(
+          or(
+            eq(order_items.visit_id, ord.id),
+            eq(order_items.order_id, ord.id)
+          )
+        );
+
+        const [tbl] = ord.table_id ? await db.select().from(tables).where(eq(tables.id, ord.table_id)).limit(1) : [null];
+
+        formattedOrders.push({
+          id: ord.id,
+          _id: ord.id,
+          orderNumber: ord.order_number || `ORD-${ord.id.slice(0, 8).toUpperCase()}`,
+          visitId: ord.id,
+          restaurantId: ord.restaurant_id,
+          tableId: ord.table_id,
+          tableNumber: tbl?.table_code || 'Table',
+          customerName: ord.customer_name || 'Guest',
+          customerPhone: ord.customer_phone || null,
+          items: items.map(oi => ({
+            id: oi.id,
+            itemName: oi.item_name,
+            unitPrice: parseFloat(oi.unit_price),
+            quantity: oi.quantity,
+            total: parseFloat(oi.total),
+            size: oi.customizations || null
+          })),
+          subtotal: parseFloat(ord.total_amount || 0),
+          taxPercent: 0,
+          taxAmount: parseFloat(ord.tax_amount || 0),
+          discount: parseFloat(ord.discount_amount || 0),
+          total: parseFloat(ord.final_amount || ord.total_amount || 0),
+          status: ord.order_status,
+          paymentStatus: ord.payment_status || 'PENDING',
+          createdAt: ord.date || ord.createdat,
+          updatedAt: ord.updatedat
+        });
+      }
     }
 
     res.status(200).json({
@@ -947,24 +1029,41 @@ exports.getOrder = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Order not found.' });
     }
 
-    const [order] = await db.select().from(order_details).where(
+    let [order] = await db.select().from(order_details).where(
       eq(order_details.id, orderId)
     ).limit(1);
+
+    let custOrder = null;
+    if (!order) {
+      const [foundCust] = await db.select().from(customer_orders).where(
+        eq(customer_orders.id, orderId)
+      ).limit(1);
+
+      if (foundCust) {
+        custOrder = foundCust;
+        [order] = await db.select().from(order_details).where(
+          eq(order_details.id, custOrder.visit_id)
+        ).limit(1);
+      }
+    }
 
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found.' });
     }
 
     const items = await db.select().from(order_items).where(
-      eq(order_items.order_id, orderId)
+      custOrder
+        ? eq(order_items.order_id, custOrder.id)
+        : or(eq(order_items.visit_id, order.id), eq(order_items.order_id, order.id))
     );
 
     const [tbl] = order.table_id ? await db.select().from(tables).where(eq(tables.id, order.table_id)).limit(1) : [null];
 
     const formattedOrder = {
-      id: order.id,
-      _id: order.id,
-      orderNumber: order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+      id: custOrder ? custOrder.id : order.id,
+      _id: custOrder ? custOrder.id : order.id,
+      orderNumber: (custOrder ? custOrder.order_number : order.order_number) || `ORD-${(custOrder ? custOrder.id : order.id).slice(0, 8).toUpperCase()}`,
+      visitId: order.id,
       restaurantId: order.restaurant_id,
       tableId: order.table_id,
       tableNumber: tbl?.table_code || 'Table',
@@ -975,17 +1074,19 @@ exports.getOrder = async (req, res, next) => {
         itemName: oi.item_name,
         unitPrice: parseFloat(oi.unit_price),
         quantity: oi.quantity,
-        total: parseFloat(oi.total)
+        total: parseFloat(oi.total),
+        size: oi.customizations || null,
+        status: oi.item_status || 'PENDING'
       })),
-      subtotal: parseFloat(order.total_amount || 0),
+      subtotal: parseFloat((custOrder ? custOrder.subtotal : order.total_amount) || 0),
       taxPercent: 0,
       taxAmount: parseFloat(order.tax_amount || 0),
       discount: parseFloat(order.discount_amount || 0),
-      total: parseFloat(order.final_amount || order.total_amount || 0),
-      status: order.order_status,
+      total: parseFloat((custOrder ? custOrder.subtotal : (order.final_amount || order.total_amount)) || 0),
+      status: custOrder ? custOrder.order_status : order.order_status,
       paymentStatus: order.payment_status || 'PENDING',
-      createdAt: order.date || order.createdat,
-      updatedAt: order.updatedat
+      createdAt: (custOrder ? custOrder.createdat : order.date) || order.createdat,
+      updatedAt: (custOrder ? custOrder.updatedat : order.updatedat)
     };
 
     res.status(200).json({ success: true, data: { order: formattedOrder } });

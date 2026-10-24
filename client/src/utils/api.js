@@ -2,8 +2,19 @@
  * Client API utility helper providing authentication headers and centralized fetch
  */
 
-export function getAuthHeaders(customHeaders = {}) {
+export function getStoredToken() {
   const token = localStorage.getItem('token');
+  if (!token || token === 'undefined' || token === 'null' || !token.trim()) {
+    if (token) {
+      try { localStorage.removeItem('token'); } catch {}
+    }
+    return null;
+  }
+  return token;
+}
+
+export function getAuthHeaders(customHeaders = {}) {
+  const token = getStoredToken();
   const headers = {
     'Content-Type': 'application/json',
     ...customHeaders,

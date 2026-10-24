@@ -1,4 +1,3 @@
-
 const { pgEnum } = require('drizzle-orm/pg-core');
 
 const userTypeEnum = pgEnum('user_type', [
@@ -70,7 +69,6 @@ const orderStatusEnum = pgEnum('order_status', [
   'PAID',
 ]);
 
-
 const shiftTypeEnum = pgEnum('shift_type', [
   'WORKING',
   'HOLIDAY',
@@ -79,8 +77,25 @@ const shiftTypeEnum = pgEnum('shift_type', [
 
 const sessionStatusEnum = pgEnum('session_status', [
   'ACTIVE',
+  'INACTIVE',
   'COMPLETED',
   'CANCELLED',
+]);
+
+const adStatusEnum = pgEnum('ad_status', [
+  'ACTIVE',
+  'INACTIVE',
+]);
+
+const adsVisibilityStatusEnum = pgEnum('ads_visibility_status', [
+  'ACTIVE',
+  'INACTIVE',
+]);
+
+const orderItemStatusEnum = pgEnum('order_item_status', [
+  'PENDING',
+  'ACCEPTED',
+  'UNAVAILABLE',
 ]);
 
 module.exports = {
@@ -99,4 +114,7 @@ module.exports = {
   orderStatusEnum,
   shiftTypeEnum,
   sessionStatusEnum,
+  adStatusEnum,
+  adsVisibilityStatusEnum,
+  orderItemStatusEnum,
 };

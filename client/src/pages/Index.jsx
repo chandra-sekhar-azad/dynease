@@ -3,12 +3,14 @@ import {
   PlayCircle, Check, ArrowRight,
   ScanLine, ListTree, ShoppingCart, Smile,
   FileText, Columns, Zap, Users, Monitor, BarChart2,
-  CheckCircle2, Sparkles, Printer, Smartphone, TrendingUp, RotateCw
+  CheckCircle2, Sparkles, Printer, Smartphone, TrendingUp, RotateCw,
+  Camera
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import CameraQRScanner from '../components/common/CameraQRScanner';
 
 import heroMockup from '../assets/hero-mockup.png';
 import paneerTikkaImg from '../assets/starters/paneer thikka.png';
@@ -131,6 +133,8 @@ const BENEFITS = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  // Automatically open the camera scanner on website load to request camera permission and scan
+  const [showScanner, setShowScanner] = useState(true);
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [isLaunchingDemo, setIsLaunchingDemo] = useState(false);
   const [flippedCards, setFlippedCards] = useState({});
@@ -160,9 +164,9 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col relative">
       <div className="bg-gradient-to-br from-[#eafaf0] via-[#f7fdf9] to-white">
-        <Navbar />
+        <Navbar onOpenScanner={() => setShowScanner(true)} />
 
         {/* Hero */}
         <section className="relative pt-16 md:pt-20 pb-2 md:pb-4 px-4 sm:px-6 lg:px-12 overflow-hidden">
@@ -179,7 +183,14 @@ export default function LandingPage() {
               Dynease helps restaurants go digital with QR ordering, online menus and real-time order management for a better dining experience, every time.
             </p>
             <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
-              <Link to="/register" className="w-full sm:w-auto justify-center bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] text-white px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2">
+              <button 
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="w-full sm:w-auto justify-center bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3.5 rounded-full font-bold text-base transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/30 cursor-pointer"
+              >
+                <Camera size={18} /> Scan Table QR
+              </button>
+              <Link to="/register" className="w-full sm:w-auto justify-center bg-gray-900 hover:bg-black text-white px-8 py-3.5 rounded-full font-medium text-base transition-colors flex items-center gap-2">
                 Get Started Free <ArrowRight size={18} />
               </Link>
               <button 
@@ -488,6 +499,33 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Floating Action Button to re-open camera scanner anytime */}
+      {!showScanner && (
+        <div className="fixed bottom-6 right-6 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <button
+            type="button"
+            onClick={() => setShowScanner(true)}
+            className="flex items-center gap-2.5 px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm rounded-full shadow-2xl shadow-emerald-950/40 border border-emerald-400/40 hover:scale-105 transition-all cursor-pointer group"
+            title="Open Table QR Scanner"
+          >
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+            </span>
+            <Camera size={18} className="group-hover:rotate-12 transition-transform" />
+            <span>Scan Table QR</span>
+          </button>
+        </div>
+      )}
+
+      {/* Camera QR Scanner Modal (prompts for camera permission on open) */}
+      {showScanner && (
+        <CameraQRScanner
+          isModal={true}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
       <Footer />
     </div>
