@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { db, schema } = require('../db/client');
+const { eq, and, sql, desc } = require('drizzle-orm');
 const { tables, tables_assignment, users, restaurants, table_session, order_details } = schema;
 const TableAssignmentService = require('../services/TableAssignmentService');
 const SubscriptionService = require('../services/SubscriptionService');
