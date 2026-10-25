@@ -7,9 +7,7 @@ import {
   AlertTriangle,
   RefreshCw,
   CheckCircle2,
-  ShieldCheck,
   User,
-  Phone,
   ArrowRight
 } from 'lucide-react';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
@@ -19,7 +17,7 @@ export default function QRMenuLoader() {
   const navigate = useNavigate();
   const { saveSession } = useRestaurant();
 
-  // Step states: 'requesting_location' | 'verifying' | 'collect_details' | 'confirm_details' | 'allocating' | 'success' | 'occupied' | 'out_of_range' | 'location_error' | 'error'
+  // Step states: 'requesting_location' | 'verifying' | 'collect_details' | 'allocating' | 'success' | 'occupied' | 'out_of_range' | 'location_error' | 'error'
   const [step, setStep] = useState('requesting_location');
   const [coords, setCoords] = useState(null);
   const [tableData, setTableData] = useState(null);
@@ -106,9 +104,9 @@ export default function QRMenuLoader() {
     requestLocationAndVerify();
   }, [requestLocationAndVerify]);
 
-  // ── Step 2: Validate Phone and Show Confirmation ───────────────────────────
-  const handleProceedToConfirm = (e) => {
-    e.preventDefault();
+  // ── Step 2: Validate Phone and Start Session Directly ───────────────────────────
+  const handleAllocate = async (e) => {
+    if (e) e.preventDefault();
     setFormError('');
 
     const clean = phone.trim().replace(/\D/g, '');
@@ -117,13 +115,7 @@ export default function QRMenuLoader() {
       return;
     }
 
-    setStep('confirm_details');
-  };
-
-  // ── Step 3: Atomic Session Allocation ──────────────────────────────────────
-  const handleConfirmAndAllocate = async () => {
     setStep('allocating');
-    setFormError('');
 
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/public/tables/start-session`, {
@@ -269,7 +261,7 @@ export default function QRMenuLoader() {
             Please enter your mobile number. We will associate your visit and orders with this number. No OTP required!
           </p>
 
-          <form onSubmit={handleProceedToConfirm} className="space-y-4">
+          <form onSubmit={handleAllocate} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                 Mobile Number <span className="text-red-500">*</span>
@@ -316,51 +308,9 @@ export default function QRMenuLoader() {
               type="submit"
               className="w-full mt-2 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition-colors text-sm shadow-md cursor-pointer"
             >
-              Continue <ArrowRight size={16} />
+              Start Ordering <ArrowRight size={16} />
             </button>
           </form>
-        </div>
-      </div>
-    );
-  }
-
-  // 5. Explicit Confirmation Dialog
-  if (step === 'confirm_details') {
-    return (
-      <div className="min-h-screen bg-gray-900/40 backdrop-blur-xs flex flex-col items-center justify-center p-4 sm:p-6">
-        <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-sm w-full border border-gray-100 animate-in zoom-in-95 duration-200 text-center">
-          <div className="w-14 h-14 bg-green-100 text-green-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <Phone size={28} />
-          </div>
-          <h2 className="text-lg font-extrabold text-gray-900 mb-1">Confirm Mobile Number</h2>
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-3.5 my-3">
-            <span className="text-xs font-bold text-green-700 uppercase tracking-wider block mb-0.5">
-              Associated Mobile
-            </span>
-            <span className="text-xl font-extrabold text-green-900 tracking-wide">
-              +91 {phone}
-            </span>
-            {name && <p className="text-xs text-gray-600 mt-1 font-semibold">{name}</p>}
-          </div>
-
-          <p className="text-[11px] text-gray-500 leading-relaxed mb-5 text-left bg-amber-50/80 border border-amber-200 rounded-xl p-3">
-            ⚠️ <strong>Important:</strong> We will link this table visit and order receipts to this number. Entering an incorrect number may assign your loyalty points and orders to another profile.
-          </p>
-
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={handleConfirmAndAllocate}
-              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors text-sm shadow-sm cursor-pointer"
-            >
-              Confirm & Start Ordering
-            </button>
-            <button
-              onClick={() => setStep('collect_details')}
-              className="w-full py-2.5 text-gray-600 hover:text-gray-900 font-semibold text-xs"
-            >
-              Change Mobile Number
-            </button>
-          </div>
         </div>
       </div>
     );

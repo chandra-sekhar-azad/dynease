@@ -621,10 +621,13 @@ exports.createOrder = async (req, res, next) => {
           requestedQuantity: oi.requested_quantity || oi.quantity,
           acceptedQuantity: oi.accepted_quantity !== null ? oi.accepted_quantity : oi.quantity,
           total: parseFloat(oi.total),
+          subtotal: parseFloat(oi.total),
           size: oi.customizations || null,
           status: oi.item_status || 'PENDING'
         })),
         subtotal: parseFloat(order.subtotal || 0),
+        taxAmount: 0,
+        total: parseFloat(order.subtotal || 0),
         status: order.order_status,
         assignedWaiterId,
         createdAt: order.createdat
@@ -705,10 +708,13 @@ exports.createOrder = async (req, res, next) => {
           requestedQuantity: oi.requested_quantity || oi.quantity,
           acceptedQuantity: oi.accepted_quantity !== null ? oi.accepted_quantity : oi.quantity,
           total: parseFloat(oi.total),
+          subtotal: parseFloat(oi.total),
           size: oi.customizations || null,
           status: oi.item_status || 'PENDING'
         })),
         subtotal: parseFloat(order.subtotal || 0),
+        taxAmount: 0,
+        total: parseFloat(order.subtotal || 0),
         status: order.order_status,
         assignedWaiterId,
         createdAt: order.createdat
@@ -775,6 +781,7 @@ exports.createOrder = async (req, res, next) => {
         unitPrice: parseFloat(oi.unit_price),
         quantity: oi.quantity,
         total: parseFloat(oi.total),
+        subtotal: parseFloat(oi.total),
         size: oi.customizations || null
       })),
       subtotal: parseFloat(order.subtotal || order.total_amount || 0),
@@ -901,6 +908,7 @@ exports.getCustomerOrders = async (req, res, next) => {
           requestedQuantity: oi.requested_quantity || oi.quantity,
           acceptedQuantity: oi.accepted_quantity !== null && oi.accepted_quantity !== undefined ? oi.accepted_quantity : oi.quantity,
           total: parseFloat(oi.total),
+          subtotal: parseFloat(oi.total),
           size: oi.customizations || null,
           status: oi.item_status || 'PENDING'
         })),
@@ -950,6 +958,7 @@ exports.getCustomerOrders = async (req, res, next) => {
               requestedQuantity: oi.requested_quantity || oi.quantity,
               acceptedQuantity: oi.accepted_quantity !== null && oi.accepted_quantity !== undefined ? oi.accepted_quantity : oi.quantity,
               total: parseFloat(oi.total),
+              subtotal: parseFloat(oi.total),
               size: oi.customizations || null,
               status: oi.item_status || 'PENDING'
             })),
@@ -993,6 +1002,7 @@ exports.getCustomerOrders = async (req, res, next) => {
             unitPrice: parseFloat(oi.unit_price),
             quantity: oi.quantity,
             total: parseFloat(oi.total),
+            subtotal: parseFloat(oi.total),
             size: oi.customizations || null
           })),
           subtotal: parseFloat(ord.total_amount || 0),
@@ -1075,6 +1085,7 @@ exports.getOrder = async (req, res, next) => {
         unitPrice: parseFloat(oi.unit_price),
         quantity: oi.quantity,
         total: parseFloat(oi.total),
+        subtotal: parseFloat(oi.total),
         size: oi.customizations || null,
         status: oi.item_status || 'PENDING'
       })),
@@ -1297,10 +1308,12 @@ exports.getVisitOrders = async (req, res, next) => {
       itemsByOrder.get(item.order_id).push({
         id: item.id,
         name: item.item_name,
+        itemName: item.item_name,
         requestedQuantity: item.requested_quantity || item.quantity,
         acceptedQuantity: item.accepted_quantity !== null && item.accepted_quantity !== undefined ? item.accepted_quantity : item.quantity,
         unitPrice: parseFloat(item.unit_price),
         total: parseFloat(item.total),
+        subtotal: parseFloat(item.total),
         status: item.item_status || 'ACCEPTED',
         rejectionReason: item.rejection_reason || null,
         size: item.customizations || null

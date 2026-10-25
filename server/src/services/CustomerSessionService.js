@@ -293,6 +293,19 @@ class CustomerSessionService {
         }).where(eq(table_session.id, visit.session_id)).returning();
         revokedSession = sess;
       }
+      if (visit.table_id) {
+        await tx.update(table_session).set({
+          session_status: 'COMPLETED',
+          session_end_time: new Date(),
+          closed_by: closedByUserId,
+          updatedat: new Date()
+        }).where(
+          and(
+            eq(table_session.table_id, visit.table_id),
+            eq(table_session.session_status, 'ACTIVE')
+          )
+        );
+      }
 
       // Mark all orders under this visit as COMPLETED if still active
       await tx.update(customer_orders).set({

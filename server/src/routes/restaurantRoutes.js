@@ -28,7 +28,9 @@ router.patch('/orders/:id/status', restaurantController.updateOrderStatus);
 router.patch('/orders/:id/accept', restaurantController.acceptOrder);
 router.patch('/orders/:id/reject', restaurantController.rejectOrder);
 router.patch('/orders/:id/reassign', restrictTo('RESTAURANT_OWNER'), restaurantController.reassignOrder);
+router.post('/orders/:id/items', restaurantController.addOrderItems);
 router.patch('/orders/items/:id/quantity', restaurantController.updateOrderItemQuantity);
+router.delete('/orders/items/:id', restaurantController.deleteOrderItem);
 router.post('/tables/:tableId/cancel-allocation', restaurantController.cancelTableAllocation);
 router.post('/visits/:id/complete', restaurantController.completeVisit);
 

@@ -408,11 +408,13 @@ class OrderService {
         ? (existingOrder.special_instructions ? `${existingOrder.special_instructions} | ${special_instructions}` : special_instructions)
         : existingOrder.special_instructions;
 
+      const targetAppStatus = existingOrder.app_status === 'ACCEPTED' ? 'ACCEPTED' : 'PENDING';
+
       const [updatedOrder] = await tx.update(order_details).set({
         total_amount: updatedTotalAmount,
         final_amount: updatedFinalAmount,
         order_status: 'ORDERED',
-        app_status: 'PENDING',
+        app_status: targetAppStatus,
         special_instructions: newInstructions,
         updatedat: new Date()
       }).where(eq(order_details.id, existingOrder.id)).returning();
@@ -647,10 +649,11 @@ class OrderService {
       // Recalculate total_amount and final_amount
       const newTotalAmount = (parseFloat(visit.total_amount || 0) + subtotalAmount).toFixed(2);
       const newFinalAmount = (parseFloat(visit.final_amount || 0) + subtotalAmount).toFixed(2);
+      const targetAppStatus = visit.app_status === 'ACCEPTED' ? 'ACCEPTED' : 'PENDING';
 
       const [updatedVisit] = await tx.update(order_details).set({
         order_status: 'ORDERED',
-        app_status: 'PENDING',
+        app_status: targetAppStatus,
         total_amount: newTotalAmount,
         final_amount: newFinalAmount,
         updatedat: new Date()
@@ -707,9 +710,7 @@ class OrderService {
       }
 
       const requestedQty = item.requested_quantity || item.quantity;
-      if (acceptedQty > requestedQty) {
-        throw new Error(`Accepted quantity cannot exceed originally requested quantity of ${requestedQty}.`);
-      }
+      const newRequestedQty = Math.max(requestedQty, acceptedQty);
 
       // 2. Determine new status
       let itemStatus = 'ACCEPTED';
@@ -722,9 +723,10 @@ class OrderService {
       const unitPrice = parseFloat(item.unit_price);
       const newTotal = (unitPrice * acceptedQty).toFixed(2);
 
-      // 3. Update order_items preserving original requested quantity
+      // 3. Update order_items preserving original requested quantity or expanding it
       const [updatedItem] = await tx.update(order_items).set({
         accepted_quantity: acceptedQty,
+        requested_quantity: newRequestedQty,
         quantity: acceptedQty, // keep quantity aligned with accepted for backward compat
         total: newTotal,
         item_status: itemStatus,

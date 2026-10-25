@@ -64,14 +64,16 @@ export default function OrderConfirmation() {
     );
   }
 
-  if (error) {
+  if (error || !order) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-xl font-bold text-gray-900 mb-2">Oops!</h2>
-        <p className="text-gray-500">{error}</p>
+        <p className="text-gray-500">{error || 'Order details not found.'}</p>
       </div>
     );
   }
+
+  const grandTotal = Number(order.total ?? order.totalAmount ?? order.final_amount ?? order.subtotal ?? 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col items-center justify-center p-4">
@@ -88,11 +90,11 @@ export default function OrderConfirmation() {
           <div className="flex justify-between items-center bg-green-50 rounded-2xl px-4 py-3">
             <div>
               <p className="text-xs text-gray-500 font-medium">Order Number</p>
-              <p className="text-xl font-extrabold text-green-600">{order.orderNumber}</p>
+              <p className="text-xl font-extrabold text-green-600">{order.orderNumber || order.id || 'N/A'}</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500 font-medium">Table</p>
-              <p className="text-xl font-extrabold text-gray-900">{order.tableNumber}</p>
+              <p className="text-xl font-extrabold text-gray-900">{order.tableNumber || order.tableId || 'N/A'}</p>
             </div>
           </div>
 
@@ -100,16 +102,27 @@ export default function OrderConfirmation() {
           <div>
             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide mb-2">Items Ordered</h3>
             <div className="space-y-2">
-              {order.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between text-sm">
-                  <span className="text-gray-700">{item.itemName} <span className="text-gray-400">× {item.quantity}</span></span>
-                  <span className="font-semibold text-gray-900">₹{item.subtotal.toFixed(2)}</span>
-                </div>
-              ))}
+              {(order.items || []).map((item, idx) => {
+                const itemTotal = Number(
+                  item.subtotal ??
+                  item.total ??
+                  ((item.unitPrice || item.price || 0) * (item.quantity || 1)) ??
+                  0
+                );
+                return (
+                  <div key={item.id || idx} className="flex justify-between text-sm">
+                    <span className="text-gray-700">
+                      {item.itemName || item.name || 'Item'}{' '}
+                      <span className="text-gray-400">× {item.quantity || 1}</span>
+                    </span>
+                    <span className="font-semibold text-gray-900">₹{itemTotal.toFixed(2)}</span>
+                  </div>
+                );
+              })}
             </div>
             <div className="border-t border-gray-100 mt-3 pt-3 flex justify-between font-extrabold text-gray-900">
               <span>Total</span>
-              <span>₹{order.total.toFixed(2)}</span>
+              <span>₹{grandTotal.toFixed(2)}</span>
             </div>
           </div>
 
@@ -117,7 +130,7 @@ export default function OrderConfirmation() {
           <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
             <UtensilsCrossed size={20} className="text-green-500" />
             <div>
-              <p className="text-sm font-semibold text-gray-800">Status: {order.status}</p>
+              <p className="text-sm font-semibold text-gray-800">Status: {order.status || 'SUBMITTED'}</p>
               <p className="text-xs text-gray-500">Our team will prepare your order shortly</p>
             </div>
           </div>

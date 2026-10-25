@@ -211,9 +211,10 @@ export default function Orders() {
         };
       case 'READ':
       case 'CONFIRMED':
+      case 'ACCEPTED':
         return {
           label: 'Order Confirmed',
-          desc: 'Kitchen has accepted your order',
+          desc: 'Waiter has accepted your order',
           bg: 'bg-blue-50 text-blue-800 border-blue-200',
           dot: 'bg-blue-500',
           icon: CheckCircle2
@@ -264,8 +265,8 @@ export default function Orders() {
 
   // Stepper helper for live orders
   const getStepperIndex = (status) => {
-    if (status === 'PENDING') return 1;
-    if (status === 'READ' || status === 'CONFIRMED') return 2;
+    if (status === 'PENDING' || status === 'SUBMITTED' || status === 'ORDERED') return 1;
+    if (status === 'READ' || status === 'CONFIRMED' || status === 'ACCEPTED') return 2;
     if (status === 'PREPARING') return 3;
     if (status === 'READY') return 4;
     if (status === 'COMPLETED' || status === 'PAID') return 5;
@@ -589,7 +590,7 @@ export default function Orders() {
                               </div>
                             </div>
                             <span className="font-bold text-gray-700 text-xs sm:text-sm shrink-0">
-                              ₹{(item.subtotal || (item.unitPrice * item.quantity) || 0).toFixed(2)}
+                              ₹{Number(item.subtotal ?? item.total ?? ((item.unitPrice || item.price || 0) * (item.quantity || 1)) ?? 0).toFixed(2)}
                             </span>
                           </div>
                         ))}
@@ -601,19 +602,19 @@ export default function Orders() {
                   <div className="p-4 bg-gray-50/60 border-t border-gray-100 flex flex-col gap-1.5">
                     <div className="flex justify-between items-center text-xs text-gray-500">
                       <span>Subtotal</span>
-                      <span>₹{(order.subtotal || order.total || 0).toFixed(2)}</span>
+                      <span>₹{Number(order.subtotal ?? order.total ?? 0).toFixed(2)}</span>
                     </div>
 
-                    {order.taxAmount > 0 && (
+                    {Number(order.taxAmount) > 0 && (
                       <div className="flex justify-between items-center text-xs text-gray-500">
                         <span>Taxes & Charges ({order.taxPercent || 0}%)</span>
-                        <span>₹{order.taxAmount.toFixed(2)}</span>
+                        <span>₹{Number(order.taxAmount).toFixed(2)}</span>
                       </div>
                     )}
 
                     <div className="flex justify-between items-center pt-2 border-t border-gray-200 font-extrabold text-base text-gray-900">
                       <span className="text-xs uppercase tracking-wider text-gray-600">Total Paid / Bill</span>
-                      <span className="text-emerald-700">₹{(order.total || 0).toFixed(2)}</span>
+                      <span className="text-emerald-700">₹{Number(order.total ?? order.final_amount ?? order.total_amount ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
 

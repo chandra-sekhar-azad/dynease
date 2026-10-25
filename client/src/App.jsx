@@ -48,6 +48,7 @@ import RestaurantSettings from './pages/restaurant/Settings';
 import RestaurantSubscription from './pages/restaurant/Subscription';
 import WaiterAssignment from './pages/restaurant/WaiterAssignment';
 import ClickSpark from './components/ui/ClickSpark';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
 import { fetchWithRetry } from './utils/api';
 
@@ -293,7 +294,9 @@ function App() {
       isGlobal={true}
       desktopOnly={true}
     >
-      {renderRoutes()}
+      <ErrorBoundary>
+        {renderRoutes()}
+      </ErrorBoundary>
     </ClickSpark>
   );
 }

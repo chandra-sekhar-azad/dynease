@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const { db, schema } = require('../db/client');
-const { eq, and, sql, desc } = require('drizzle-orm');
-const { tables, tables_assignment, users, restaurants } = schema;
+const { tables, tables_assignment, users, restaurants, table_session, order_details } = schema;
 const TableAssignmentService = require('../services/TableAssignmentService');
 const SubscriptionService = require('../services/SubscriptionService');
 
@@ -23,6 +22,25 @@ exports.getTables = async (req, res, next) => {
         eq(tables_assignment.assignment_status, 'ASSIGNED')
       )
     );
+
+    // Fetch occupied tables: active table_session OR active order_details
+    const activeSessions = await db.select({ table_id: table_session.table_id }).from(table_session).where(
+      and(
+        eq(table_session.restaurant_id, restaurantId),
+        eq(table_session.session_status, 'ACTIVE')
+      )
+    );
+    const occupiedTableIds = new Set(activeSessions.map(s => s.table_id));
+
+    const activeVisits = await db.select({ table_id: order_details.table_id }).from(order_details).where(
+      and(
+        eq(order_details.restaurant_id, restaurantId),
+        sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED', 'PAID')`
+      )
+    );
+    activeVisits.forEach(v => {
+      if (v.table_id) occupiedTableIds.add(v.table_id);
+    });
 
     // Fetch staff
     const staffRows = await db.select().from(users).where(
@@ -68,6 +86,7 @@ exports.getTables = async (req, res, next) => {
         section: 'Main Area',
         status: t.table_status,
         table_status: t.table_status,
+        isOccupied: occupiedTableIds.has(t.id),
         qrToken: t.qr_token,
         qrCodeUrl: `${baseUrl}/menu/${t.qr_token}`,
         primaryWaiterId: primaryWaiter,
@@ -128,6 +147,23 @@ exports.getTable = async (req, res, next) => {
       ? `https://${domain}.dynease.in`
       : `http://${domain}.localhost:5173`;
 
+    // Check if table currently has an active session or visit
+    const [activeSession] = await db.select({ id: table_session.id }).from(table_session).where(
+      and(
+        eq(table_session.table_id, tableId),
+        eq(table_session.session_status, 'ACTIVE')
+      )
+    ).limit(1);
+
+    const [activeVisit] = await db.select({ id: order_details.id }).from(order_details).where(
+      and(
+        eq(order_details.table_id, tableId),
+        sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED', 'PAID')`
+      )
+    ).limit(1);
+
+    const isOccupied = Boolean(activeSession || activeVisit);
+
     const formattedTable = {
       _id: tableRow.id,
       id: tableRow.id,
@@ -138,6 +174,7 @@ exports.getTable = async (req, res, next) => {
       section: 'Main Area',
       status: tableRow.table_status,
       table_status: tableRow.table_status,
+      isOccupied,
       qrToken: tableRow.qr_token,
       qrCodeUrl: `${baseUrl}/menu/${tableRow.qr_token}`,
       primaryWaiterId: primaryWaiter,

@@ -9,13 +9,15 @@ const {
   menu_categories,
   menu_categories_items,
   order_details,
+  customer_orders,
   order_items,
   leads,
   service_requests,
   assignment_events,
   audit_log,
   plan_requests,
-  plans
+  plans,
+  table_session
 } = schema;
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const RealtimeService = require('../services/RealtimeService');
@@ -822,15 +824,22 @@ exports.getOrders = async (req, res) => {
           isOccupied: true
         } : null,
         tableNumber: tbl?.table_code || 'Takeaway',
-        customerName: lead?.name || 'Guest',
-        customerPhone: lead?.number || null,
+        customerName: lead?.name || ord.customer_name || 'Guest',
+        customerPhone: lead?.number || ord.customer_phone || null,
+        specialInstructions: ord.special_instructions || '',
         items: items.map(oi => ({
           _id: oi.id,
           id: oi.id,
           itemName: oi.item_name,
           quantity: oi.quantity,
+          requestedQuantity: oi.requested_quantity || oi.quantity,
+          acceptedQuantity: oi.accepted_quantity !== null && oi.accepted_quantity !== undefined ? oi.accepted_quantity : oi.quantity,
           unitPrice: parseFloat(oi.unit_price),
-          subtotal: parseFloat(oi.total)
+          subtotal: parseFloat(oi.total),
+          total: parseFloat(oi.total),
+          status: oi.item_status || 'PENDING',
+          size: oi.customizations || null,
+          menuItemId: oi.menu_item_id
         })),
         subtotal: totalCalculated,
         taxPercent: 0,
@@ -838,7 +847,13 @@ exports.getOrders = async (req, res) => {
         discount: 0,
         total: totalCalculated,
         totalAmount: totalCalculated,
-        status: ord.order_status,
+        status: (ord.app_status === 'ACCEPTED' || ['ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(ord.order_status)) 
+          ? (['PREPARING', 'READY', 'SERVED'].includes(ord.order_status) ? ord.order_status : 'ACCEPTED') 
+          : (ord.order_status === 'ORDERED' && ord.app_status === 'PENDING' ? 'SUBMITTED' : ord.order_status),
+        appStatus: (ord.app_status === 'ACCEPTED' || ['ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(ord.order_status)) ? 'ACCEPTED' : ord.app_status,
+        assignmentStatus: (ord.app_status === 'ACCEPTED' || ['ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(ord.order_status)) 
+          ? 'ACCEPTED' 
+          : (['ORDERED', 'PENDING'].includes(ord.order_status) ? 'PENDING_ACCEPTANCE' : 'ASSIGNED'),
         paymentStatus: ['COMPLETED', 'PAID'].includes(ord.order_status) ? 'PAID' : 'PENDING',
         assignedWaiterId: assignedWaiter,
         createdAt: ord.date || ord.createdat,
@@ -883,7 +898,7 @@ exports.updateOrderStatus = async (req, res) => {
       'PREPARING': ['READY', 'SERVED', 'COMPLETED', 'CANCELLED'],
       'READY': ['SERVED', 'COMPLETED', 'CANCELLED'],
       'SERVED': ['COMPLETED', 'PAID', 'CANCELLED'],
-      'COMPLETED': ['PAID'],
+      'COMPLETED': ['PAID', 'COMPLETED'],
       'CANCELLED': [],
       'PAID': []
     };
@@ -895,18 +910,117 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: `Invalid order status: ${status}.` });
     }
 
+    // Idempotent: if already in requested status (and not COMPLETED), return success
+    if (currentStatus === nextStatus && nextStatus !== 'COMPLETED') {
+      return res.status(200).json({ success: true, data: { order } });
+    }
+
     const allowed = validTransitions[currentStatus] || [];
-    if (req.user.userType === 'STAFF' && !allowed.includes(nextStatus)) {
+    if (req.user.userType === 'STAFF' && !allowed.includes(nextStatus) && currentStatus !== nextStatus) {
       return res.status(400).json({
         success: false,
         message: `Cannot change order status from ${currentStatus} to ${status}.`
       });
     }
 
-    const [updatedOrder] = await db.update(order_details).set({
+    const updateFields = {
       order_status: nextStatus,
       updatedat: new Date()
-    }).where(eq(order_details.id, id)).returning();
+    };
+
+    if (nextStatus === 'COMPLETED') {
+      updateFields.app_status = 'COMPLETED';
+      updateFields.payment_status = 'PAID';
+    } else if (nextStatus === 'CANCELLED') {
+      updateFields.app_status = 'CANCELLED';
+    }
+
+    const [updatedOrder] = await db.update(order_details).set(updateFields)
+      .where(eq(order_details.id, id))
+      .returning();
+
+    let tableNumber = 'Takeaway';
+    if (order.table_id) {
+      const [tbl] = await db.select().from(tables).where(eq(tables.id, order.table_id)).limit(1);
+      if (tbl) tableNumber = tbl.table_code;
+    }
+
+    // ── When marked COMPLETED, atomically free the table and close sessions ──
+    if (nextStatus === 'COMPLETED') {
+      // 1. Mark all child customer_orders as COMPLETED
+      await db.update(customer_orders).set({
+        order_status: 'COMPLETED',
+        updatedat: new Date()
+      }).where(
+        and(
+          eq(customer_orders.visit_id, order.id),
+          sql`${customer_orders.order_status} NOT IN ('COMPLETED', 'CANCELLED')`
+        )
+      );
+
+      // 2. Close active table_session for this table to free it for new customers
+      if (order.table_id) {
+        await db.update(table_session).set({
+          session_status: 'COMPLETED',
+          session_end_time: new Date(),
+          closed_by: req.user.id || req.user._id,
+          updatedat: new Date()
+        }).where(
+          and(
+            eq(table_session.table_id, order.table_id),
+            eq(table_session.session_status, 'ACTIVE')
+          )
+        );
+      }
+      if (order.session_id) {
+        await db.update(table_session).set({
+          session_status: 'COMPLETED',
+          session_end_time: new Date(),
+          closed_by: req.user.id || req.user._id,
+          updatedat: new Date()
+        }).where(eq(table_session.id, order.session_id));
+      }
+
+      // 3. Increment lead visits
+      if (order.lead_id) {
+        await db.update(leads).set({
+          visits: sql`${leads.visits} + 1`,
+          updatedat: new Date()
+        }).where(eq(leads.id, order.lead_id));
+      }
+
+      // 4. Notify realtime rooms that visit is closed and table is available
+      if (order.table_id) {
+        RealtimeService.visitClosed({
+          restaurantId,
+          tableId: order.table_id,
+          visitId: order.id,
+          tableNumber
+        });
+      }
+    } else if (nextStatus === 'CANCELLED') {
+      // Also release table if order was cancelled
+      if (order.table_id) {
+        await db.update(table_session).set({
+          session_status: 'CANCELLED',
+          session_end_time: new Date(),
+          closed_by: req.user.id || req.user._id,
+          updatedat: new Date()
+        }).where(
+          and(
+            eq(table_session.table_id, order.table_id),
+            eq(table_session.session_status, 'ACTIVE')
+          )
+        );
+
+        RealtimeService.allocationCancelled({
+          restaurantId,
+          tableId: order.table_id,
+          visitId: order.id,
+          reason: 'Order cancelled by staff'
+        });
+      }
+    }
 
     RealtimeService.orderUpdated({
       restaurantId,
@@ -914,8 +1028,10 @@ exports.updateOrderStatus = async (req, res) => {
         _id: updatedOrder.id,
         id: updatedOrder.id,
         status: updatedOrder.order_status,
+        appStatus: updatedOrder.app_status,
         restaurantId,
         tableId: updatedOrder.table_id,
+        tableNumber,
         updatedAt: updatedOrder.updatedat
       },
       orderId: updatedOrder.id,
@@ -933,22 +1049,85 @@ exports.acceptOrder = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
+    const waiterId = req.user.id || req.user._id;
 
-    const order = await WaiterAssignmentService.acceptOrder(
-      null,
-      restaurantId,
-      id,
-      req.user.id || req.user._id
-    );
+    let visitId = id;
+    const [custOrder] = await db.select().from(customer_orders).where(
+      and(
+        eq(customer_orders.id, id),
+        eq(customer_orders.restaurant_id, restaurantId)
+      )
+    ).limit(1);
+
+    if (custOrder) {
+      visitId = custOrder.visit_id;
+    }
+
+    // Always accept all child customer_orders under this visit/order
+    await db.update(customer_orders)
+      .set({ order_status: 'ACCEPTED', updatedat: new Date() })
+      .where(
+        and(
+          eq(customer_orders.visit_id, visitId),
+          eq(customer_orders.restaurant_id, restaurantId)
+        )
+      );
+
+    const [visit] = await db.select().from(order_details).where(
+      and(
+        eq(order_details.id, visitId),
+        eq(order_details.restaurant_id, restaurantId)
+      )
+    ).limit(1);
+
+    if (!visit) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const [updatedVisit] = await db.update(order_details)
+      .set({
+        app_status: 'ACCEPTED',
+        order_status: 'ORDERED',
+        assigned_waiter_id: waiterId || visit.assigned_waiter_id,
+        updatedat: new Date()
+      })
+      .where(eq(order_details.id, visitId))
+      .returning();
+
+    await db.update(order_items)
+      .set({ item_status: 'ACCEPTED', updatedat: new Date() })
+      .where(
+        and(
+          eq(order_items.visit_id, visitId),
+          eq(order_items.item_status, 'PENDING')
+        )
+      );
+
+    let tableNumber = 'Takeaway';
+    if (updatedVisit.table_id) {
+      const [tbl] = await db.select().from(tables).where(eq(tables.id, updatedVisit.table_id)).limit(1);
+      if (tbl) tableNumber = tbl.table_code;
+    }
+
+    const updatedOrder = {
+      ...updatedVisit,
+      id: updatedVisit.id,
+      _id: updatedVisit.id,
+      visitId: updatedVisit.id,
+      tableNumber,
+      status: 'ACCEPTED',
+      appStatus: 'ACCEPTED',
+      assignmentStatus: 'ACCEPTED'
+    };
 
     RealtimeService.orderUpdated({
       restaurantId,
-      order,
-      orderId: order?.id || order?._id,
-      tableId: order?.table_id || order?.tableId
+      order: updatedOrder,
+      orderId: visitId,
+      tableId: updatedVisit.table_id
     });
 
-    res.status(200).json({ success: true, message: 'Order accepted successfully', data: { order } });
+    res.status(200).json({ success: true, message: 'Order accepted successfully', data: { order: updatedOrder } });
   } catch (error) {
     console.error('[RestaurantController] Error accepting order:', error);
     res.status(400).json({ success: false, message: error.message || 'Failed to accept order' });
@@ -961,25 +1140,237 @@ exports.rejectOrder = async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
 
-    const result = await WaiterAssignmentService.rejectOrder(
-      null,
-      restaurantId,
-      id,
-      req.user.id || req.user._id,
-      reason || 'Waiter rejected'
-    );
+    let visitId = id;
+    const [custOrder] = await db.select().from(customer_orders).where(
+      and(
+        eq(customer_orders.id, id),
+        eq(customer_orders.restaurant_id, restaurantId)
+      )
+    ).limit(1);
+
+    if (custOrder) {
+      visitId = custOrder.visit_id;
+      await db.update(customer_orders)
+        .set({ order_status: 'CANCELLED', updatedat: new Date() })
+        .where(eq(customer_orders.id, custOrder.id));
+    }
+
+    const [visit] = await db.select().from(order_details).where(
+      and(
+        eq(order_details.id, visitId),
+        eq(order_details.restaurant_id, restaurantId)
+      )
+    ).limit(1);
+
+    if (!visit) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const [updatedVisit] = await db.update(order_details)
+      .set({
+        order_status: 'CANCELLED',
+        app_status: 'CANCELLED',
+        updatedat: new Date()
+      })
+      .where(eq(order_details.id, visitId))
+      .returning();
+
+    await db.update(order_items)
+      .set({
+        item_status: 'UNAVAILABLE',
+        rejection_reason: reason || 'Waiter rejected',
+        updatedat: new Date()
+      })
+      .where(eq(order_items.visit_id, visitId));
+
+    if (updatedVisit.table_id) {
+      await db.update(table_session).set({
+        session_status: 'CANCELLED',
+        session_end_time: new Date(),
+        closed_by: req.user.id || req.user._id,
+        updatedat: new Date()
+      }).where(
+        and(
+          eq(table_session.table_id, updatedVisit.table_id),
+          eq(table_session.session_status, 'ACTIVE')
+        )
+      );
+
+      RealtimeService.allocationCancelled({
+        restaurantId,
+        tableId: updatedVisit.table_id,
+        visitId,
+        reason: reason || 'Waiter rejected'
+      });
+    }
+
+    const updatedOrder = {
+      ...updatedVisit,
+      id: updatedVisit.id,
+      _id: updatedVisit.id,
+      status: 'CANCELLED',
+      appStatus: 'CANCELLED',
+      assignmentStatus: 'REJECTED'
+    };
 
     RealtimeService.orderUpdated({
       restaurantId,
-      order: result.order,
-      orderId: result.order?.id || result.order?._id,
-      tableId: result.order?.table_id || result.order?.tableId
+      order: updatedOrder,
+      orderId: visitId,
+      tableId: updatedVisit.table_id
     });
 
-    res.status(200).json({ success: true, message: 'Order rejected and processed', data: result });
+    res.status(200).json({ success: true, message: 'Order rejected successfully', data: { order: updatedOrder } });
   } catch (error) {
     console.error('[RestaurantController] Error rejecting order:', error);
     res.status(400).json({ success: false, message: error.message || 'Failed to reject order' });
+  }
+};
+
+/**
+ * DELETE /api/restaurant/orders/items/:id
+ * Waiter deletes an item from an active order
+ */
+exports.deleteOrderItem = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params;
+
+    const [item] = await db.select().from(order_items).where(
+      and(
+        eq(order_items.id, id),
+        eq(order_items.restaurant_id, restaurantId)
+      )
+    ).limit(1);
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Order item not found' });
+    }
+
+    const orderId = item.order_id;
+    const visitId = item.visit_id;
+
+    await db.delete(order_items).where(eq(order_items.id, id));
+
+    if (orderId) {
+      const remainingOrderItems = await db.select().from(order_items).where(
+        eq(order_items.order_id, orderId)
+      );
+      const newOrderSubtotal = remainingOrderItems.reduce((sum, oi) => sum + parseFloat(oi.total || 0), 0).toFixed(2);
+      await db.update(customer_orders).set({
+        subtotal: newOrderSubtotal,
+        updatedat: new Date()
+      }).where(eq(customer_orders.id, orderId));
+    }
+
+    let updatedVisit = null;
+    if (visitId) {
+      const remainingVisitItems = await db.select().from(order_items).where(
+        eq(order_items.visit_id, visitId)
+      );
+      const newVisitTotal = remainingVisitItems.reduce((sum, oi) => sum + parseFloat(oi.total || 0), 0).toFixed(2);
+      [updatedVisit] = await db.update(order_details).set({
+        total_amount: newVisitTotal,
+        final_amount: newVisitTotal,
+        updatedat: new Date()
+      }).where(eq(order_details.id, visitId)).returning();
+    }
+
+    RealtimeService.orderUpdated({
+      restaurantId,
+      order: updatedVisit,
+      orderId: orderId || visitId,
+      tableId: updatedVisit?.table_id
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Item deleted from order successfully',
+      data: { itemId: id, orderId, visitId }
+    });
+  } catch (error) {
+    console.error('[RestaurantController] Error deleting order item:', error);
+    res.status(400).json({ success: false, message: error.message || 'Failed to delete order item' });
+  }
+};
+
+/**
+ * POST /api/restaurant/orders/:id/items
+ * Waiter adds items to an active order
+ */
+exports.addOrderItems = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { id } = req.params;
+    const { items, specialInstructions } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'Items array is required' });
+    }
+
+    let visitId = id;
+    const [cust] = await db.select().from(customer_orders).where(
+      and(eq(customer_orders.id, id), eq(customer_orders.restaurant_id, restaurantId))
+    ).limit(1);
+    if (cust) {
+      visitId = cust.visit_id;
+    }
+
+    const result = await OrderService.submitOrderInVisit({
+      visitId,
+      restaurantId,
+      items: items.map(i => ({
+        menu_item_id: i.menuItemId || i.menu_item_id || i.id,
+        quantity: parseInt(i.quantity, 10) || 1,
+        customizations: i.size || i.customizations || ''
+      })),
+      special_instructions: specialInstructions || ''
+    });
+
+    // When staff adds items, ensure order remains accepted and not reverted to PENDING
+    if (result.order) {
+      await db.update(customer_orders)
+        .set({ order_status: 'ACCEPTED', updatedat: new Date() })
+        .where(eq(customer_orders.id, result.order.id));
+      result.order.order_status = 'ACCEPTED';
+    }
+    await db.update(order_details)
+      .set({ app_status: 'ACCEPTED', updatedat: new Date() })
+      .where(eq(order_details.id, visitId));
+
+    const updatedOrderPayload = {
+      ...result.order,
+      visitId,
+      status: 'ACCEPTED',
+      appStatus: 'ACCEPTED',
+      assignmentStatus: 'ACCEPTED'
+    };
+
+    RealtimeService.orderItemsAdded({
+      restaurantId,
+      order: updatedOrderPayload,
+      orderId: result.order?.id,
+      tableId: result.visit?.table_id,
+      waiterId: req.user.id,
+      newItems: result.items,
+      addedCount: result.items.length
+    });
+
+    RealtimeService.orderUpdated({
+      restaurantId,
+      order: updatedOrderPayload,
+      orderId: result.order?.id,
+      tableId: result.visit?.table_id
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Items added to order successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('[RestaurantController] Error adding items to order:', error);
+    res.status(400).json({ success: false, message: error.message || 'Failed to add items to order' });
   }
 };
 
@@ -1597,8 +1988,13 @@ exports.updateOrderItemQuantity = async (req, res) => {
     const { id } = req.params;
     const { acceptedQuantity, reason } = req.body;
 
-    // Strict role check: Only assigned or authorized waiters may edit live order items
-    if (req.user.userType !== 'STAFF' && req.user.role !== 'RESTAURANT_STAFF') {
+    // Allow assigned/authorized waiters and restaurant owners/admins to edit live order items
+    if (
+      req.user.userType !== 'STAFF' &&
+      req.user.role !== 'RESTAURANT_STAFF' &&
+      req.user.userType !== 'ADMIN' &&
+      req.user.role !== 'RESTAURANT_OWNER'
+    ) {
       return res.status(403).json({
         success: false,
         message: 'Only assigned or authorized waiters may edit live order items.'
