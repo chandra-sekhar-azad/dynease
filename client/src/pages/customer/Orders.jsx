@@ -407,8 +407,8 @@ export default function Orders() {
           }`}
         >
           <span>Past Orders</span>
-          <span className="bg-gray-100 text-gray-600 text-[11px] px-2 py-0.5 rounded-full font-semibold">
-            {pastOrders.length}
+          <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
+            Coming Soon
           </span>
         </button>
         </div>
@@ -416,84 +416,43 @@ export default function Orders() {
 
       {/* ── Main Content Area ── */}
       <main className="flex-1 p-4 sm:p-6 pb-28 max-w-lg md:max-w-3xl lg:max-w-4xl mx-auto w-full space-y-4">
-        {/* Mobile Number Search Card for Past Orders */}
-        {tab === 'PAST' && (
-          <div className="bg-white p-4 sm:p-5 rounded-3xl border border-gray-100 shadow-xs">
-            <form onSubmit={handlePhoneSubmit} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end justify-between">
-              <div className="flex-1">
-                <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
-                  <Phone size={14} className="text-emerald-600" />
-                  View Orders by Mobile Number
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-xs font-bold text-gray-400 select-none">+91</span>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    placeholder="Enter 10-digit mobile number"
-                    value={phoneInput.replace(/\D/g, '').slice(-10)}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setPhoneInput(val);
-                      if (val.length === 10) {
-                        setSearchedPhone(val);
-                        try { localStorage.setItem('customerPhone', val); } catch {}
-                        fetchOrders(false, val);
-                      }
-                    }}
-                    className="w-full pl-12 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-gray-800 placeholder:text-gray-400 placeholder:font-normal"
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all cursor-pointer self-end sm:self-auto shrink-0 shadow-md shadow-emerald-600/15 active:scale-95"
-              >
-                Find Orders
-              </button>
-            </form>
-            {searchedPhone && (
-              <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="text-gray-500">
-                  Showing orders for: <strong className="text-emerald-700 font-bold">+91 {searchedPhone.slice(-10)}</strong>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhoneInput('');
-                    setSearchedPhone('');
-                    try { localStorage.removeItem('customerPhone'); } catch {}
-                    fetchOrders(false, '');
-                  }}
-                  className="text-gray-400 hover:text-red-600 font-semibold transition-colors cursor-pointer"
-                >
-                  Clear filter
-                </button>
-              </div>
-            )}
+        {tab === 'PAST' ? (
+          <div className="text-center py-20 px-6 bg-white rounded-3xl border border-gray-100 shadow-sm mt-4 flex flex-col items-center">
+            <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mb-5 text-amber-600 shadow-inner">
+              <Clock size={36} className="animate-pulse" />
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 text-xs font-bold rounded-full mb-3 border border-amber-200">
+              <Sparkles size={13} className="text-amber-600" />
+              <span>Coming Soon...</span>
+            </div>
+            <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Past Orders</h2>
+            <p className="text-gray-500 text-sm max-w-sm mx-auto mb-6 leading-relaxed">
+              Past orders tracking and history will be available in a future update!
+            </p>
+            <button
+              onClick={() => setTab('LIVE')}
+              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all text-sm cursor-pointer"
+            >
+              <UtensilsCrossed size={16} />
+              <span>View Live Orders</span>
+            </button>
           </div>
-        )}
-
-        {loading ? (
+        ) : loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400 space-y-3">
             <Loader2 className="animate-spin w-9 h-9 text-emerald-600" />
             <p className="text-sm font-medium text-gray-500">Retrieving your orders…</p>
           </div>
-        ) : displayedOrders.length === 0 ? (
+        ) : liveOrders.length === 0 ? (
           /* Empty State */
           <div className="text-center py-16 px-6 bg-white rounded-3xl border border-gray-100 shadow-sm mt-4">
             <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-600">
               <UtensilsCrossed size={36} />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">
-              {tab === 'LIVE' ? 'No Live Orders' : 'No Past Orders Found'}
+              No Live Orders
             </h2>
             <p className="text-gray-500 text-sm max-w-xs mx-auto mb-6 leading-relaxed">
-              {tab === 'LIVE'
-                ? 'You do not have any active meals currently in prep or cooking for this table.'
-                : searchedPhone
-                ? `No past orders found for +91 ${searchedPhone.slice(-10)}. Make sure this is the mobile number used when placing the order.`
-                : 'Enter your 10-digit mobile number above to view all past orders placed with your number.'}
+              You do not have any active meals currently in prep or cooking for this table.
             </p>
             <Link
               to="/"
@@ -506,22 +465,6 @@ export default function Orders() {
         ) : (
           /* Orders List */
           <div className="space-y-4">
-            {tab === 'PAST' && pastOrders.length > 0 && resetDiningSession && (
-              <div className="flex items-center justify-between px-2 pt-1 pb-1">
-                <span className="text-xs text-gray-400">Past settled meals on this device</span>
-                <button
-                  onClick={() => {
-                    if (window.confirm('Start a new dining session? This will clear finished past orders from this device.')) {
-                      resetDiningSession();
-                      setOrdersData([]);
-                    }
-                  }}
-                  className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold underline cursor-pointer"
-                >
-                  Start New Session
-                </button>
-              </div>
-            )}
             {displayedOrders.map((order, idx) => {
               const orderId = order.id || order._id || idx;
               const badge = getStatusBadge(order.status);
