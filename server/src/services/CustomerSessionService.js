@@ -407,6 +407,20 @@ class CustomerSessionService {
           updatedat: new Date()
         }).where(eq(table_session.id, visit.session_id));
       }
+      const effectiveTableId = visit.table_id || tableId;
+      if (effectiveTableId) {
+        await tx.update(table_session).set({
+          session_status: 'CANCELLED',
+          session_end_time: new Date(),
+          closed_by: cancelledByUserId,
+          updatedat: new Date()
+        }).where(
+          and(
+            eq(table_session.table_id, effectiveTableId),
+            eq(table_session.session_status, 'ACTIVE')
+          )
+        );
+      }
 
       // Cancel any submitted orders
       await tx.update(customer_orders).set({

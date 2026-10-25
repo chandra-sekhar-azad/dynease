@@ -16,7 +16,8 @@ import {
   FileText,
   X,
   Search,
-  Check
+  Check,
+  QrCode
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -395,6 +396,48 @@ export default function LiveOrders() {
     }
   };
 
+  const handleCancelOccupation = async (order) => {
+    const tableNum = order.tableNumber || order.table || 'this table';
+    if (!window.confirm(`Cancel occupation for Table ${tableNum}? This will free the table so another customer can scan and occupy.`)) {
+      return;
+    }
+
+    try {
+      const orderId = order.id || order._id;
+      setOrders(prev => prev.filter(o => o.id !== orderId && o._id !== orderId && o.visitId !== orderId));
+      if (editingOrder && (editingOrder.id === orderId || editingOrder._id === orderId || editingOrder.visitId === orderId)) {
+        setEditingOrder(null);
+      }
+
+      const tableId = order.tableId?._id || order.tableId?.id || order.tableId;
+      let res;
+      if (tableId) {
+        res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/tables/${tableId}/cancel-allocation`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ visitId: orderId, reason: 'Waiter cancelled occupation' })
+        });
+      } else {
+        res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/orders/${orderId}/status`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify({ status: 'CANCELLED' })
+        });
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        fetchData();
+      } else {
+        alert(data.message || 'Could not cancel table occupation');
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
+      fetchData();
+    }
+  };
+
   const handleDeleteOrderItem = async (orderId, itemId, itemName) => {
     if (!window.confirm(`Delete "${itemName || 'this item'}" from the order?`)) return;
 
@@ -765,7 +808,9 @@ export default function LiveOrders() {
                   order.assignmentStatus === 'ACCEPTED' || 
                   ['ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED'].includes(order.status);
 
-                const needsAcceptance = !isAlreadyAccepted && (
+                const isNoOrder = order.status === 'NO_ORDER';
+
+                const needsAcceptance = !isAlreadyAccepted && !isNoOrder && (
                   order.assignmentStatus === 'PENDING_ACCEPTANCE' ||
                   order.status === 'SUBMITTED' ||
                   order.status === 'ORDERED' ||
@@ -778,7 +823,9 @@ export default function LiveOrders() {
                   <div
                     key={order.id || idx}
                     className={`bg-white rounded-2xl shadow-sm p-5 border-l-4 flex flex-col justify-between transition-all ${
-                      needsAcceptance
+                      isNoOrder
+                        ? 'border-blue-500 ring-2 ring-blue-200/50 bg-blue-50/10'
+                        : needsAcceptance
                         ? 'border-amber-500 ring-2 ring-amber-300/50 bg-amber-50/10'
                         : order.hasNewItems
                         ? 'border-amber-500 ring-2 ring-amber-300'
@@ -816,7 +863,9 @@ export default function LiveOrders() {
                         <div className="text-right shrink-0">
                           <span
                             className={`font-bold px-2.5 py-1 rounded-md text-[11px] inline-block ${
-                              needsAcceptance
+                              isNoOrder
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                : needsAcceptance
                                 ? 'bg-amber-100 text-amber-800 animate-pulse'
                                 : order.status === 'PREPARING'
                                 ? 'bg-blue-100 text-blue-800'
@@ -827,7 +876,7 @@ export default function LiveOrders() {
                                 : 'bg-green-100 text-green-800'
                             }`}
                           >
-                            {needsAcceptance ? 'NEEDS ACCEPTANCE' : order.status}
+                            {isNoOrder ? 'TABLE OCCUPIED (NO ORDER)' : (needsAcceptance ? 'NEEDS ACCEPTANCE' : order.status)}
                           </span>
                         </div>
                       </div>
@@ -840,35 +889,42 @@ export default function LiveOrders() {
                         </div>
                       )}
 
-                      {/* Items List with Delete button */}
-                      <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto pr-1 divide-y divide-gray-50">
-                        {(order.items || []).map((item, i) => (
-                          <div key={item.id || item._id || i} className="flex justify-between items-center text-sm text-gray-700 pt-1.5 first:pt-0">
-                            <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                              <span className="font-extrabold text-xs text-gray-900 shrink-0">{item.quantity || item.qty}x</span>
-                              <span className="font-medium text-xs text-gray-800 truncate">{item.itemName || item.name}</span>
-                              {item.size && (
-                                <span className="text-[9px] bg-gray-100 text-gray-600 px-1 py-0.2 rounded font-bold uppercase shrink-0">
-                                  {item.size}
+                      {/* Items List with Delete button or Empty placeholder for NO_ORDER */}
+                      {isNoOrder && (!order.items || order.items.length === 0) ? (
+                        <div className="py-5 px-3 bg-blue-50/50 border border-dashed border-blue-200 rounded-xl text-center text-xs text-blue-900 mb-4">
+                          <p className="font-bold flex items-center justify-center gap-1.5"><QrCode size={15} className="text-blue-600" /> Table Occupied via QR Scan</p>
+                          <p className="text-[11px] text-blue-700/80 mt-1">Customer has not placed any food order yet.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto pr-1 divide-y divide-gray-50">
+                          {(order.items || []).map((item, i) => (
+                            <div key={item.id || item._id || i} className="flex justify-between items-center text-sm text-gray-700 pt-1.5 first:pt-0">
+                              <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                                <span className="font-extrabold text-xs text-gray-900 shrink-0">{item.quantity || item.qty}x</span>
+                                <span className="font-medium text-xs text-gray-800 truncate">{item.itemName || item.name}</span>
+                                {item.size && (
+                                  <span className="text-[9px] bg-gray-100 text-gray-600 px-1 py-0.2 rounded font-bold uppercase shrink-0">
+                                    {item.size}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-gray-600 text-xs font-semibold">
+                                  ₹{Number(item.subtotal ?? item.total ?? ((item.unitPrice || item.price || 0) * (item.quantity || item.qty || 1)) ?? 0).toFixed(2)}
                                 </span>
-                              )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteOrderItem(order.id || order._id, item.id || item._id, item.itemName || item.name)}
+                                  title="Delete item from order"
+                                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-gray-600 text-xs font-semibold">
-                                ₹{Number(item.subtotal ?? item.total ?? ((item.unitPrice || item.price || 0) * (item.quantity || item.qty || 1)) ?? 0).toFixed(2)}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteOrderItem(order.id || order._id, item.id || item._id, item.itemName || item.name)}
-                                title="Delete item from order"
-                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Total & Timestamp */}
                       <div className="text-xs text-gray-400 mb-4 flex justify-between items-center border-t border-gray-100 pt-2">
@@ -882,7 +938,26 @@ export default function LiveOrders() {
 
                     {/* Actions */}
                     <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
-                      {needsAcceptance ? (
+                      {isNoOrder ? (
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingOrder(order);
+                              setStagedItems([]);
+                              setAddSuccessMsg('');
+                            }}
+                            className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <PlusCircle size={15} /> Take Order (Add Items)
+                          </button>
+                          <button
+                            onClick={() => handleCancelOccupation(order)}
+                            className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <XCircle size={15} /> Cancel Occupation (Free Table)
+                          </button>
+                        </div>
+                      ) : needsAcceptance ? (
                         <div className="flex flex-col gap-2">
                           <div className="flex gap-2">
                             <button

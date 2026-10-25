@@ -999,7 +999,13 @@ exports.updateOrderStatus = async (req, res) => {
         });
       }
     } else if (nextStatus === 'CANCELLED') {
-      // Also release table if order was cancelled
+      // Cancel any child customer_orders
+      await db.update(customer_orders).set({
+        order_status: 'CANCELLED',
+        updatedat: new Date()
+      }).where(eq(customer_orders.visit_id, order.id));
+
+      // Release table if order was cancelled
       if (order.table_id) {
         await db.update(table_session).set({
           session_status: 'CANCELLED',
@@ -1012,7 +1018,17 @@ exports.updateOrderStatus = async (req, res) => {
             eq(table_session.session_status, 'ACTIVE')
           )
         );
+      }
+      if (order.session_id) {
+        await db.update(table_session).set({
+          session_status: 'CANCELLED',
+          session_end_time: new Date(),
+          closed_by: req.user.id || req.user._id,
+          updatedat: new Date()
+        }).where(eq(table_session.id, order.session_id));
+      }
 
+      if (order.table_id) {
         RealtimeService.allocationCancelled({
           restaurantId,
           tableId: order.table_id,

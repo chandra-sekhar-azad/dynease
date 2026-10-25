@@ -101,6 +101,22 @@ export default function TablesManagement() {
     }
   };
 
+  const handleFreeTable = async (table) => {
+    if (!window.confirm(`Free Table ${table.tableNumber}? This will cancel any active table occupation and allow new customers to scan.`)) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/tables/${table._id}/cancel-allocation`, {
+        method: 'POST',
+        headers: getHeaders(false)
+      });
+      if (res.ok) {
+        setTables(tables.map(t => t._id === table._id ? { ...t, isOccupied: false } : t));
+        fetchTables();
+      }
+    } catch (err) {
+      console.error('Failed to free table', err);
+    }
+  };
+
   const handleToggleStatus = async (table) => {
     const newStatus = table.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
@@ -201,6 +217,15 @@ export default function TablesManagement() {
                   }`}>
                     {table.isOccupied ? '• Occupied' : '• Free'}
                   </span>
+                  {table.isOccupied && (
+                    <button
+                      onClick={() => handleFreeTable(table)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors shadow-2xs cursor-pointer"
+                      title="Cancel active occupation and mark table as free"
+                    >
+                      Free Table
+                    </button>
+                  )}
                   <button 
                     onClick={() => handleToggleStatus(table)}
                     className={`px-3 py-1 rounded-full text-xs font-bold transition-colors border ${
