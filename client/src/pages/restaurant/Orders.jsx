@@ -132,7 +132,7 @@ export default function Orders() {
   const pastOrders = orders.filter(o => ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status));
 
   const displayOrders = (activeTab === 'LIVE' ? liveOrders : pastOrders).filter(o => {
-    const searchString = `${o.orderNumber} ${o.tableNumber} ${o.customerName}`.toLowerCase();
+    const searchString = `${o.orderNumber || ''} ${o.tableNumber || ''} ${o.customerName || ''} ${o.customerPhone || ''}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
 
@@ -151,10 +151,10 @@ export default function Orders() {
         </div>
         
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-72">
             <input
               type="text"
-              placeholder="Search orders..."
+              placeholder="Search by phone, table, order..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-full text-sm"

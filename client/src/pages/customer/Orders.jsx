@@ -16,7 +16,8 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  ArrowRight
+  ArrowRight,
+  Phone
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
@@ -55,19 +56,25 @@ export default function Orders() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Fetch orders from API - only fetch this specific user's orders
-  const fetchOrders = useCallback(async (isSilent = false) => {
+  const initialPhone = localStorage.getItem('customerPhone') || session?.customerPhone || '';
+  const [phoneInput, setPhoneInput] = useState(initialPhone);
+  const [searchedPhone, setSearchedPhone] = useState(initialPhone);
+
+  const getLast10Digits = (val) => (val ? String(val).replace(/\D/g, '').slice(-10) : '');
+
+  // Fetch orders from API - fetch this user's orders by orderIds and/or phone
+  const fetchOrders = useCallback(async (isSilent = false, overridePhone = null) => {
     if (!isSilent) setRefreshing(true);
 
     try {
       const orderIdsQuery = myOrders.join(',');
-      const savedPhone = localStorage.getItem('customerPhone') || session?.customerPhone || '';
+      const phoneToUse = (overridePhone !== null ? overridePhone : (searchedPhone || localStorage.getItem('customerPhone') || session?.customerPhone || '')).trim();
       const params = new URLSearchParams();
       if (orderIdsQuery) params.append('orderIds', orderIdsQuery);
-      if (savedPhone) params.append('phone', savedPhone);
+      if (phoneToUse) params.append('phone', phoneToUse);
 
       // If we have neither order IDs nor phone, customer has no orders yet
-      if (!orderIdsQuery && !savedPhone) {
+      if (!orderIdsQuery && !phoneToUse) {
         setOrdersData([]);
         if (setLiveOrdersCount) setLiveOrdersCount(0);
         setLoading(false);
@@ -99,7 +106,7 @@ export default function Orders() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [myOrders, session?.customerPhone, setLiveOrdersCount]);
+  }, [myOrders, searchedPhone, session?.customerPhone, setLiveOrdersCount]);
 
   // Initial fetch and polling fallback
   useEffect(() => {
@@ -187,16 +194,38 @@ export default function Orders() {
     setTimeout(() => setReorderSuccessMsg(''), 4000);
   };
 
-  // Filter orders - ensure only orders belonging to this user are shown
-  const currentSavedPhone = localStorage.getItem('customerPhone') || session?.customerPhone || '';
+  // Filter orders - match mobile number (user input) or order IDs
+  const currentSavedPhone = searchedPhone || localStorage.getItem('customerPhone') || session?.customerPhone || '';
+  const target10 = getLast10Digits(currentSavedPhone);
+
   const liveOrders = ordersData.filter(
     o => !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
   );
-  const pastOrders = ordersData.filter(
-    o => ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status) &&
-         (myOrders.includes(o.id || o._id) || (currentSavedPhone && o.customerPhone === currentSavedPhone))
-  );
+
+  const pastOrders = ordersData.filter(o => {
+    const isPast = ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status);
+    if (!isPast) return false;
+
+    // Match by phone number digits if provided (where mobile number = user input)
+    if (target10) {
+      const orderPhone10 = getLast10Digits(o.customerPhone);
+      if (orderPhone10 && orderPhone10 === target10) return true;
+    }
+    // Also include if order was created on this device in the active session
+    return myOrders.includes(o.id || o._id);
+  });
+
   const displayedOrders = tab === 'LIVE' ? liveOrders : pastOrders;
+
+  const handlePhoneSubmit = (e) => {
+    e?.preventDefault();
+    const trimmed = phoneInput.trim();
+    setSearchedPhone(trimmed);
+    if (trimmed) {
+      try { localStorage.setItem('customerPhone', trimmed); } catch {}
+    }
+    fetchOrders(false, trimmed);
+  };
 
   // Status visual mapping
   const getStatusBadge = (status) => {
@@ -387,6 +416,64 @@ export default function Orders() {
 
       {/* ── Main Content Area ── */}
       <main className="flex-1 p-4 sm:p-6 pb-28 max-w-lg md:max-w-3xl lg:max-w-4xl mx-auto w-full space-y-4">
+        {/* Mobile Number Search Card for Past Orders */}
+        {tab === 'PAST' && (
+          <div className="bg-white p-4 sm:p-5 rounded-3xl border border-gray-100 shadow-xs">
+            <form onSubmit={handlePhoneSubmit} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end justify-between">
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                  <Phone size={14} className="text-emerald-600" />
+                  View Orders by Mobile Number
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-xs font-bold text-gray-400 select-none">+91</span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Enter 10-digit mobile number"
+                    value={phoneInput.replace(/\D/g, '').slice(-10)}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setPhoneInput(val);
+                      if (val.length === 10) {
+                        setSearchedPhone(val);
+                        try { localStorage.setItem('customerPhone', val); } catch {}
+                        fetchOrders(false, val);
+                      }
+                    }}
+                    className="w-full pl-12 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-gray-800 placeholder:text-gray-400 placeholder:font-normal"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all cursor-pointer self-end sm:self-auto shrink-0 shadow-md shadow-emerald-600/15 active:scale-95"
+              >
+                Find Orders
+              </button>
+            </form>
+            {searchedPhone && (
+              <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs">
+                <span className="text-gray-500">
+                  Showing orders for: <strong className="text-emerald-700 font-bold">+91 {searchedPhone.slice(-10)}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhoneInput('');
+                    setSearchedPhone('');
+                    try { localStorage.removeItem('customerPhone'); } catch {}
+                    fetchOrders(false, '');
+                  }}
+                  className="text-gray-400 hover:text-red-600 font-semibold transition-colors cursor-pointer"
+                >
+                  Clear filter
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400 space-y-3">
             <Loader2 className="animate-spin w-9 h-9 text-emerald-600" />
@@ -399,12 +486,14 @@ export default function Orders() {
               <UtensilsCrossed size={36} />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">
-              {tab === 'LIVE' ? 'No Live Orders' : 'No Past Orders Yet'}
+              {tab === 'LIVE' ? 'No Live Orders' : 'No Past Orders Found'}
             </h2>
             <p className="text-gray-500 text-sm max-w-xs mx-auto mb-6 leading-relaxed">
               {tab === 'LIVE'
                 ? 'You do not have any active meals currently in prep or cooking for this table.'
-                : 'Any finished or settled dining orders will be cataloged here for your records.'}
+                : searchedPhone
+                ? `No past orders found for +91 ${searchedPhone.slice(-10)}. Make sure this is the mobile number used when placing the order.`
+                : 'Enter your 10-digit mobile number above to view all past orders placed with your number.'}
             </p>
             <Link
               to="/"

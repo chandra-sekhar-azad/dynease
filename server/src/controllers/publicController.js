@@ -842,14 +842,46 @@ exports.getCustomerOrders = async (req, res, next) => {
       );
     }
 
+    let leadPhoneMap = new Map();
     if (phone) {
       const trimmedPhone = String(phone).trim();
-      const matchingLeads = await db.select({ id: leads.id }).from(leads).where(
-        eq(leads.number, trimmedPhone)
-      );
-      if (matchingLeads.length > 0) {
-        conditions.push(inArray(order_details.lead_id, matchingLeads.map(l => l.id)));
+      const digitsOnly = trimmedPhone.replace(/\D/g, '');
+      const last10 = digitsOnly.slice(-10);
+
+      const phoneConditions = [
+        eq(order_details.customer_phone, trimmedPhone)
+      ];
+
+      if (digitsOnly && digitsOnly !== trimmedPhone) {
+        phoneConditions.push(eq(order_details.customer_phone, digitsOnly));
       }
+
+      if (last10 && last10.length >= 7) {
+        phoneConditions.push(
+          sql`RIGHT(REGEXP_REPLACE(COALESCE(${order_details.customer_phone}, ''), '[^0-9]', '', 'g'), 10) = ${last10}`
+        );
+      }
+
+      const leadConditions = [eq(leads.number, trimmedPhone)];
+      if (digitsOnly && digitsOnly !== trimmedPhone) {
+        leadConditions.push(eq(leads.number, digitsOnly));
+      }
+      if (last10 && last10.length >= 7) {
+        leadConditions.push(
+          sql`RIGHT(REGEXP_REPLACE(COALESCE(${leads.number}, ''), '[^0-9]', '', 'g'), 10) = ${last10}`
+        );
+      }
+
+      const matchingLeads = await db.select({ id: leads.id, number: leads.number }).from(leads).where(
+        or(...leadConditions)
+      );
+
+      if (matchingLeads.length > 0) {
+        matchingLeads.forEach(l => leadPhoneMap.set(l.id, l.number));
+        phoneConditions.push(inArray(order_details.lead_id, matchingLeads.map(l => l.id)));
+      }
+
+      conditions.push(or(...phoneConditions));
     }
 
     // Also check if rawIds contains any customer_orders IDs
@@ -869,7 +901,7 @@ exports.getCustomerOrders = async (req, res, next) => {
       orders = await db.select().from(order_details)
         .where(or(...conditions))
         .orderBy(desc(order_details.date))
-        .limit(50);
+        .limit(100);
     }
 
     const formattedOrders = [];
@@ -899,7 +931,7 @@ exports.getCustomerOrders = async (req, res, next) => {
         tableId: visit?.table_id,
         tableNumber: tbl?.table_code || 'Table',
         customerName: visit?.customer_name || 'Guest',
-        customerPhone: visit?.customer_phone || null,
+        customerPhone: visit?.customer_phone || (visit?.lead_id ? leadPhoneMap.get(visit.lead_id) : null) || (phone ? String(phone).trim() : null),
         items: items.map(oi => ({
           id: oi.id,
           itemName: oi.item_name,
@@ -949,7 +981,7 @@ exports.getCustomerOrders = async (req, res, next) => {
             tableId: ord.table_id,
             tableNumber: tbl?.table_code || 'Table',
             customerName: ord.customer_name || 'Guest',
-            customerPhone: ord.customer_phone || null,
+            customerPhone: ord.customer_phone || (ord.lead_id ? leadPhoneMap.get(ord.lead_id) : null) || (phone ? String(phone).trim() : null),
             items: items.map(oi => ({
               id: oi.id,
               itemName: oi.item_name,
@@ -995,7 +1027,7 @@ exports.getCustomerOrders = async (req, res, next) => {
           tableId: ord.table_id,
           tableNumber: tbl?.table_code || 'Table',
           customerName: ord.customer_name || 'Guest',
-          customerPhone: ord.customer_phone || null,
+          customerPhone: ord.customer_phone || (ord.lead_id ? leadPhoneMap.get(ord.lead_id) : null) || (phone ? String(phone).trim() : null),
           items: items.map(oi => ({
             id: oi.id,
             itemName: oi.item_name,
