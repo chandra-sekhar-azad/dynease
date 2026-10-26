@@ -174,20 +174,9 @@ export default function CameraQRScanner({
     }
   }, [readerId, handleScanSuccess]);
 
-  // Mount effect: immediately trigger camera permission request & start scanning
+  // Clean up on unmount
   useEffect(() => {
-    let mounted = true;
-
-    // Small delay to ensure the DOM element with readerId is mounted
-    const timer = setTimeout(() => {
-      if (mounted) {
-        startCamera();
-      }
-    }, 150);
-
     return () => {
-      mounted = false;
-      clearTimeout(timer);
       if (scannerRef.current) {
         try {
           if (scannerRef.current.isScanning) {
@@ -200,7 +189,7 @@ export default function CameraQRScanner({
         } catch {}
       }
     };
-  }, [startCamera]);
+  }, []);
 
   // Toggle Torch/Flashlight
   const toggleTorch = async () => {

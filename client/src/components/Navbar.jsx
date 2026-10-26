@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { Menu, X, Utensils, Megaphone, Camera } from 'lucide-react';
+import { Menu, X, Utensils, Megaphone } from 'lucide-react';
 
-export default function Navbar({ minimal = false, onOpenScanner }) {
+export default function Navbar({ minimal = false }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -35,17 +35,6 @@ export default function Navbar({ minimal = false, onOpenScanner }) {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            {onOpenScanner && (
-              <button
-                type="button"
-                onClick={onOpenScanner}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                title="Scan Table QR Code"
-              >
-                <Camera size={14} />
-                <span>Scan Table QR</span>
-              </button>
-            )}
             <Link
               to="/advertise"
               className="border border-emerald-600/30 hover:border-emerald-600 bg-emerald-50/60 hover:bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center gap-1.5 shadow-xs"
@@ -69,18 +58,6 @@ export default function Navbar({ minimal = false, onOpenScanner }) {
           {/* Mobile menu overlay */}
           {isOpen && (
             <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-white shadow-xl py-6 px-6 flex flex-col gap-4 md:hidden rounded-2xl animate-in slide-in-from-top-2 duration-200 border border-[var(--color-border)]">
-              {onOpenScanner && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsOpen(false);
-                    onOpenScanner();
-                  }}
-                  className="flex items-center justify-center gap-2 text-white bg-emerald-600 hover:bg-emerald-700 py-3 rounded-full font-bold text-base shadow-sm cursor-pointer"
-                >
-                  <Camera size={18} /> Scan Table QR
-                </button>
-              )}
               <NavLink to="/" onClick={() => setIsOpen(false)} className={({ isActive }) => `font-medium text-lg pb-1 transition-colors ${isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)] hover:text-[var(--color-primary)]'}`}>Home</NavLink>
               <a href="/#benefits" onClick={() => setIsOpen(false)} className="font-medium text-lg pb-1 transition-colors text-[var(--color-text)] hover:text-[var(--color-primary)]">Benefits</a>
               <NavLink to="/features" onClick={() => setIsOpen(false)} className={({ isActive }) => `font-medium text-lg pb-1 transition-colors ${isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)] hover:text-[var(--color-primary)]'}`}>Features</NavLink>
