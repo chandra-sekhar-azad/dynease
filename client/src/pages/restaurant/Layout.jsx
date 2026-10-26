@@ -58,9 +58,9 @@ export default function RestaurantLayout() {
         />
       )}
       
-      <aside className={`fixed md:static inset-y-0 left-0 z-50 bg-slate-900 text-white flex flex-col transition-transform duration-300 w-64 md:w-64 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="w-64 flex flex-col h-full">
-          <div className="p-6 flex justify-between items-center border-b border-slate-800">
+      <aside className={`fixed md:static inset-y-0 left-0 z-50 bg-slate-900 text-white flex flex-col transition-transform duration-300 w-64 md:w-64 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-hidden select-none`}>
+        <div className="w-64 flex flex-col h-full overflow-hidden">
+          <div className="p-6 flex justify-between items-center border-b border-slate-800 shrink-0">
             <Link to="/restaurant" className="flex items-center gap-2">
               <img 
                 src="/brand/logo-horizontal-reversed.svg" 
@@ -72,12 +72,12 @@ export default function RestaurantLayout() {
                 }}
               />
             </Link>
-            <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
+            <button className="md:hidden text-gray-400 hover:text-white cursor-pointer" onClick={() => setIsSidebarOpen(false)}>
               <X size={24} />
             </button>
           </div>
         
-        <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
+        <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {links.map((link) => {
             const isActive = location.pathname === link.path || location.pathname.startsWith(link.path + '/');
             return (
@@ -100,8 +100,8 @@ export default function RestaurantLayout() {
           })}
         </nav>
 
-          <div className="p-4 border-t border-slate-800">
-            <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white w-full transition-colors">
+          <div className="p-4 border-t border-slate-800 shrink-0">
+            <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white w-full transition-colors cursor-pointer">
               <LogOut size={20} />
               Logout
             </button>

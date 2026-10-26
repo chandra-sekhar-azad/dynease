@@ -596,15 +596,6 @@ export default function RestaurantsManagement() {
               <span>Plan Tiers</span>
             </button>
           </div>
-
-          <button
-            onClick={fetchData}
-            disabled={isLoading}
-            className="p-2 sm:p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-all shadow-xs cursor-pointer disabled:opacity-60 shrink-0"
-            title="Refresh data"
-          >
-            <RefreshCw size={16} className={isLoading ? 'animate-spin text-emerald-600' : ''} />
-          </button>
         </div>
       </div>
 

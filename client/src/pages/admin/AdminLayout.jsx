@@ -68,7 +68,7 @@ export default function AdminLayout() {
             </button>
           </div>
         
-        <nav className="flex-1 px-3 space-y-1 mt-6 overflow-y-auto overflow-x-hidden">
+        <nav className="flex-1 px-3 space-y-1 mt-6 overflow-y-auto overflow-x-hidden no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <p className="px-4 text-[10px] font-medium text-gray-400 uppercase tracking-widest mb-2">Platform</p>
           {links.map((link) => {
             const isRestaurantTab = link.name === 'Restaurant Management';
