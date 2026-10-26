@@ -98,7 +98,15 @@ exports.getTables = async (req, res, next) => {
       };
     });
 
-    res.status(200).json({ success: true, data: { tables: mappedTables } });
+    const usageAndLimits = await SubscriptionService.getUsageAndLimits(null, { restaurantId }).catch(() => null);
+
+    res.status(200).json({ 
+      success: true, 
+      data: { 
+        tables: mappedTables,
+        limits: usageAndLimits?.limits || null
+      } 
+    });
   } catch (error) {
     next(error);
   }

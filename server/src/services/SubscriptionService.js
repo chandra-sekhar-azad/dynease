@@ -67,8 +67,54 @@ class SubscriptionService {
     if (!restaurantRegistry) throw new Error('Restaurant registry not found');
 
     const restaurantId = restaurantRegistry.restaurantId || restaurantRegistry.id;
-    const rawPlan = restaurantRegistry.selectedPlan || restaurantRegistry.plan_id || 'STARTER';
-    const plan = getPlan(rawPlan) || PLANS.STARTER;
+    let limits = null;
+    let planName = 'Starter';
+    let planId = 'STARTER';
+    let features = {};
+
+    // Fetch restaurant and active plan from PostgreSQL if restaurantId is provided
+    if (restaurantId) {
+      try {
+        const [rest] = await db.select().from(restaurants).where(
+          and(eq(restaurants.id, restaurantId), eq(restaurants.is_deleted, false))
+        ).limit(1);
+
+        if (rest) {
+          if (rest.plan_id) {
+            const [dbPlan] = await db.select().from(plans).where(eq(plans.id, rest.plan_id)).limit(1);
+            if (dbPlan) {
+              planName = dbPlan.name;
+              planId = (dbPlan.name || 'STARTER').toUpperCase();
+              limits = dbPlan.configuration?.limits ? { ...dbPlan.configuration.limits } : null;
+              features = dbPlan.configuration?.features ? { ...dbPlan.configuration.features } : {};
+            }
+          }
+          if (!limits) {
+            const rawPlan = rest.overriden_plan || rest.plan_id || restaurantRegistry.selectedPlan || 'STARTER';
+            const p = getPlan(rawPlan) || PLANS.STARTER;
+            planName = p.name;
+            planId = p.planId;
+            limits = { ...p.limits };
+            features = { ...p.features };
+          }
+          if (rest.is_plan_overridden && rest.overriden_plan && typeof rest.overriden_plan === 'object') {
+            limits = { ...(limits || {}), ...(rest.overriden_plan.limits || {}) };
+            features = { ...(features || {}), ...(rest.overriden_plan.features || {}) };
+          }
+        }
+      } catch (err) {
+        console.error('[SubscriptionService] Error resolving restaurant plan:', err.message);
+      }
+    }
+
+    if (!limits) {
+      const rawPlan = restaurantRegistry.selectedPlan || restaurantRegistry.plan_id || 'STARTER';
+      const p = getPlan(rawPlan) || PLANS.STARTER;
+      planName = p.name;
+      planId = p.planId;
+      limits = { ...p.limits };
+      features = { ...p.features };
+    }
 
     let locationCount = 1;
     let tableCount = 0;
@@ -122,11 +168,22 @@ class SubscriptionService {
       }
     }
 
+    const maxLocations = limits.maxLocations ?? null;
+    const maxTables = limits.maxTables ?? null;
+    const maxMenuItems = limits.maxMenuItems ?? null;
+    const maxStaffAccounts = limits.maxStaffAccounts ?? limits.maxStaff ?? null;
+
     return {
-      planId: plan.planId,
-      planName: plan.name,
-      limits: plan.limits,
-      features: plan.features,
+      planId,
+      planName,
+      limits: {
+        ...limits,
+        maxLocations,
+        maxTables,
+        maxMenuItems,
+        maxStaffAccounts
+      },
+      features,
       usage: {
         locations: locationCount,
         tables: tableCount,
@@ -134,10 +191,10 @@ class SubscriptionService {
         staffAccounts: staffCount
       },
       capacityRemaining: {
-        locations: plan.limits.maxLocations === null ? null : Math.max(0, plan.limits.maxLocations - locationCount),
-        tables: plan.limits.maxTables === null ? null : Math.max(0, plan.limits.maxTables - tableCount),
-        menuItems: plan.limits.maxMenuItems === null ? null : Math.max(0, plan.limits.maxMenuItems - menuItemCount),
-        staffAccounts: plan.limits.maxStaffAccounts === null ? null : Math.max(0, plan.limits.maxStaffAccounts - staffCount)
+        locations: maxLocations === null ? null : Math.max(0, maxLocations - locationCount),
+        tables: maxTables === null ? null : Math.max(0, maxTables - tableCount),
+        menuItems: maxMenuItems === null ? null : Math.max(0, maxMenuItems - menuItemCount),
+        staffAccounts: maxStaffAccounts === null ? null : Math.max(0, maxStaffAccounts - staffCount)
       }
     };
   }
@@ -150,32 +207,33 @@ class SubscriptionService {
     const { limits, usage } = await this.getUsageAndLimits(tenantDb, restaurantRegistry);
 
     if (resourceType === 'tables') {
-      if (limits.maxTables !== null && (usage.tables + additionalUnits) > limits.maxTables) {
-        const error = new Error(`Table limit reached (${usage.tables}/${limits.maxTables}). Upgrade your plan to add more tables.`);
+      if (limits.maxTables !== null && limits.maxTables !== undefined && (usage.tables + additionalUnits) > limits.maxTables) {
+        const error = new Error('Your tables limit reached. Contact admin.');
         error.status = 403;
         error.code = 'LIMIT_EXCEEDED';
         error.details = { resource: 'tables', current: usage.tables, limit: limits.maxTables };
         throw error;
       }
     } else if (resourceType === 'menuItems') {
-      if (limits.maxMenuItems !== null && (usage.menuItems + additionalUnits) > limits.maxMenuItems) {
-        const error = new Error(`Menu item limit reached (${usage.menuItems}/${limits.maxMenuItems}). Upgrade your plan to add more menu items.`);
+      if (limits.maxMenuItems !== null && limits.maxMenuItems !== undefined && (usage.menuItems + additionalUnits) > limits.maxMenuItems) {
+        const error = new Error('Your menu items limit reached. Contact admin.');
         error.status = 403;
         error.code = 'LIMIT_EXCEEDED';
         error.details = { resource: 'menuItems', current: usage.menuItems, limit: limits.maxMenuItems };
         throw error;
       }
     } else if (resourceType === 'staff') {
-      if (limits.maxStaffAccounts !== null && (usage.staffAccounts + additionalUnits) > limits.maxStaffAccounts) {
-        const error = new Error(`Staff account limit reached (${usage.staffAccounts}/${limits.maxStaffAccounts}). Upgrade your plan to add more staff accounts.`);
+      const maxStaff = limits.maxStaffAccounts ?? limits.maxStaff;
+      if (maxStaff !== null && maxStaff !== undefined && (usage.staffAccounts + additionalUnits) > maxStaff) {
+        const error = new Error('Your staff accounts limit reached. Contact admin.');
         error.status = 403;
         error.code = 'LIMIT_EXCEEDED';
-        error.details = { resource: 'staff', current: usage.staffAccounts, limit: limits.maxStaffAccounts };
+        error.details = { resource: 'staff', current: usage.staffAccounts, limit: maxStaff };
         throw error;
       }
     } else if (resourceType === 'locations') {
-      if (limits.maxLocations !== null && (usage.locations + additionalUnits) > limits.maxLocations) {
-        const error = new Error(`Location limit reached (${usage.locations}/${limits.maxLocations}). Upgrade to Business or Pro plan to add multiple locations.`);
+      if (limits.maxLocations !== null && limits.maxLocations !== undefined && (usage.locations + additionalUnits) > limits.maxLocations) {
+        const error = new Error('Your locations limit reached. Contact admin.');
         error.status = 403;
         error.code = 'LIMIT_EXCEEDED';
         error.details = { resource: 'locations', current: usage.locations, limit: limits.maxLocations };

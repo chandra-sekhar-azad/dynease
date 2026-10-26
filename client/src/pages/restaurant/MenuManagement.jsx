@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, X, Image as ImageIcon, Tag, Filter, ToggleLeft, ToggleRight, Loader2, FolderPlus, Edit2, Search } from 'lucide-react';
+import { Plus, Trash2, X, Image as ImageIcon, Tag, Filter, ToggleLeft, ToggleRight, Loader2, FolderPlus, Edit2, Search, AlertCircle } from 'lucide-react';
 import { useSocketEvents } from '../../lib/socket';
 
 const DIET_TYPES = [
@@ -27,6 +27,7 @@ export default function MenuManagement() {
   const [togglingId, setTogglingId] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [planLimits, setPlanLimits] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -42,7 +43,22 @@ export default function MenuManagement() {
   useEffect(() => {
     fetchCategories();
     fetchMenu();
+    fetchSubscriptionLimits();
   }, []);
+
+  const fetchSubscriptionLimits = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/subscription`, {
+        headers: getHeaders()
+      });
+      const data = await res.json();
+      if (data.success && data.data?.limits) {
+        setPlanLimits(data.data.limits);
+      }
+    } catch (e) {
+      // silent fallback
+    }
+  };
 
   const getHeaders = (isFormData = false) => {
     const token = localStorage.getItem('token');
@@ -77,7 +93,10 @@ export default function MenuManagement() {
         headers: getHeaders()
       });
       const data = await res.json();
-      if (data.success) setItems(data.data.menuItems);
+      if (data.success) {
+        setItems(data.data.menuItems);
+        if (data.data.limits) setPlanLimits(data.data.limits);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -91,8 +110,15 @@ export default function MenuManagement() {
     },
   });
 
+  const maxMenuItems = planLimits?.maxMenuItems ?? null;
+  const isMenuLimitReached = maxMenuItems !== null && maxMenuItems !== undefined && items.length >= maxMenuItems;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!editingItem && isMenuLimitReached) {
+      alert('Your menu items limit reached contact admin');
+      return;
+    }
     const cleanQuantities = quantities
       .filter(q => q.size && q.size.trim() && q.price !== '' && !isNaN(q.price) && Number(q.price) >= 0)
       .map(q => ({ size: q.size.trim(), price: Number(q.price) }));
@@ -221,18 +247,25 @@ export default function MenuManagement() {
           >
             <FolderPlus size={16} /> Manage Categories
           </button>
-          <button
-            onClick={() => {
-              setEditingItem(null);
-              setFormData({ name: '', category: '', description: '', price: '', dietaryPreference: 'VEG', preparationTime: '15' });
-              setQuantities([{ size: 'Full', price: '' }]);
-              setImageFile(null);
-              setShowAddModal(true);
-            }}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm"
-          >
-            <Plus size={16} /> Add Dish
-          </button>
+          {isMenuLimitReached ? (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-2xs">
+              <AlertCircle size={16} className="text-amber-600 shrink-0" />
+              <span>Your menu items limit reached contact admin</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setEditingItem(null);
+                setFormData({ name: '', category: '', description: '', price: '', dietaryPreference: 'VEG', preparationTime: '15' });
+                setQuantities([{ size: 'Full', price: '' }]);
+                setImageFile(null);
+                setShowAddModal(true);
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm cursor-pointer shadow-sm"
+            >
+              <Plus size={16} /> Add Dish
+            </button>
+          )}
         </div>
       </div>
 

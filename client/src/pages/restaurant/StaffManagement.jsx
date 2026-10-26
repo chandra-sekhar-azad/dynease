@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X, Check, Search, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Check, Search, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useSocketEvents } from '../../lib/socket';
 
 export default function StaffManagement() {
@@ -10,6 +10,7 @@ export default function StaffManagement() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [tables, setTables] = useState([]);
+  const [planLimits, setPlanLimits] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -24,7 +25,22 @@ export default function StaffManagement() {
   useEffect(() => {
     fetchStaff();
     fetchTables();
+    fetchSubscriptionLimits();
   }, []);
+
+  const fetchSubscriptionLimits = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/subscription`, {
+        headers: getHeaders()
+      });
+      const data = await res.json();
+      if (data.success && data.data?.limits) {
+        setPlanLimits(data.data.limits);
+      }
+    } catch (e) {
+      // silent fallback
+    }
+  };
 
   const getHeaders = () => {
     const token = localStorage.getItem('token');
@@ -52,6 +68,7 @@ export default function StaffManagement() {
       const data = await res.json();
       if (data.success) {
         setStaffList(data.data.staff);
+        if (data.data.limits) setPlanLimits(data.data.limits);
       }
     } catch (err) {
       console.error(err);
@@ -87,7 +104,15 @@ export default function StaffManagement() {
     setFormData({ ...formData, [e.target.name]: value });
   };
 
+  const nonOwnerStaffCount = staffList.filter(s => s.role !== 'RESTAURANT_OWNER' && s.userType !== 'ADMIN').length;
+  const maxStaffAccounts = planLimits?.maxStaffAccounts ?? planLimits?.maxStaff ?? null;
+  const isStaffLimitReached = maxStaffAccounts !== null && maxStaffAccounts !== undefined && nonOwnerStaffCount >= maxStaffAccounts;
+
   const openAddModal = () => {
+    if (isStaffLimitReached) {
+      alert('Your staff accounts limit reached contact admin');
+      return;
+    }
     setEditingId(null);
     setFormData({ name: '', email: '', password: '', role: 'RESTAURANT_STAFF', phone: '', isActive: true, assignedTables: [] });
     setShowModal(true);
@@ -122,6 +147,10 @@ export default function StaffManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!editingId && isStaffLimitReached) {
+      alert('Your staff accounts limit reached contact admin');
+      return;
+    }
     try {
       const url = editingId 
         ? `${import.meta.env.VITE_API_URL}/restaurant/staff/${editingId}`
@@ -181,9 +210,16 @@ export default function StaffManagement() {
           <h2 className="text-lg sm:text-xl font-bold text-gray-800">Staff Management</h2>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">Manage waiters, kitchen staff, and roles</p>
         </div>
-        <button onClick={openAddModal} className="w-full sm:w-auto justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm">
-          <Plus size={20} /> Add Staff
-        </button>
+        {isStaffLimitReached ? (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-2xs">
+            <AlertCircle size={16} className="text-amber-600 shrink-0" />
+            <span>Your staff accounts limit reached contact admin</span>
+          </div>
+        ) : (
+          <button onClick={openAddModal} className="w-full sm:w-auto justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm cursor-pointer">
+            <Plus size={20} /> Add Staff
+          </button>
+        )}
       </div>
 
       <div className="p-0 overflow-x-auto">

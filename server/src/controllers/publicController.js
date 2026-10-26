@@ -150,13 +150,23 @@ exports.verifyTableLocation = async (req, res, next) => {
       });
     }
 
-    // Geolocation verification (50 meters)
+    // Anti-collision: Ensure QR code matches the visited restaurant subdomain
+    if (req.tenantRegistry && req.tenantRegistry.id && req.tenantRegistry.id !== restaurant.id) {
+      return res.status(403).json({
+        success: false,
+        code: 'RESTAURANT_MISMATCH',
+        message: `This table QR belongs to "${restaurant.restaurant_name || restaurant.name}", not "${req.tenantRegistry.name}". Cross-restaurant QR scanning is not permitted.`
+      });
+    }
+
+    // Geolocation verification (50 meters radius)
+    let verifiedDistance = null;
     if (restaurant.latitude && restaurant.longitude) {
       if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
         return res.status(400).json({
           success: false,
           code: 'LOCATION_REQUIRED',
-          message: 'Location permission is required to verify proximity to the restaurant.'
+          message: `Location permission is required to verify that you are within 50 metres of ${restaurant.restaurant_name || restaurant.name}.`
         });
       }
 
@@ -167,9 +177,10 @@ exports.verifyTableLocation = async (req, res, next) => {
           return res.status(403).json({
             success: false,
             code: 'LOCATION_OUT_OF_RANGE',
-            message: `You are outside the permitted ${radius}-metre radius of the restaurant (${prox.distanceMeters}m away).`
+            message: `You are outside the permitted ${radius}-metre radius of ${restaurant.restaurant_name || restaurant.name} (${prox.distanceMeters}m away). Please scan while inside the restaurant.`
           });
         }
+        verifiedDistance = prox.distanceMeters;
       } catch (geoErr) {
         return res.status(400).json({
           success: false,
@@ -177,6 +188,12 @@ exports.verifyTableLocation = async (req, res, next) => {
           message: geoErr.message || 'Invalid geolocation coordinates.'
         });
       }
+    } else {
+      return res.status(403).json({
+        success: false,
+        code: 'RESTAURANT_LOCATION_NOT_SET',
+        message: `The location for "${restaurant.restaurant_name || restaurant.name}" has not been configured by the admin yet. Please ask restaurant staff to set the location in Settings.`
+      });
     }
 
     // Atomic Table Availability Check
@@ -216,7 +233,8 @@ exports.verifyTableLocation = async (req, res, next) => {
         table: {
           id: table.id,
           tableNumber: table.table_code,
-          tableName: table.table_code
+          tableName: table.table_code,
+          distanceMeters: verifiedDistance
         }
       }
     });
@@ -260,6 +278,15 @@ exports.startTableSession = async (req, res, next) => {
       return res.status(403).json({ success: false, code: 'RESTAURANT_UNAVAILABLE', message: 'Restaurant is currently unavailable.' });
     }
 
+    // Anti-collision: Ensure QR code matches the visited restaurant subdomain
+    if (req.tenantRegistry && req.tenantRegistry.id && req.tenantRegistry.id !== restaurant.id) {
+      return res.status(403).json({
+        success: false,
+        code: 'RESTAURANT_MISMATCH',
+        message: `This table QR belongs to "${restaurant.restaurant_name || restaurant.name}", not "${req.tenantRegistry.name}". Cross-restaurant QR scanning is not permitted.`
+      });
+    }
+
     // Geolocation verification
     if (restaurant.latitude && restaurant.longitude) {
       if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
@@ -275,9 +302,15 @@ exports.startTableSession = async (req, res, next) => {
         return res.status(403).json({
           success: false,
           code: 'LOCATION_OUT_OF_RANGE',
-          message: `You are outside the permitted ${radius}-metre radius of the restaurant.`
+          message: `You are outside the permitted ${radius}-metre radius of ${restaurant.restaurant_name || restaurant.name} (${prox.distanceMeters}m away).`
         });
       }
+    } else {
+      return res.status(403).json({
+        success: false,
+        code: 'RESTAURANT_LOCATION_NOT_SET',
+        message: `The location for "${restaurant.restaurant_name || restaurant.name}" has not been configured by the admin yet.`
+      });
     }
 
     // Allocate table and create session
@@ -949,7 +982,7 @@ exports.getCustomerOrders = async (req, res, next) => {
         taxAmount: 0,
         discount: 0,
         total: parseFloat(co.subtotal || 0),
-        status: co.order_status,
+        status: (visit?.order_status === 'COMPLETED' || co.order_status === 'COMPLETED') ? 'COMPLETED' : (visit?.order_status === 'CANCELLED' || co.order_status === 'CANCELLED') ? 'CANCELLED' : (visit?.order_status === 'SERVED' || co.order_status === 'SERVED') ? 'SERVED' : (co.order_status || visit?.order_status),
         paymentStatus: visit?.payment_status || 'PENDING',
         createdAt: co.createdat,
         updatedAt: co.updatedat
@@ -999,7 +1032,7 @@ exports.getCustomerOrders = async (req, res, next) => {
             taxAmount: 0,
             discount: 0,
             total: parseFloat(cco.subtotal || 0),
-            status: cco.order_status,
+            status: (ord.order_status === 'COMPLETED' || cco.order_status === 'COMPLETED') ? 'COMPLETED' : (ord.order_status === 'CANCELLED' || cco.order_status === 'CANCELLED') ? 'CANCELLED' : (ord.order_status === 'SERVED' || cco.order_status === 'SERVED') ? 'SERVED' : (cco.order_status || ord.order_status),
             paymentStatus: ord.payment_status || 'PENDING',
             createdAt: cco.createdat,
             updatedAt: cco.updatedat

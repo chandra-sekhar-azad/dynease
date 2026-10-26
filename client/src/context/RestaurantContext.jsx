@@ -314,7 +314,7 @@ export function RestaurantProvider({ children }) {
         const fetchedOrders = data.data.orders;
 
         const active = fetchedOrders.filter(o => 
-          !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
+          !['COMPLETED', 'CANCELLED', 'PAID'].includes((o.status || '').toUpperCase())
         );
 
         setLiveOrdersCount(active.length);

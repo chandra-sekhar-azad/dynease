@@ -94,7 +94,7 @@ export default function Orders() {
 
         // Update live orders count in context
         const liveCount = sorted.filter(
-          o => !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
+          o => !['COMPLETED', 'CANCELLED', 'PAID'].includes((o.status || '').toUpperCase())
         ).length;
         if (setLiveOrdersCount) {
           setLiveOrdersCount(liveCount);
@@ -144,35 +144,67 @@ export default function Orders() {
     socket.on('order_updated', (updatedOrder) => {
       if (!updatedOrder) return;
       const updatedId = (updatedOrder.id || updatedOrder._id)?.toString();
+      const updatedVisitId = (updatedOrder.visitId || updatedOrder.visit_id)?.toString();
 
       setOrdersData(prev => {
-        const exists = prev.some(o => (o.id || o._id)?.toString() === updatedId);
+        const matches = (o) => {
+          const oId = (o.id || o._id)?.toString();
+          const oVisitId = (o.visitId || o.visit_id)?.toString();
+          return (
+            (updatedId && (oId === updatedId || oVisitId === updatedId)) ||
+            (updatedVisitId && (oId === updatedVisitId || oVisitId === updatedVisitId))
+          );
+        };
+
+        const exists = prev.some(matches);
         let updatedList;
         if (exists) {
           updatedList = prev.map(o =>
-            (o.id || o._id)?.toString() === updatedId ? { ...o, ...updatedOrder } : o
+            matches(o)
+              ? {
+                  ...o,
+                  ...updatedOrder,
+                  id: o.id || o._id,
+                  visitId: o.visitId || updatedOrder.visitId || o.visit_id,
+                  status: updatedOrder.status || o.status
+                }
+              : o
           );
         } else {
-          updatedList = [updatedOrder, ...prev];
+          if (!['COMPLETED', 'CANCELLED', 'PAID'].includes((updatedOrder.status || '').toUpperCase())) {
+            updatedList = [updatedOrder, ...prev];
+          } else {
+            updatedList = prev;
+          }
         }
 
         const liveCount = updatedList.filter(
-          o => !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
+          o => !['COMPLETED', 'CANCELLED', 'PAID'].includes((o.status || '').toUpperCase())
         ).length;
         if (setLiveOrdersCount) setLiveOrdersCount(liveCount);
 
         return updatedList;
       });
+
+      fetchOrders(true);
     });
 
-    socket.on('more_items_added', (updatedOrder) => {
+    socket.on('visit_closed', () => {
+      fetchOrders(true);
+    });
+
+    socket.on('allocation_cancelled', () => {
+      fetchOrders(true);
+    });
+
+    socket.on('more_items_added', () => {
       fetchOrders(true);
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [tableId, myOrders, setLiveOrdersCount]);
+  }, [tableId, myOrders, setLiveOrdersCount, fetchOrders]);
 
   // Reorder functionality: re-add past order items to cart
   const handleReorder = (order) => {
@@ -199,11 +231,11 @@ export default function Orders() {
   const target10 = getLast10Digits(currentSavedPhone);
 
   const liveOrders = ordersData.filter(
-    o => !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
+    o => !['COMPLETED', 'CANCELLED', 'PAID'].includes((o.status || '').toUpperCase())
   );
 
   const pastOrders = ordersData.filter(o => {
-    const isPast = ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status);
+    const isPast = ['COMPLETED', 'CANCELLED', 'PAID'].includes((o.status || '').toUpperCase());
     if (!isPast) return false;
 
     // Match by phone number digits if provided (where mobile number = user input)
@@ -212,7 +244,7 @@ export default function Orders() {
       if (orderPhone10 && orderPhone10 === target10) return true;
     }
     // Also include if order was created on this device in the active session
-    return myOrders.includes(o.id || o._id);
+    return myOrders.includes(o.id || o._id) || myOrders.includes(o.visitId || o.visit_id);
   });
 
   const displayedOrders = tab === 'LIVE' ? liveOrders : pastOrders;
@@ -229,11 +261,16 @@ export default function Orders() {
 
   // Status visual mapping
   const getStatusBadge = (status) => {
-    switch (status) {
+    const s = (status || '').toUpperCase();
+    switch (s) {
       case 'PENDING':
+      case 'SUBMITTED':
+      case 'ORDERED':
+      case 'NO_ORDER':
+      case 'NEW':
         return {
-          label: 'Order Placed',
-          desc: 'Waiting for kitchen to accept',
+          label: 'Placed Order',
+          desc: 'Waiting for waiter confirmation',
           bg: 'bg-amber-50 text-amber-800 border-amber-200',
           dot: 'bg-amber-500',
           icon: Clock
@@ -242,7 +279,7 @@ export default function Orders() {
       case 'CONFIRMED':
       case 'ACCEPTED':
         return {
-          label: 'Order Confirmed',
+          label: 'Order Accepted',
           desc: 'Waiter has accepted your order',
           bg: 'bg-blue-50 text-blue-800 border-blue-200',
           dot: 'bg-blue-500',
@@ -250,25 +287,33 @@ export default function Orders() {
         };
       case 'PREPARING':
         return {
-          label: 'Cooking Now',
+          label: 'Order Accepted',
           desc: 'Chef is preparing your fresh meal',
-          bg: 'bg-orange-50 text-orange-800 border-orange-200',
-          dot: 'bg-orange-500',
+          bg: 'bg-blue-50 text-blue-800 border-blue-200',
+          dot: 'bg-blue-500',
           icon: Flame
         };
       case 'READY':
         return {
-          label: 'Ready to Serve',
-          desc: 'On its way to your table!',
-          bg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-          dot: 'bg-emerald-500',
+          label: 'Order Accepted',
+          desc: 'Meal is prepared and ready to serve',
+          bg: 'bg-blue-50 text-blue-800 border-blue-200',
+          dot: 'bg-blue-500',
           icon: Sparkles
+        };
+      case 'SERVED':
+        return {
+          label: 'Served',
+          desc: 'Delivered to your table! Enjoy your meal.',
+          bg: 'bg-purple-50 text-purple-800 border-purple-200',
+          dot: 'bg-purple-500',
+          icon: UtensilsCrossed
         };
       case 'COMPLETED':
       case 'PAID':
         return {
           label: 'Completed',
-          desc: 'Delivered & served',
+          desc: 'Delivered & completed. Thank you for dining!',
           bg: 'bg-green-50 text-green-800 border-green-200',
           dot: 'bg-green-600',
           icon: CheckCircle2
@@ -283,8 +328,8 @@ export default function Orders() {
         };
       default:
         return {
-          label: status,
-          desc: '',
+          label: status || 'Placed Order',
+          desc: 'Order is being processed',
           bg: 'bg-gray-100 text-gray-700 border-gray-200',
           dot: 'bg-gray-400',
           icon: Clock
@@ -292,21 +337,19 @@ export default function Orders() {
     }
   };
 
-  // Stepper helper for live orders
+  // Stepper helper for live orders: Placed Order (1) -> Order Accepted (2) -> Served (3)
   const getStepperIndex = (status) => {
-    if (status === 'PENDING' || status === 'SUBMITTED' || status === 'ORDERED') return 1;
-    if (status === 'READ' || status === 'CONFIRMED' || status === 'ACCEPTED') return 2;
-    if (status === 'PREPARING') return 3;
-    if (status === 'READY') return 4;
-    if (status === 'COMPLETED' || status === 'PAID') return 5;
+    const s = (status || '').toUpperCase();
+    if (['PENDING', 'SUBMITTED', 'ORDERED', 'NO_ORDER', 'NEW'].includes(s)) return 1;
+    if (['READ', 'CONFIRMED', 'ACCEPTED', 'PREPARING', 'READY'].includes(s)) return 2;
+    if (s === 'SERVED' || ['COMPLETED', 'PAID'].includes(s)) return 3;
     return 1;
   };
 
   const steps = [
-    { title: 'Placed', icon: Clock },
-    { title: 'Confirmed', icon: CheckCircle2 },
-    { title: 'Cooking', icon: Flame },
-    { title: 'Ready', icon: Sparkles }
+    { title: 'Placed Order', icon: Clock },
+    { title: 'Order Accepted', icon: CheckCircle2 },
+    { title: 'Served', icon: UtensilsCrossed }
   ];
 
   return (
@@ -407,43 +450,28 @@ export default function Orders() {
           }`}
         >
           <span>Past Orders</span>
-          <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            Coming Soon
-          </span>
+          {pastOrders.length > 0 ? (
+            <span className="bg-gray-200 text-gray-700 text-[11px] px-2 py-0.5 rounded-full font-bold">
+              {pastOrders.length}
+            </span>
+          ) : (
+            <span className="bg-gray-100 text-gray-400 text-[11px] px-2 py-0.5 rounded-full font-medium">
+              0
+            </span>
+          )}
         </button>
         </div>
       </div>
 
       {/* ── Main Content Area ── */}
       <main className="flex-1 p-4 sm:p-6 pb-28 max-w-lg md:max-w-3xl lg:max-w-4xl mx-auto w-full space-y-4">
-        {tab === 'PAST' ? (
-          <div className="text-center py-20 px-6 bg-white rounded-3xl border border-gray-100 shadow-sm mt-4 flex flex-col items-center">
-            <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mb-5 text-amber-600 shadow-inner">
-              <Clock size={36} className="animate-pulse" />
-            </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 text-xs font-bold rounded-full mb-3 border border-amber-200">
-              <Sparkles size={13} className="text-amber-600" />
-              <span>Coming Soon...</span>
-            </div>
-            <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Past Orders</h2>
-            <p className="text-gray-500 text-sm max-w-sm mx-auto mb-6 leading-relaxed">
-              Past orders tracking and history will be available in a future update!
-            </p>
-            <button
-              onClick={() => setTab('LIVE')}
-              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all text-sm cursor-pointer"
-            >
-              <UtensilsCrossed size={16} />
-              <span>View Live Orders</span>
-            </button>
-          </div>
-        ) : loading ? (
+        {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400 space-y-3">
             <Loader2 className="animate-spin w-9 h-9 text-emerald-600" />
             <p className="text-sm font-medium text-gray-500">Retrieving your orders…</p>
           </div>
-        ) : liveOrders.length === 0 ? (
-          /* Empty State */
+        ) : tab === 'LIVE' && liveOrders.length === 0 ? (
+          /* Empty State for Live Orders */
           <div className="text-center py-16 px-6 bg-white rounded-3xl border border-gray-100 shadow-sm mt-4">
             <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-600">
               <UtensilsCrossed size={36} />
@@ -454,13 +482,55 @@ export default function Orders() {
             <p className="text-gray-500 text-sm max-w-xs mx-auto mb-6 leading-relaxed">
               You do not have any active meals currently in prep or cooking for this table.
             </p>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all text-sm"
-            >
-              <UtensilsCrossed size={16} />
-              <span>Explore Restaurant Menu</span>
-            </Link>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all text-sm"
+              >
+                <UtensilsCrossed size={16} />
+                <span>Explore Restaurant Menu</span>
+              </Link>
+              {pastOrders.length > 0 && (
+                <button
+                  onClick={() => setTab('PAST')}
+                  className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-6 py-3 rounded-2xl transition-all text-sm cursor-pointer"
+                >
+                  <Receipt size={16} />
+                  <span>View Past Orders ({pastOrders.length})</span>
+                </button>
+              )}
+            </div>
+          </div>
+        ) : tab === 'PAST' && pastOrders.length === 0 ? (
+          /* Empty State for Past Orders */
+          <div className="text-center py-16 px-6 bg-white rounded-3xl border border-gray-100 shadow-sm mt-4">
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+              <Clock size={36} />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              No Past Orders Yet
+            </h2>
+            <p className="text-gray-500 text-sm max-w-xs mx-auto mb-6 leading-relaxed">
+              Completed and settled orders will appear here for easy reordering and tracking.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all text-sm"
+              >
+                <UtensilsCrossed size={16} />
+                <span>Explore Restaurant Menu</span>
+              </Link>
+              {liveOrders.length > 0 && (
+                <button
+                  onClick={() => setTab('LIVE')}
+                  className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-6 py-3 rounded-2xl transition-all text-sm cursor-pointer"
+                >
+                  <UtensilsCrossed size={16} />
+                  <span>View Live Orders ({liveOrders.length})</span>
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           /* Orders List */
@@ -526,7 +596,7 @@ export default function Orders() {
                           <div
                             className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                             style={{
-                              width: `${Math.min(100, Math.max(0, ((currentStepIndex - 1) / 3) * 100))}%`
+                              width: `${Math.min(100, Math.max(0, ((currentStepIndex - 1) / (steps.length - 1)) * 100))}%`
                             }}
                           />
                         </div>
@@ -556,7 +626,7 @@ export default function Orders() {
                                 )}
                               </div>
                               <span
-                                className={`text-[10px] mt-1.5 font-bold tracking-tight ${
+                                className={`text-[10px] mt-1.5 font-bold tracking-tight text-center leading-tight ${
                                   isCurrent
                                     ? 'text-emerald-700'
                                     : isDone

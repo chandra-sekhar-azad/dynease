@@ -411,7 +411,9 @@ export default function PlanManagement() {
     const matchesSearch = 
       (r.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (r.domain || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPlan = selectedPlanFilter === 'ALL' || r.plan_id === selectedPlanFilter;
+    const matchesPlan = selectedPlanFilter === 'ALL' || 
+      r.plan_id === selectedPlanFilter ||
+      ((r.selectedPlan || '').toUpperCase() === (plans.find(p => p.id === selectedPlanFilter)?.name || '').toUpperCase());
     return matchesSearch && matchesPlan;
   });
 
@@ -497,7 +499,10 @@ export default function PlanManagement() {
               const cfg = p.configuration || {};
               const limits = cfg.limits || {};
               const features = cfg.features || {};
-              const assignedCount = restaurants.filter(r => r.plan_id === p.id).length;
+              const assignedCount = restaurants.filter(r => 
+                r.plan_id === p.id || 
+                ((r.selectedPlan || '').toUpperCase() === (p.name || '').toUpperCase())
+              ).length;
 
               return (
                 <div 
@@ -540,19 +545,19 @@ export default function PlanManagement() {
                     <div className="border-t border-gray-100 pt-3 space-y-2 text-xs text-gray-600">
                       <div className="flex items-center gap-2">
                         <Layers size={14} className="text-emerald-600 shrink-0" />
-                        <span>Up to <strong>{limits.maxTables ?? 0}</strong> Tables</span>
+                        <span>{limits.maxTables === null || limits.maxTables === undefined ? <strong>Unlimited</strong> : <>Up to <strong>{limits.maxTables}</strong></>} Tables</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Store size={14} className="text-emerald-600 shrink-0" />
-                        <span>Up to <strong>{limits.maxMenuItems ?? 0}</strong> Menu Items</span>
+                        <span>{limits.maxMenuItems === null || limits.maxMenuItems === undefined ? <strong>Unlimited</strong> : <>Up to <strong>{limits.maxMenuItems}</strong></>} Menu Items</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Users size={14} className="text-emerald-600 shrink-0" />
-                        <span>Up to <strong>{limits.maxStaffAccounts ?? 0}</strong> Staff Accounts</span>
+                        <span>{limits.maxStaffAccounts === null || limits.maxStaffAccounts === undefined ? <strong>Unlimited</strong> : <>Up to <strong>{limits.maxStaffAccounts}</strong></>} Staff Accounts</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock size={14} className="text-emerald-600 shrink-0" />
-                        <span><strong>{limits.orderHistoryDays ?? 30}</strong> Days Order History</span>
+                        <span><strong>{limits.orderHistoryDays === null || limits.orderHistoryDays === undefined ? 'Unlimited' : `${limits.orderHistoryDays} Days`}</strong> Order History</span>
                       </div>
                     </div>
 
@@ -726,7 +731,7 @@ export default function PlanManagement() {
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-gray-500">
-                            {new Date(r.createdat).toLocaleDateString()}
+                            {r.createdat || r.createdAt ? new Date(r.createdat || r.createdAt).toLocaleDateString() : '—'}
                           </td>
                           <td className="py-3.5 px-4 text-right">
                             <button

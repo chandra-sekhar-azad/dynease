@@ -81,8 +81,20 @@ export default function QRMenuLoader() {
       }
 
       if (res.status === 400 && data.code === 'LOCATION_REQUIRED') {
-        setErrorMsg('Location permission is required to verify table proximity. Please allow location access in your browser settings.');
+        setErrorMsg(data.message || 'Location permission is required to verify table proximity. Please allow location access in your browser settings.');
         setStep('location_error');
+        return;
+      }
+
+      if (data.code === 'RESTAURANT_LOCATION_NOT_SET') {
+        setErrorMsg(data.message || 'Restaurant location has not been configured by the admin yet.');
+        setStep('location_error');
+        return;
+      }
+
+      if (data.code === 'RESTAURANT_MISMATCH') {
+        setErrorMsg(data.message || 'This table QR code belongs to a different restaurant.');
+        setStep('error');
         return;
       }
 
@@ -248,7 +260,7 @@ export default function QRMenuLoader() {
             <div>
               <h2 className="text-lg sm:text-xl font-extrabold text-gray-900">{restaurantData.name}</h2>
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-full mt-1 border border-green-200">
-                <CheckCircle2 size={13} /> Within 50m Verified
+                <CheckCircle2 size={13} /> Within 50m Verified {tableData.distanceMeters !== undefined && tableData.distanceMeters !== null ? `(${tableData.distanceMeters}m away)` : ''}
               </span>
             </div>
             <div className="bg-green-600 text-white text-xs font-black px-3.5 py-2 rounded-xl shadow-xs">

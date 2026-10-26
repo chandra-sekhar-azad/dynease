@@ -47,7 +47,15 @@ exports.getStaff = async (req, res, next) => {
       createdAt: u.createdat
     }));
 
-    res.status(200).json({ success: true, data: { staff: mappedStaff } });
+    const usageAndLimits = await SubscriptionService.getUsageAndLimits(null, { restaurantId }).catch(() => null);
+
+    res.status(200).json({ 
+      success: true, 
+      data: { 
+        staff: mappedStaff,
+        limits: usageAndLimits?.limits || null
+      } 
+    });
   } catch (error) {
     next(error);
   }

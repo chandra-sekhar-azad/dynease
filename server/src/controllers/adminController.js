@@ -138,10 +138,14 @@ exports.getAllRestaurants = async (req, res, next) => {
       });
     }
 
+    const starterPlan = allPlans.find(p => (p.name || '').toUpperCase() === 'STARTER');
+    const defaultStarterId = starterPlan ? starterPlan.id : null;
+
     const now = new Date();
     const mapped = rows.map(r => {
       const owner = ownerMap.get(r.id) || {};
-      const planObj = r.plan_id ? planMap.get(r.plan_id) : null;
+      const effectivePlanId = r.plan_id || defaultStarterId;
+      const planObj = effectivePlanId ? planMap.get(effectivePlanId) : null;
       const planName = r.overriden_plan || (planObj ? planObj.name : 'Starter');
 
       const renewalReq = pendingPlanReqMap.get(r.id) || null;
@@ -159,7 +163,7 @@ exports.getAllRestaurants = async (req, res, next) => {
         status: r.restaurant_status,
         restaurant_status: r.restaurant_status,
         selectedPlan: planName.toUpperCase(),
-        plan_id: r.plan_id,
+        plan_id: effectivePlanId,
         is_plan_overridden: r.is_plan_overridden,
         overriden_plan: r.overriden_plan,
         subscriptionStatus: r.restaurant_status === 'ACTIVE' ? 'ACTIVE' : r.restaurant_status,
@@ -168,6 +172,7 @@ exports.getAllRestaurants = async (req, res, next) => {
         daysRemaining: r.restaurant_status === 'ACTIVE' ? 30 : 0,
         renewalRequest: renewalReq,
         createdAt: r.createdat,
+        createdat: r.createdat,
         ownerId: {
           id: owner.id || null,
           name: owner.name || 'Owner',

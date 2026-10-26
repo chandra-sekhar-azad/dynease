@@ -876,7 +876,7 @@ export default function LiveOrders() {
                                 : 'bg-green-100 text-green-800'
                             }`}
                           >
-                            {isNoOrder ? 'TABLE OCCUPIED (NO ORDER)' : (needsAcceptance ? 'NEEDS ACCEPTANCE' : order.status)}
+                            {isNoOrder ? 'TABLE OCCUPIED' : (needsAcceptance ? 'NEEDS ACCEPTANCE' : order.status)}
                           </span>
                         </div>
                       </div>

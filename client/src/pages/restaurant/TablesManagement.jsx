@@ -7,6 +7,7 @@ export default function TablesManagement() {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [planLimits, setPlanLimits] = useState(null);
   const [formData, setFormData] = useState({ tableNumber: '', tableName: '' });
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,6 +35,9 @@ export default function TablesManagement() {
       const data = await res.json();
       if (data.success) {
         setTables(data.data.tables);
+        if (data.data.limits) {
+          setPlanLimits(data.data.limits);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch tables', err);
@@ -44,11 +48,26 @@ export default function TablesManagement() {
 
   useEffect(() => {
     fetchTables();
+    fetchSubscriptionLimits();
 
     // Poll as a resilient fallback for environments without websockets.
     const interval = setInterval(fetchTables, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchSubscriptionLimits = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/subscription`, {
+        headers: getHeaders(false)
+      });
+      const data = await res.json();
+      if (data.success && data.data?.limits) {
+        setPlanLimits(data.data.limits);
+      }
+    } catch (e) {
+      // silent fallback
+    }
+  };
 
   // Realtime: refresh the table grid whenever a table or order changes.
   useSocketEvents({
@@ -57,8 +76,15 @@ export default function TablesManagement() {
   });
 
 
+  const maxTables = planLimits?.maxTables ?? null;
+  const isTableLimitReached = maxTables !== null && maxTables !== undefined && tables.length >= maxTables;
+
   const handleAddTable = async (e) => {
     e.preventDefault();
+    if (isTableLimitReached) {
+      setError('Your tables limit reached contact admin');
+      return;
+    }
     setActionLoading(true);
     setError('');
     
@@ -190,9 +216,16 @@ export default function TablesManagement() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Tables & QR Codes</h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">Manage your restaurant tables and stable QR codes.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors w-full sm:w-auto shrink-0 shadow-sm">
-          <Plus size={20} /> Add New Table
-        </button>
+        {isTableLimitReached ? (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-2xs w-full sm:w-auto">
+            <AlertCircle size={18} className="text-amber-600 shrink-0" />
+            <span>Your tables limit reached contact admin</span>
+          </div>
+        ) : (
+          <button onClick={() => setShowAddModal(true)} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors w-full sm:w-auto shrink-0 shadow-sm cursor-pointer">
+            <Plus size={20} /> Add New Table
+          </button>
+        )}
       </div>
 
       {tables.length === 0 ? (
@@ -200,7 +233,11 @@ export default function TablesManagement() {
           <QrCode size={48} className="text-gray-300 mb-4" />
           <h3 className="text-lg font-bold text-gray-900 mb-2">No tables found</h3>
           <p className="mb-6">Add your first table to generate a stable QR code.</p>
-          <button onClick={() => setShowAddModal(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-medium">Add Table</button>
+          {!isTableLimitReached ? (
+            <button onClick={() => setShowAddModal(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-medium cursor-pointer">Add Table</button>
+          ) : (
+            <p className="text-amber-700 text-xs sm:text-sm font-semibold">Your tables limit reached contact admin</p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">

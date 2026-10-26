@@ -446,7 +446,7 @@ exports.createMenuItem = async (req, res) => {
     });
   } catch (error) {
     console.error('[RestaurantController] Error creating menu item:', error);
-    res.status(500).json({ success: false, message: error.message || 'Server Error' });
+    res.status(error.status || 500).json({ success: false, message: error.message || 'Server Error' });
   }
 };
 
@@ -659,7 +659,15 @@ exports.getMenu = async (req, res) => {
       menuItems = menuItems.filter(i => i.category.toLowerCase() === category.toLowerCase());
     }
 
-    res.status(200).json({ success: true, data: { menuItems } });
+    const usageAndLimits = await SubscriptionService.getUsageAndLimits(null, { restaurantId }).catch(() => null);
+
+    res.status(200).json({ 
+      success: true, 
+      data: { 
+        menuItems,
+        limits: usageAndLimits?.limits || null
+      } 
+    });
   } catch (error) {
     console.error('[RestaurantController] Error fetching menu:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
@@ -878,12 +886,30 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Status is required.' });
     }
 
-    const [order] = await db.select().from(order_details).where(
+    let [order] = await db.select().from(order_details).where(
       and(
         eq(order_details.id, id),
         eq(order_details.restaurant_id, restaurantId)
       )
     ).limit(1);
+
+    if (!order) {
+      const [custOrder] = await db.select().from(customer_orders).where(
+        and(
+          eq(customer_orders.id, id),
+          eq(customer_orders.restaurant_id, restaurantId)
+        )
+      ).limit(1);
+
+      if (custOrder) {
+        [order] = await db.select().from(order_details).where(
+          and(
+            eq(order_details.id, custOrder.visit_id),
+            eq(order_details.restaurant_id, restaurantId)
+          )
+        ).limit(1);
+      }
+    }
 
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
 
@@ -936,7 +962,7 @@ exports.updateOrderStatus = async (req, res) => {
     }
 
     const [updatedOrder] = await db.update(order_details).set(updateFields)
-      .where(eq(order_details.id, id))
+      .where(eq(order_details.id, order.id))
       .returning();
 
     let tableNumber = 'Takeaway';
@@ -945,7 +971,7 @@ exports.updateOrderStatus = async (req, res) => {
       if (tbl) tableNumber = tbl.table_code;
     }
 
-    // ── When marked COMPLETED, atomically free the table and close sessions ──
+    // ── Synchronize child customer_orders statuses for this visit ──
     if (nextStatus === 'COMPLETED') {
       // 1. Mark all child customer_orders as COMPLETED
       await db.update(customer_orders).set({
@@ -954,7 +980,7 @@ exports.updateOrderStatus = async (req, res) => {
       }).where(
         and(
           eq(customer_orders.visit_id, order.id),
-          sql`${customer_orders.order_status} NOT IN ('COMPLETED', 'CANCELLED')`
+          sql`${customer_orders.order_status} != 'CANCELLED'`
         )
       );
 
@@ -1036,6 +1062,17 @@ exports.updateOrderStatus = async (req, res) => {
           reason: 'Order cancelled by staff'
         });
       }
+    } else {
+      // For any other status update (e.g. SERVED, PREPARING, READY, ORDERED), sync child customer_orders
+      await db.update(customer_orders).set({
+        order_status: nextStatus,
+        updatedat: new Date()
+      }).where(
+        and(
+          eq(customer_orders.visit_id, order.id),
+          sql`${customer_orders.order_status} NOT IN ('COMPLETED', 'CANCELLED')`
+        )
+      );
     }
 
     RealtimeService.orderUpdated({
@@ -1053,6 +1090,33 @@ exports.updateOrderStatus = async (req, res) => {
       orderId: updatedOrder.id,
       tableId: updatedOrder.table_id
     });
+
+    // Also broadcast order_updated to all child customer order rooms
+    try {
+      const childOrders = await db.select({ id: customer_orders.id }).from(customer_orders).where(
+        eq(customer_orders.visit_id, order.id)
+      );
+      for (const co of childOrders) {
+        RealtimeService.orderUpdated({
+          restaurantId,
+          order: {
+            _id: co.id,
+            id: co.id,
+            visitId: updatedOrder.id,
+            status: nextStatus,
+            appStatus: updatedOrder.app_status,
+            restaurantId,
+            tableId: updatedOrder.table_id,
+            tableNumber,
+            updatedAt: updatedOrder.updatedat
+          },
+          orderId: co.id,
+          tableId: updatedOrder.table_id
+        });
+      }
+    } catch (broadcastErr) {
+      console.warn('[RestaurantController] Error broadcasting to child order rooms:', broadcastErr);
+    }
 
     res.status(200).json({ success: true, data: { order: updatedOrder } });
   } catch (error) {
@@ -1142,6 +1206,30 @@ exports.acceptOrder = async (req, res) => {
       orderId: visitId,
       tableId: updatedVisit.table_id
     });
+
+    // Also broadcast order_updated to all child customer order rooms
+    try {
+      const childOrders = await db.select({ id: customer_orders.id }).from(customer_orders).where(
+        eq(customer_orders.visit_id, visitId)
+      );
+      for (const co of childOrders) {
+        RealtimeService.orderUpdated({
+          restaurantId,
+          order: {
+            ...updatedOrder,
+            id: co.id,
+            _id: co.id,
+            visitId: updatedVisit.id,
+            status: 'ACCEPTED',
+            appStatus: 'ACCEPTED'
+          },
+          orderId: co.id,
+          tableId: updatedVisit.table_id
+        });
+      }
+    } catch (broadcastErr) {
+      console.warn('[RestaurantController] Error broadcasting acceptOrder to child order rooms:', broadcastErr);
+    }
 
     res.status(200).json({ success: true, message: 'Order accepted successfully', data: { order: updatedOrder } });
   } catch (error) {
@@ -1693,10 +1781,66 @@ exports.updateProfile = async (req, res) => {
       updateFields.name = name.trim();
     }
     if (phone) updateFields.phone_number = phone.trim();
-    if (address !== undefined) updateFields.address = address;
-    if (latitude !== undefined) updateFields.latitude = latitude !== null ? String(latitude) : null;
-    if (longitude !== undefined) updateFields.longitude = longitude !== null ? String(longitude) : null;
-    if (geofenceRadiusMeters !== undefined) updateFields.geofence_radius_meters = parseInt(geofenceRadiusMeters, 10) || 50;
+    if (address !== undefined) updateFields.address = address ? String(address).trim() : '';
+
+    if (latitude !== undefined && latitude !== null && latitude !== '') {
+      const pLat = parseFloat(latitude);
+      if (isNaN(pLat) || pLat < -90 || pLat > 90) {
+        return res.status(400).json({ success: false, message: 'Invalid latitude. Must be between -90 and 90 degrees.' });
+      }
+      updateFields.latitude = String(pLat);
+    } else if (latitude === null) {
+      updateFields.latitude = null;
+    }
+
+    if (longitude !== undefined && longitude !== null && longitude !== '') {
+      const pLng = parseFloat(longitude);
+      if (isNaN(pLng) || pLng < -180 || pLng > 180) {
+        return res.status(400).json({ success: false, message: 'Invalid longitude. Must be between -180 and 180 degrees.' });
+      }
+      updateFields.longitude = String(pLng);
+    } else if (longitude === null) {
+      updateFields.longitude = null;
+    }
+
+    if (geofenceRadiusMeters !== undefined) {
+      updateFields.geofence_radius_meters = Math.max(10, parseInt(geofenceRadiusMeters, 10) || 50);
+    }
+
+    // Anti-collision: verify coordinates do not collide with another active restaurant (within 10m)
+    if (updateFields.latitude && updateFields.longitude) {
+      const { calculateDistanceMeters } = require('../utils/geo');
+      const latVal = parseFloat(updateFields.latitude);
+      const lngVal = parseFloat(updateFields.longitude);
+
+      const otherRestaurants = await db.select({
+        id: restaurants.id,
+        name: restaurants.name,
+        restaurant_name: restaurants.restaurant_name,
+        latitude: restaurants.latitude,
+        longitude: restaurants.longitude
+      }).from(restaurants).where(
+        and(
+          ne(restaurants.id, restaurantId),
+          eq(restaurants.is_deleted, false)
+        )
+      );
+
+      for (const other of otherRestaurants) {
+        if (other.latitude && other.longitude) {
+          try {
+            const dist = calculateDistanceMeters(latVal, lngVal, other.latitude, other.longitude);
+            if (dist < 10) {
+              return res.status(409).json({
+                success: false,
+                code: 'LOCATION_COLLISION',
+                message: `This location collides with existing restaurant "${other.restaurant_name || other.name}" (${Math.round(dist)}m away). Each restaurant must have a distinct physical location.`
+              });
+            }
+          } catch {}
+        }
+      }
+    }
 
     const [restaurant] = await db.update(restaurants).set(updateFields).where(
       and(eq(restaurants.id, restaurantId), eq(restaurants.is_deleted, false))
@@ -1708,6 +1852,7 @@ exports.updateProfile = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      message: 'Restaurant profile and location updated successfully.',
       data: {
         profile: {
           _id: restaurant.id,
@@ -1726,7 +1871,7 @@ exports.updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('[RestaurantController] Error updating profile:', error);
-    res.status(500).json({ success: false, message: 'Server Error' });
+    res.status(500).json({ success: false, message: error.message || 'Server Error' });
   }
 };
 
