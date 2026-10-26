@@ -166,6 +166,8 @@ exports.getAllRestaurants = async (req, res, next) => {
         plan_id: effectivePlanId,
         is_plan_overridden: r.is_plan_overridden,
         overriden_plan: r.overriden_plan,
+        table_allocation_mode: r.table_allocation_mode || 'MANUAL',
+        allowAutoAssignment: r.table_allocation_mode === 'DYNAMIC',
         subscriptionStatus: r.restaurant_status === 'ACTIVE' ? 'ACTIVE' : r.restaurant_status,
         subscriptionStartDate: r.createdat,
         subscriptionEndDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
@@ -194,7 +196,7 @@ exports.getAllRestaurants = async (req, res, next) => {
 exports.updateRestaurant = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, isActive, status, phone, subdomain, address } = req.body;
+    const { name, isActive, status, phone, subdomain, address, allowAutoAssignment, table_allocation_mode } = req.body;
 
     const [existing] = await db.select().from(restaurants).where(
       and(eq(restaurants.id, id), eq(restaurants.is_deleted, false))
@@ -211,6 +213,12 @@ exports.updateRestaurant = async (req, res, next) => {
     }
     if (phone) updateData.phone_number = phone.trim();
     if (address !== undefined) updateData.address = address ? String(address).trim() : null;
+
+    if (allowAutoAssignment !== undefined) {
+      updateData.table_allocation_mode = allowAutoAssignment ? 'DYNAMIC' : 'MANUAL';
+    } else if (table_allocation_mode !== undefined) {
+      updateData.table_allocation_mode = table_allocation_mode === 'DYNAMIC' ? 'DYNAMIC' : 'MANUAL';
+    }
 
     if (status && ['ACTIVE', 'PAUSED', 'INACTIVE'].includes(status)) {
       updateData.restaurant_status = status;
@@ -271,6 +279,58 @@ exports.updateRestaurant = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+exports.updateRestaurantAssignmentMode = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { allowAutoAssignment, mode } = req.body;
+    const targetMode = (allowAutoAssignment === true || mode === 'DYNAMIC') ? 'DYNAMIC' : 'MANUAL';
+
+    const [existing] = await db.select().from(restaurants).where(
+      and(eq(restaurants.id, id), eq(restaurants.is_deleted, false))
+    ).limit(1);
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Restaurant not found' });
+    }
+
+    await db.update(restaurants).set({
+      table_allocation_mode: targetMode,
+      updatedat: new Date()
+    }).where(eq(restaurants.id, id));
+
+    try {
+      const { v4: uuidv4 } = require('uuid');
+      const { assignment_events } = require('../db/schema/orders');
+      await db.insert(assignment_events).values({
+        id: uuidv4(),
+        restaurant_id: id,
+        event_type: 'SYSTEM_ADMIN_ASSIGNMENT_TOGGLE',
+        staff_id: req.user?.id || 'SYSTEM_ADMIN',
+        details: {
+          table_allocation_mode: targetMode,
+          allowAutoAssignment: targetMode === 'DYNAMIC',
+          updatedBy: req.user?.name || req.user?.email || 'System Admin',
+          updatedAt: new Date().toISOString()
+        }
+      });
+    } catch (logErr) {
+      console.warn('[updateRestaurantAssignmentMode] Log warning:', logErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Waiter assignment mode set to ${targetMode === 'DYNAMIC' ? 'All Modes (Manual, Hybrid, Dynamic)' : 'Manual Only'} for ${existing.name}`,
+      data: {
+        restaurantId: id,
+        table_allocation_mode: targetMode,
+        allowAutoAssignment: targetMode === 'DYNAMIC'
+      }
+    });
+  } catch (err) {
+    next(err);
   }
 };
 

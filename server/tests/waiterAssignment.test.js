@@ -992,5 +992,169 @@ describe('Waiter Assignment Service - Algorithm & Business Logic', () => {
       assert.equal(updatedVisit.assignedWaiterId, newWaiterId);
     });
   });
+
+  describe('11. System Admin Assignment Mode Control (Toggle ON/OFF)', () => {
+    it('when System Admin toggle is OFF: restricts restaurant to MANUAL mode and rejects DYNAMIC/HYBRID', async () => {
+      const mockTenantDb = {
+        model(name) {
+          if (name === 'RestaurantProfile') {
+            return {
+              findOne: async () => ({
+                restaurantId: 'rest_restricted',
+                tableAllocationMode: 'MANUAL', // System Admin toggle is OFF
+                assignmentSettings: { mode: 'HYBRID' }
+              }),
+              findOneAndUpdate: async () => ({})
+            };
+          }
+          return null;
+        }
+      };
+
+      const settings = await WaiterAssignmentService.getSettings(mockTenantDb, 'rest_restricted');
+      assert.equal(settings.allowAutoAssignment, false);
+      assert.equal(settings.mode, 'MANUAL'); // Forced to MANUAL
+
+      // Owner trying to set DYNAMIC or HYBRID must be rejected
+      await assert.rejects(
+        async () => {
+          await WaiterAssignmentService.updateSettings(
+            mockTenantDb,
+            'rest_restricted',
+            { mode: 'DYNAMIC' },
+            'user_owner'
+          );
+        },
+        /Manual Assignment only/i
+      );
+
+      await assert.rejects(
+        async () => {
+          await WaiterAssignmentService.updateSettings(
+            mockTenantDb,
+            'rest_restricted',
+            { mode: 'HYBRID' },
+            'user_owner'
+          );
+        },
+        /Manual Assignment only/i
+      );
+
+      // Owner can still update MANUAL settings
+      const updated = await WaiterAssignmentService.updateSettings(
+        mockTenantDb,
+        'rest_restricted',
+        { mode: 'MANUAL', defaultCapacity: 8 },
+        'user_owner'
+      );
+      assert.equal(updated.mode, 'MANUAL');
+      assert.equal(updated.defaultCapacity, 8);
+    });
+
+    it('when System Admin toggle is ON: restaurant owner can manage MANUAL, HYBRID, and DYNAMIC', async () => {
+      let savedSettings = null;
+      const mockTenantDb = {
+        model(name) {
+          if (name === 'RestaurantProfile') {
+            return {
+              findOne: async () => ({
+                restaurantId: 'rest_unlocked',
+                tableAllocationMode: 'DYNAMIC', // System Admin toggle is ON
+                assignmentSettings: savedSettings || { mode: 'MANUAL' }
+              }),
+              findOneAndUpdate: async (filter, update) => {
+                savedSettings = update.assignmentSettings;
+                return { ...update.assignmentSettings };
+              }
+            };
+          }
+          return null;
+        }
+      };
+
+      const settings = await WaiterAssignmentService.getSettings(mockTenantDb, 'rest_unlocked');
+      assert.equal(settings.allowAutoAssignment, true);
+
+      // Owner can set HYBRID
+      const setHybrid = await WaiterAssignmentService.updateSettings(
+        mockTenantDb,
+        'rest_unlocked',
+        { mode: 'HYBRID' },
+        'user_owner'
+      );
+      assert.equal(setHybrid.mode, 'HYBRID');
+
+      // Owner can set DYNAMIC
+      const setDynamic = await WaiterAssignmentService.updateSettings(
+        mockTenantDb,
+        'rest_unlocked',
+        { mode: 'DYNAMIC' },
+        'user_owner'
+      );
+      assert.equal(setDynamic.mode, 'DYNAMIC');
+
+      // Owner can set MANUAL
+      const setManual = await WaiterAssignmentService.updateSettings(
+        mockTenantDb,
+        'rest_unlocked',
+        { mode: 'MANUAL' },
+        'user_owner'
+      );
+      assert.equal(setManual.mode, 'MANUAL');
+    });
+
+    it('when System Admin toggle is OFF: order assignment strictly enforces MANUAL routing without auto-scoring', async () => {
+      const mockTenantDb = {
+        model(name) {
+          if (name === 'RestaurantProfile') {
+            return {
+              findOne: async () => ({
+                restaurantId: 'rest_restricted_order',
+                tableAllocationMode: 'MANUAL', // Toggle OFF
+                assignmentSettings: { mode: 'DYNAMIC' } // Even if legacy setting was DYNAMIC
+              })
+            };
+          }
+          if (name === 'User') {
+            return {
+              find: () => ({
+                select: () => Promise.resolve([
+                  { _id: 'waiter_idle', name: 'Idle Waiter', shiftStatus: 'ON_SHIFT', acceptingOrders: true, availabilityStatus: 'AVAILABLE' }
+                ])
+              })
+            };
+          }
+          if (name === 'Order') {
+            return {
+              find: () => Promise.resolve([])
+            };
+          }
+          if (name === 'ServiceRequest') {
+            return {
+              find: () => Promise.resolve([])
+            };
+          }
+          return null;
+        }
+      };
+
+      const tableWithoutPrimary = {
+        _id: 'table_no_primary',
+        tableNumber: 'T-10',
+        primaryWaiterId: null
+      };
+
+      const result = await WaiterAssignmentService.assignWaiterForOrder(
+        mockTenantDb,
+        'rest_restricted_order',
+        tableWithoutPrimary,
+        'order_restricted_1'
+      );
+
+      // In MANUAL mode, if no primary waiter is assigned, it never auto-scores or assigns an idle waiter
+      assert.equal(result.assignedWaiterId, null);
+      assert.equal(result.assignmentType, 'UNASSIGNED');
+    });
+  });
 });
 

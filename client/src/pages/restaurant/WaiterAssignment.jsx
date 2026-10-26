@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Settings as SettingsIcon, Clock, CheckCircle2, 
   AlertCircle, ArrowRightLeft, UserCheck, ShieldAlert,
-  Save, RefreshCw, BarChart3, History, HelpCircle
+  Save, RefreshCw, BarChart3, History, HelpCircle,
+  Lock, AlertTriangle
 } from 'lucide-react';
 
 export default function WaiterAssignment() {
@@ -17,7 +18,8 @@ export default function WaiterAssignment() {
     weightSectionMismatch: 0.15,
     allowOverflow: true,
     acceptanceTimeoutMinutes: 3,
-    reassignmentPolicy: 'AUTO_REASSIGN'
+    reassignmentPolicy: 'AUTO_REASSIGN',
+    allowAutoAssignment: true
   });
   const [history, setHistory] = useState([]);
   const [serviceRequests, setServiceRequests] = useState([]);
@@ -140,11 +142,12 @@ export default function WaiterAssignment() {
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Waiter-to-Table Assignment</h1>
             <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
+              !settings.allowAutoAssignment ? 'bg-amber-100 text-amber-800 border border-amber-200' :
               settings.mode === 'HYBRID' ? 'bg-purple-100 text-purple-700' :
               (settings.mode === 'DYNAMIC' || settings.mode === 'AUTOMATIC') ? 'bg-blue-100 text-blue-700' :
               'bg-gray-100 text-gray-700'
             }`}>
-              Mode: {settings.mode === 'AUTOMATIC' ? 'DYNAMIC' : settings.mode}
+              Mode: {!settings.allowAutoAssignment ? 'MANUAL (Admin Restricted)' : (settings.mode === 'AUTOMATIC' ? 'DYNAMIC' : settings.mode)}
             </span>
           </div>
           <p className="text-gray-500 text-xs sm:text-sm mt-1">
@@ -387,26 +390,61 @@ export default function WaiterAssignment() {
       {/* Tab 4: Engine Settings */}
       {activeTab === 'SETTINGS' && (
         <form onSubmit={handleSaveSettings} className="bg-white rounded-b-2xl p-4 sm:p-8 shadow-sm border border-gray-100 border-t-0 max-w-3xl space-y-6">
+          {!settings.allowAutoAssignment && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+              <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+              <div>
+                <p className="text-xs font-bold text-amber-900">Manual Assignment Enforced by System Admin</p>
+                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                  System administration has restricted this restaurant to <strong>Manual Assignment only</strong>. Hybrid and Dynamic (Automatic) assignment modes are locked. Contact platform administration if you need to enable automatic waiter assignment.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
-            <h3 className="font-bold text-lg text-gray-800">Assignment Mode</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-gray-800">Assignment Mode</h3>
+              {!settings.allowAutoAssignment && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
+                  <Lock size={12} /> Restricted to Manual Only
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 { id: 'HYBRID', title: 'Hybrid (Recommended)', desc: 'Keeps primary table waiter; routes to overflow when overloaded or absent.' },
                 { id: 'DYNAMIC', title: 'Dynamic (Automatic)', desc: 'Recalculates best available waiter dynamically for every new order based on workload, penalties, and fairness.' },
                 { id: 'MANUAL', title: 'Manual Only', desc: 'Strictly routes orders only to manager-assigned table waiters.' },
               ].map(modeOpt => {
+                const isLocked = !settings.allowAutoAssignment && (modeOpt.id === 'HYBRID' || modeOpt.id === 'DYNAMIC');
                 const isSelected = settings.mode === modeOpt.id || (modeOpt.id === 'DYNAMIC' && settings.mode === 'AUTOMATIC');
                 return (
                   <div
                     key={modeOpt.id}
-                    onClick={() => setSettings({ ...settings, mode: modeOpt.id })}
-                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-green-600 bg-green-50/30'
-                        : 'border-gray-200 hover:border-gray-300'
+                    onClick={() => {
+                      if (isLocked) {
+                        alert('Dynamic and Hybrid assignment modes are disabled for your restaurant by System Admin. Only Manual Assignment is permitted.');
+                        return;
+                      }
+                      setSettings({ ...settings, mode: modeOpt.id });
+                    }}
+                    className={`p-4 rounded-2xl border-2 transition-all relative ${
+                      isLocked
+                        ? 'border-gray-200 bg-gray-50/70 opacity-60 cursor-not-allowed'
+                        : isSelected
+                        ? 'border-green-600 bg-green-50/30 cursor-pointer shadow-xs'
+                        : 'border-gray-200 hover:border-gray-300 cursor-pointer'
                     }`}
                   >
-                    <p className="font-bold text-gray-900 text-sm mb-1">{modeOpt.title}</p>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className={`font-bold text-sm ${isLocked ? 'text-gray-500' : 'text-gray-900'}`}>{modeOpt.title}</p>
+                      {isLocked && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                          <Lock size={9} /> Locked
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 leading-relaxed">{modeOpt.desc}</p>
                   </div>
                 );

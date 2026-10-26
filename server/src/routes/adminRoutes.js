@@ -22,6 +22,7 @@ router.put('/change-password', adminController.changeAdminPassword);
 router.post('/restaurants', adminController.createRestaurant);
 router.get('/restaurants', adminController.getAllRestaurants);
 router.put('/restaurants/:id', adminController.updateRestaurant);
+router.patch('/restaurants/:id/assignment-mode', adminController.updateRestaurantAssignmentMode);
 router.put('/restaurants/:id/billing', adminController.updateRestaurantBilling);
 router.delete('/restaurants/:id', adminController.deleteRestaurant);
 

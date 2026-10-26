@@ -95,7 +95,8 @@ class WaiterAssignmentService {
       weightSectionMismatch: 0.15,
       allowOverflow: true,
       acceptanceTimeoutMinutes: 3,
-      reassignmentPolicy: 'AUTO_REASSIGN'
+      reassignmentPolicy: 'AUTO_REASSIGN',
+      allowAutoAssignment: true
     };
 
     // Mongoose / Mock tenant DB path for unit tests
@@ -103,7 +104,17 @@ class WaiterAssignmentService {
       try {
         const RestaurantProfile = tenantDb.model('RestaurantProfile');
         const profile = await RestaurantProfile.findOne({ restaurantId });
-        return { ...defaults, ...(profile?.assignmentSettings || {}) };
+        const isAutoAllowed = profile?.tableAllocationMode !== undefined
+          ? profile.tableAllocationMode === 'DYNAMIC'
+          : (profile?.allowAutoAssignment ?? true);
+        const savedSettings = profile?.assignmentSettings || {};
+        const effectiveMode = isAutoAllowed ? (savedSettings.mode || defaults.mode) : 'MANUAL';
+        return {
+          ...defaults,
+          ...savedSettings,
+          allowAutoAssignment: isAutoAllowed,
+          mode: effectiveMode
+        };
       } catch {
         return defaults;
       }
@@ -111,6 +122,14 @@ class WaiterAssignmentService {
 
     // PostgreSQL / Drizzle ORM production path
     try {
+      // 1. Check system admin allocation mode permission on restaurants table
+      const [rest] = await db.select({ mode: restaurants.table_allocation_mode }).from(restaurants).where(
+        eq(restaurants.id, restaurantId)
+      ).limit(1);
+
+      // In Postgres enum: 'DYNAMIC' allows all modes; 'MANUAL' restricts to Manual only
+      const isAutoAllowed = rest?.mode ? rest.mode === 'DYNAMIC' : true;
+
       const [latestConfig] = await db.select().from(assignment_events).where(
         and(
           eq(assignment_events.restaurant_id, restaurantId),
@@ -118,20 +137,21 @@ class WaiterAssignmentService {
         )
       ).orderBy(desc(assignment_events.createdat)).limit(1);
 
+      let config = { ...defaults };
       if (latestConfig && latestConfig.details && typeof latestConfig.details === 'object') {
-        return { ...defaults, ...latestConfig.details };
+        config = { ...defaults, ...latestConfig.details };
+      } else if (rest?.mode) {
+        config = { ...defaults, mode: rest.mode };
       }
 
-      // Fallback: check restaurants.table_allocation_mode
-      const [rest] = await db.select({ mode: restaurants.table_allocation_mode }).from(restaurants).where(
-        eq(restaurants.id, restaurantId)
-      ).limit(1);
+      // If System Admin has restricted to MANUAL only, force mode to MANUAL
+      const effectiveMode = isAutoAllowed ? (config.mode || 'HYBRID') : 'MANUAL';
 
-      if (rest?.mode) {
-        return { ...defaults, mode: rest.mode };
-      }
-
-      return defaults;
+      return {
+        ...config,
+        allowAutoAssignment: isAutoAllowed,
+        mode: effectiveMode
+      };
     } catch (err) {
       console.warn('[WaiterAssignmentService.getSettings] DB query warning:', err.message);
       return defaults;
@@ -142,16 +162,28 @@ class WaiterAssignmentService {
    * Update and validate assignment settings
    */
   static async updateSettings(tenantDb, restaurantId, newSettings, actorId) {
-    const defaults = await this.getSettings(tenantDb, restaurantId);
+    const current = await this.getSettings(tenantDb, restaurantId);
+
+    // If System Admin disabled auto assignment, reject attempts to configure DYNAMIC or HYBRID
+    if (!current.allowAutoAssignment && (newSettings.mode === 'DYNAMIC' || newSettings.mode === 'HYBRID')) {
+      const err = new Error('System Admin has configured this restaurant for Manual Assignment only. Contact your administrator to enable Dynamic and Hybrid modes.');
+      err.status = 403;
+      throw err;
+    }
+
+    const requestedMode = ['MANUAL', 'DYNAMIC', 'HYBRID'].includes(newSettings.mode) ? newSettings.mode : current.mode;
+    const finalMode = current.allowAutoAssignment ? requestedMode : 'MANUAL';
+
     const sanitized = {
-      mode: ['MANUAL', 'DYNAMIC', 'HYBRID'].includes(newSettings.mode) ? newSettings.mode : defaults.mode,
-      defaultCapacity: Math.max(1, Math.min(50, parseInt(newSettings.defaultCapacity, 10) || defaults.defaultCapacity)),
-      weightWorkload: typeof newSettings.weightWorkload === 'number' ? Math.max(0, Math.min(1, newSettings.weightWorkload)) : defaults.weightWorkload,
-      weightRecentAssignment: typeof newSettings.weightRecentAssignment === 'number' ? Math.max(0, Math.min(1, newSettings.weightRecentAssignment)) : defaults.weightRecentAssignment,
-      weightSectionMismatch: typeof newSettings.weightSectionMismatch === 'number' ? Math.max(0, Math.min(1, newSettings.weightSectionMismatch)) : defaults.weightSectionMismatch,
-      allowOverflow: newSettings.allowOverflow !== undefined ? Boolean(newSettings.allowOverflow) : defaults.allowOverflow,
-      acceptanceTimeoutMinutes: Math.max(1, Math.min(60, parseInt(newSettings.acceptanceTimeoutMinutes, 10) || defaults.acceptanceTimeoutMinutes)),
-      reassignmentPolicy: ['AUTO_REASSIGN', 'MANAGER_ESCALATION'].includes(newSettings.reassignmentPolicy) ? newSettings.reassignmentPolicy : defaults.reassignmentPolicy
+      mode: finalMode,
+      defaultCapacity: Math.max(1, Math.min(50, parseInt(newSettings.defaultCapacity, 10) || current.defaultCapacity)),
+      weightWorkload: typeof newSettings.weightWorkload === 'number' ? Math.max(0, Math.min(1, newSettings.weightWorkload)) : current.weightWorkload,
+      weightRecentAssignment: typeof newSettings.weightRecentAssignment === 'number' ? Math.max(0, Math.min(1, newSettings.weightRecentAssignment)) : current.weightRecentAssignment,
+      weightSectionMismatch: typeof newSettings.weightSectionMismatch === 'number' ? Math.max(0, Math.min(1, newSettings.weightSectionMismatch)) : current.weightSectionMismatch,
+      allowOverflow: newSettings.allowOverflow !== undefined ? Boolean(newSettings.allowOverflow) : current.allowOverflow,
+      acceptanceTimeoutMinutes: Math.max(1, Math.min(60, parseInt(newSettings.acceptanceTimeoutMinutes, 10) || current.acceptanceTimeoutMinutes)),
+      reassignmentPolicy: ['AUTO_REASSIGN', 'MANAGER_ESCALATION'].includes(newSettings.reassignmentPolicy) ? newSettings.reassignmentPolicy : current.reassignmentPolicy,
+      allowAutoAssignment: current.allowAutoAssignment
     };
 
     if (tenantDb && typeof tenantDb.model === 'function') {

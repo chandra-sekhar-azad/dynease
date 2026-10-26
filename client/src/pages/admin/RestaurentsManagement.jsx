@@ -35,6 +35,7 @@ export default function RestaurantsManagement() {
   const [editingId, setEditingId] = useState(null);
   const [sendingCredentials, setSendingCredentials] = useState({});
   const [togglingStatus, setTogglingStatus] = useState(null);
+  const [togglingAssignment, setTogglingAssignment] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
   // Edit / Manage Plan & Billing Modal State
@@ -225,6 +226,40 @@ export default function RestaurantsManagement() {
     }
   };
 
+  const handleToggleAssignmentMode = async (restaurant) => {
+    const restaurantId = restaurant._id || restaurant.id;
+    const currentAllowed = restaurant.allowAutoAssignment ?? (restaurant.table_allocation_mode === 'DYNAMIC');
+    const newAllowed = !currentAllowed;
+    setTogglingAssignment(restaurantId);
+    try {
+      const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurantId}/assignment-mode`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          allowAutoAssignment: newAllowed
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRestaurants(prev => prev.map(r => {
+          if ((r._id || r.id) === restaurantId) {
+            return {
+              ...r,
+              allowAutoAssignment: newAllowed,
+              table_allocation_mode: newAllowed ? 'DYNAMIC' : 'MANUAL'
+            };
+          }
+          return r;
+        }));
+      } else {
+        alert(data.message || 'Failed to update assignment mode');
+      }
+    } catch (err) {
+      alert('Network error updating assignment mode');
+    } finally {
+      setTogglingAssignment(null);
+    }
+  };
+
   const handleApprovePlanRequest = async (requestId) => {
     if (!window.confirm('Approve this subscription plan change request? The restaurant plan will be updated.')) return;
     try {
@@ -329,6 +364,7 @@ export default function RestaurantsManagement() {
       subscriptionStatus: restaurant.subscriptionStatus || 'ACTIVE',
       billingDaysRemaining: restaurant.daysRemaining !== undefined ? restaurant.daysRemaining : 0,
       isActive: restaurant.isActive || restaurant.status === 'ACTIVE',
+      allowAutoAssignment: restaurant.allowAutoAssignment ?? (restaurant.table_allocation_mode === 'DYNAMIC'),
       ownerName: restaurant.ownerId?.name || '',
       ownerEmail: restaurant.ownerId?.email || '',
       ownerPhone: restaurant.ownerId?.phone || '',
@@ -633,13 +669,14 @@ export default function RestaurantsManagement() {
                     <th className="p-3 sm:p-4">Owner</th>
                     <th className="p-3 sm:p-4">Status</th>
                     <th className="p-3 sm:p-4">Subscription Plan</th>
+                    <th className="p-3 sm:p-4">Assignment Modes</th>
                     <th className="p-3 sm:p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredRestaurantsDirectory.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="p-12 text-center text-gray-400 font-medium">
+                      <td colSpan="6" className="p-12 text-center text-gray-400 font-medium">
                         No restaurants found. Click "Add Restaurant" to provision a new tenant!
                       </td>
                     </tr>
@@ -700,6 +737,38 @@ export default function RestaurantsManagement() {
                                 </span>
                               )}
                             </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex flex-col items-start gap-1">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleToggleAssignmentMode(res)}
+                                disabled={togglingAssignment === (res._id || res.id)}
+                                className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+                                  (res.allowAutoAssignment ?? (res.table_allocation_mode === 'DYNAMIC')) ? 'bg-emerald-600' : 'bg-gray-300'
+                                } ${togglingAssignment === (res._id || res.id) ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                                title={(res.allowAutoAssignment ?? (res.table_allocation_mode === 'DYNAMIC')) ? 'Click to restrict this restaurant to Manual assignment only' : 'Click to enable Manual, Hybrid, and Dynamic modes'}
+                              >
+                                <span
+                                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                    (res.allowAutoAssignment ?? (res.table_allocation_mode === 'DYNAMIC')) ? 'translate-x-5' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                (res.allowAutoAssignment ?? (res.table_allocation_mode === 'DYNAMIC'))
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-gray-100 text-gray-600 border border-gray-200'
+                              }`}>
+                                {(res.allowAutoAssignment ?? (res.table_allocation_mode === 'DYNAMIC')) ? 'All Modes' : 'Manual Only'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-gray-400">
+                              {(res.allowAutoAssignment ?? (res.table_allocation_mode === 'DYNAMIC'))
+                                ? 'Manual, Hybrid & Auto'
+                                : 'Manual only enforced'}
+                            </span>
                           </div>
                         </td>
                         <td className="p-4 text-right">
@@ -1461,6 +1530,30 @@ export default function RestaurantsManagement() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 rounded-xl border border-gray-200 bg-gray-50/70">
+                <div className="pr-3">
+                  <p className="text-xs font-bold text-gray-800">Dynamic & Hybrid Waiter Assignment</p>
+                  <p className="text-[11px] text-gray-500 leading-tight mt-0.5">
+                    {editFormData.allowAutoAssignment 
+                      ? 'Enabled: Restaurant owner can use Manual, Hybrid, or Automatic assignment.' 
+                      : 'Disabled: Restaurant can only manage waiter assignments manually.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditFormData({ ...editFormData, allowAutoAssignment: !editFormData.allowAutoAssignment })}
+                  className={`relative inline-flex h-5 w-10 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                    editFormData.allowAutoAssignment ? 'bg-emerald-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                      editFormData.allowAutoAssignment ? 'translate-x-5' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
