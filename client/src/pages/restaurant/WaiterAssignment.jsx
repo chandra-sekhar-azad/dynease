@@ -141,10 +141,10 @@ export default function WaiterAssignment() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Waiter-to-Table Assignment</h1>
             <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
               settings.mode === 'HYBRID' ? 'bg-purple-100 text-purple-700' :
-              settings.mode === 'AUTOMATIC' ? 'bg-blue-100 text-blue-700' :
+              (settings.mode === 'DYNAMIC' || settings.mode === 'AUTOMATIC') ? 'bg-blue-100 text-blue-700' :
               'bg-gray-100 text-gray-700'
             }`}>
-              Mode: {settings.mode}
+              Mode: {settings.mode === 'AUTOMATIC' ? 'DYNAMIC' : settings.mode}
             </span>
           </div>
           <p className="text-gray-500 text-xs sm:text-sm mt-1">
@@ -392,22 +392,25 @@ export default function WaiterAssignment() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 { id: 'HYBRID', title: 'Hybrid (Recommended)', desc: 'Keeps primary table waiter; routes to overflow when overloaded or absent.' },
-                { id: 'AUTOMATIC', title: 'Pure Automatic', desc: 'Recalculates best available waiter dynamically for every new order.' },
+                { id: 'DYNAMIC', title: 'Dynamic (Automatic)', desc: 'Recalculates best available waiter dynamically for every new order based on workload, penalties, and fairness.' },
                 { id: 'MANUAL', title: 'Manual Only', desc: 'Strictly routes orders only to manager-assigned table waiters.' },
-              ].map(modeOpt => (
-                <div
-                  key={modeOpt.id}
-                  onClick={() => setSettings({ ...settings, mode: modeOpt.id })}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                    settings.mode === modeOpt.id
-                      ? 'border-green-600 bg-green-50/30'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <p className="font-bold text-gray-900 text-sm mb-1">{modeOpt.title}</p>
-                  <p className="text-xs text-gray-500 leading-relaxed">{modeOpt.desc}</p>
-                </div>
-              ))}
+              ].map(modeOpt => {
+                const isSelected = settings.mode === modeOpt.id || (modeOpt.id === 'DYNAMIC' && settings.mode === 'AUTOMATIC');
+                return (
+                  <div
+                    key={modeOpt.id}
+                    onClick={() => setSettings({ ...settings, mode: modeOpt.id })}
+                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-green-600 bg-green-50/30'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <p className="font-bold text-gray-900 text-sm mb-1">{modeOpt.title}</p>
+                    <p className="text-xs text-gray-500 leading-relaxed">{modeOpt.desc}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

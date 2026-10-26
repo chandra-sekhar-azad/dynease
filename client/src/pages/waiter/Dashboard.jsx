@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Bell, Clock, CheckCircle } from 'lucide-react';
+import { Bell, Clock, CheckCircle, Store } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function WaiterDashboard() {
   const [orders, setOrders] = useState([]);
   const [connected, setConnected] = useState(false);
+  const [restaurantName, setRestaurantName] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,6 +16,18 @@ export default function WaiterDashboard() {
       navigate('/login');
       return;
     }
+
+    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data?.user) {
+          const rest = data.data.user.restaurantId || data.data.user.restaurant;
+          setRestaurantName(data.data.user.restaurantName || rest?.restaurant_name || rest?.name || '');
+        }
+      })
+      .catch(() => {});
 
     // Connect to Socket.io (strip /api from VITE_API_URL if present)
     const socketUrl = import.meta.env.VITE_API_URL.replace(/\/api$/, '');
@@ -78,7 +91,15 @@ export default function WaiterDashboard() {
     <div className="h-screen bg-gray-100 p-4 flex flex-col">
       <header className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Waiter Dashboard</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-800">Waiter Dashboard</h1>
+            {restaurantName && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                <Store size={12} className="text-orange-600" />
+                {restaurantName}
+              </span>
+            )}
+          </div>
           <p className="text-gray-500 text-sm">Assigned Tables Live View</p>
         </div>
         <div className="flex items-center gap-4">

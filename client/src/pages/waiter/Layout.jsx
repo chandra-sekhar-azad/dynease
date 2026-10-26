@@ -24,8 +24,10 @@ export default function WaiterLayout() {
     fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { headers: getAuthHeaders() })
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.data.user && data.data.user.restaurantId) {
-          setRestaurantName(data.data.user.restaurantId.name || 'Staff Panel');
+        if (data.success && data.data.user) {
+          const rest = data.data.user.restaurantId || data.data.user.restaurant;
+          const name = data.data.user.restaurantName || rest?.restaurant_name || rest?.name || 'Staff Panel';
+          setRestaurantName(name);
         }
       })
       .catch(err => console.error(err));

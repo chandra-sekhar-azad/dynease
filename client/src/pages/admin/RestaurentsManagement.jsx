@@ -533,8 +533,8 @@ export default function RestaurantsManagement() {
         </div>
 
         {/* View Mode Tabs (Merged Navigation) */}
-        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 max-w-full">
-          <div className="flex p-1 bg-gray-100 rounded-xl border border-gray-200 shrink-0 overflow-x-auto max-w-full">
+        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-w-full">
+          <div className="flex p-1 bg-gray-100 rounded-xl border border-gray-200 shrink-0 no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-w-full">
             <button
               onClick={() => handleTabChange('restaurants')}
               className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${

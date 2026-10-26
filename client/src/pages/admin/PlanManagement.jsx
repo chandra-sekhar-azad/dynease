@@ -451,7 +451,7 @@ export default function PlanManagement() {
       </div>
 
       {/* ── Navigation Tabs ── */}
-      <div className="flex border-b border-gray-200 gap-6 text-sm font-semibold">
+      <div className="flex border-b border-gray-200 gap-6 text-sm font-semibold overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <button
           onClick={() => setActiveTab('plans')}
           className={`pb-3 transition relative cursor-pointer ${

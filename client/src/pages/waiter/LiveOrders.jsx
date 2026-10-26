@@ -17,7 +17,8 @@ import {
   X,
   Search,
   Check,
-  QrCode
+  QrCode,
+  Store
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -724,7 +725,15 @@ export default function LiveOrders() {
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${waiter.shiftStatus === 'ON_SHIFT' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
             <div>
-              <p className="font-bold text-gray-800 text-sm">{waiter.name} · {waiter.shiftStatus === 'ON_SHIFT' ? 'On Duty' : 'Off Duty'}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-bold text-gray-800 text-sm">{waiter.name} · {waiter.shiftStatus === 'ON_SHIFT' ? 'On Duty' : 'Off Duty'}</p>
+                {(waiter.restaurantName || waiter.restaurantId?.restaurant_name || waiter.restaurantId?.name || waiter.restaurant?.name) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                    <Store size={12} className="text-orange-600" />
+                    {waiter.restaurantName || waiter.restaurantId?.restaurant_name || waiter.restaurantId?.name || waiter.restaurant?.name}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-500">
                 Workload: {myOrders.length} active orders · Capacity: {waiter.workloadCapacity || 5} · Status: <span className="font-semibold text-green-700">{waiter.availabilityStatus}</span>
               </p>

@@ -1189,6 +1189,23 @@ exports.acceptOrder = async (req, res) => {
       if (tbl) tableNumber = tbl.table_code;
     }
 
+    await db.insert(assignment_events).values({
+      id: crypto.randomUUID(),
+      restaurant_id: restaurantId,
+      assignment_id: visitId,
+      staff_id: waiterId || updatedVisit.assigned_waiter_id,
+      event_type: 'ACCEPTED',
+      details: {
+        targetType: 'ORDER',
+        targetId: visitId,
+        visitId,
+        action: 'ACCEPTED',
+        actorId: waiterId,
+        actorRole: 'WAITER',
+        reason: 'Order accepted by assigned waiter'
+      }
+    }).catch(err => console.warn('[acceptOrder] Event logging warning:', err.message));
+
     const updatedOrder = {
       ...updatedVisit,
       id: updatedVisit.id,
@@ -1482,53 +1499,24 @@ exports.reassignOrder = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
     const { id } = req.params;
-    const { waiterId } = req.body;
+    const { waiterId, reason } = req.body;
 
-    const [order] = await db.select().from(order_details).where(
-      and(
-        eq(order_details.id, id),
-        eq(order_details.restaurant_id, restaurantId)
-      )
-    ).limit(1);
-
-    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-
-    let newWaiter = null;
-    if (waiterId) {
-      const [w] = await db.select().from(users).where(
-        and(
-          eq(users.id, waiterId),
-          eq(users.restaurant_id, restaurantId),
-          eq(users.is_deleted, false)
-        )
-      ).limit(1);
-      if (!w) return res.status(400).json({ success: false, message: 'Target waiter not found in this restaurant' });
-      newWaiter = w;
-    }
-
-    await db.insert(assignment_events).values({
-      restaurant_id: restaurantId,
-      assignment_id: order.id,
-      staff_id: waiterId || null,
-      event_type: waiterId ? 'MANUAL_REASSIGN' : 'UNASSIGNED',
-      details: {
-        orderId: order.id,
-        waiterName: newWaiter?.name || null
-      }
-    });
-
-    RealtimeService.orderUpdated({
+    const updatedOrder = await WaiterAssignmentService.reassignOrder(
+      null,
       restaurantId,
-      order,
-      orderId: order.id,
-      tableId: order.table_id
-    });
-    if (waiterId) RealtimeService.orderAssigned({ waiterId, order });
+      id,
+      waiterId || null,
+      req.user.id,
+      reason || 'Manager manual reassignment'
+    );
 
-    res.status(200).json({ success: true, message: 'Order reassigned successfully', data: { order } });
+    res.status(200).json({ success: true, message: 'Order reassigned successfully', data: { order: updatedOrder } });
   } catch (error) {
     console.error('[RestaurantController] Error reassigning order:', error);
-    res.status(500).json({ success: false, message: 'Server Error' });
+    res.status(error.message?.includes('not found') ? 404 : 500).json({
+      success: false,
+      message: error.message || 'Server Error'
+    });
   }
 };
 
@@ -1550,30 +1538,28 @@ exports.getAssignmentSettings = async (req, res) => {
 exports.updateAssignmentSettings = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const { mode } = req.body;
+    const updatedSettings = await WaiterAssignmentService.updateSettings(
+      null,
+      restaurantId,
+      req.body,
+      req.user.id
+    );
 
-    if (mode && (mode === 'MANUAL' || mode === 'DYNAMIC')) {
-      await db.update(restaurants).set({
-        table_allocation_mode: mode,
-        updatedat: new Date()
-      }).where(eq(restaurants.id, restaurantId));
-    }
-
-    const settings = await WaiterAssignmentService.getSettings(null, restaurantId);
-    res.status(200).json({ success: true, message: 'Assignment settings updated', data: { settings } });
+    res.status(200).json({
+      success: true,
+      message: 'Assignment settings updated successfully',
+      data: { settings: updatedSettings }
+    });
   } catch (error) {
     console.error('[RestaurantController] Error updating settings:', error);
-    res.status(500).json({ success: false, message: 'Server Error' });
+    res.status(500).json({ success: false, message: error.message || 'Server Error' });
   }
 };
 
 exports.getAssignmentHistory = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const events = await db.select().from(assignment_events).where(
-      eq(assignment_events.restaurant_id, restaurantId)
-    ).orderBy(desc(assignment_events.createdat)).limit(100);
-
+    const events = await WaiterAssignmentService.getAssignmentHistory(restaurantId, 100);
     res.status(200).json({ success: true, data: { events } });
   } catch (error) {
     console.error('[RestaurantController] Error fetching history:', error);
@@ -1584,43 +1570,8 @@ exports.getAssignmentHistory = async (req, res) => {
 exports.getWaitersWorkload = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const settings = await WaiterAssignmentService.getSettings(null, restaurantId);
-
-    const waiters = await db.select().from(users).where(
-      and(
-        eq(users.restaurant_id, restaurantId),
-        eq(users.user_type, 'STAFF'),
-        eq(users.is_deleted, false)
-      )
-    );
-
-    const result = [];
-    for (const w of waiters) {
-      const { activeOrdersCount, activeRequestsCount, totalWorkload } = await WaiterAssignmentService.getWaiterWorkload(
-        null,
-        restaurantId,
-        w.id
-      );
-
-      result.push({
-        _id: w.id,
-        id: w.id,
-        name: w.name,
-        email: w.email,
-        phone: w.phone_number,
-        shiftStatus: 'ON_SHIFT',
-        availabilityStatus: 'AVAILABLE',
-        acceptingOrders: true,
-        workloadCapacity: settings.defaultCapacity || 5,
-        sections: [],
-        assignedTables: [],
-        activeOrdersCount,
-        activeRequestsCount,
-        totalWorkload
-      });
-    }
-
-    res.status(200).json({ success: true, data: { waiters: result } });
+    const waiters = await WaiterAssignmentService.getWaitersWithWorkload(restaurantId);
+    res.status(200).json({ success: true, data: { waiters } });
   } catch (error) {
     console.error('[RestaurantController] Error fetching workload:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
@@ -1630,11 +1581,24 @@ exports.getWaitersWorkload = async (req, res) => {
 exports.updateMyAvailability = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
+    const restaurantId = req.user.restaurantId;
+
     const [user] = await db.select().from(users).where(
       and(eq(users.id, userId), eq(users.is_deleted, false))
     ).limit(1);
 
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const updatedAvailability = await WaiterAssignmentService.updateWaiterAvailability(
+      restaurantId,
+      userId,
+      req.body
+    );
+
+    RealtimeService.waiterStatusUpdated(restaurantId, {
+      waiterId: userId,
+      ...updatedAvailability
+    });
 
     res.status(200).json({
       success: true,
@@ -1642,10 +1606,9 @@ exports.updateMyAvailability = async (req, res) => {
       data: {
         user: {
           _id: user.id,
+          id: user.id,
           name: user.name,
-          shiftStatus: req.body.shiftStatus || 'ON_SHIFT',
-          availabilityStatus: req.body.availabilityStatus || 'AVAILABLE',
-          acceptingOrders: req.body.acceptingOrders !== false
+          ...updatedAvailability
         }
       }
     });

@@ -305,13 +305,18 @@ exports.getMe = async (req, res, next) => {
     if (user.restaurant_id) {
       const [rest] = await db.select().from(restaurants).where(eq(restaurants.id, user.restaurant_id)).limit(1);
       if (rest) {
-        user.restaurantId = {
+        const restObj = {
           ...rest,
           _id: rest.id,
           id: rest.id,
+          name: rest.restaurant_name || rest.name,
+          restaurant_name: rest.restaurant_name || rest.name,
           subdomain: rest.domain,
           slug: rest.domain
         };
+        user.restaurantId = restObj;
+        user.restaurant = restObj;
+        user.restaurantName = rest.restaurant_name || rest.name;
       }
     }
 
