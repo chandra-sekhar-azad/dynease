@@ -5,6 +5,7 @@ import {
   LayoutGrid, ArrowUpDown, Check, AlertCircle 
 } from 'lucide-react';
 import { useSocketEvents } from '../../lib/socket';
+import { showConfirm, toast } from '../../context/DialogContext';
 
 export default function CategoryManagement() {
   const [categories, setCategories] = useState([]);
@@ -159,10 +160,10 @@ export default function CategoryManagement() {
         }
         setShowModal(false);
       } else {
-        alert(data.message || 'Failed to save category');
+        toast.error(data.message || 'Failed to save category');
       }
     } catch (err) {
-      alert('Error saving category.');
+      toast.error('Error saving category.');
     } finally {
       setSavingCategory(false);
     }
@@ -191,7 +192,7 @@ export default function CategoryManagement() {
           return next.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
         });
       } else {
-        alert(data.message || 'Update failed');
+        toast.error(data.message || 'Update failed');
       }
     } catch (err) {
       console.error('Error updating category:', err);
@@ -203,11 +204,19 @@ export default function CategoryManagement() {
   const handleDeleteCategory = async (cat) => {
     const itemInUse = menuItems.some(i => i.category === cat.name);
     if (itemInUse) {
-       alert(`Cannot delete category "${cat.name}" because it is currently assigned to menu items.`);
+       toast.warning(`Cannot delete category "${cat.name}" because it is currently assigned to menu items.`);
        return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete category "${cat.name}"?`)) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Category',
+      message: `Are you sure you want to delete category "${cat.name}"? This action cannot be undone.`,
+      confirmText: 'Delete Category',
+      confirmVariant: 'danger',
+      icon: 'danger'
+    });
+    if (!confirmed) return;
+
     setDeletingCatId(cat._id);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/categories/${cat._id}`, {
@@ -217,11 +226,12 @@ export default function CategoryManagement() {
       const data = await res.json();
       if (data.success) {
         setCategories(prev => prev.filter(c => c._id !== cat._id));
+        toast.success(`Category "${cat.name}" deleted successfully`);
       } else {
-        alert(data.message || 'Error deleting category');
+        toast.error(data.message || 'Error deleting category');
       }
     } catch (err) {
-      alert('Error deleting category.');
+      toast.error('Error deleting category.');
     } finally {
       setDeletingCatId(null);
     }

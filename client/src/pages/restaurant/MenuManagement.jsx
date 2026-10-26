@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, X, Image as ImageIcon, Tag, Filter, ToggleLeft, ToggleRight, Loader2, FolderPlus, Edit2, Search, AlertCircle } from 'lucide-react';
 import { useSocketEvents } from '../../lib/socket';
+import { toast, showConfirm } from '../../context/DialogContext';
 
 const DIET_TYPES = [
   { value: 'ALL', label: 'All Types', color: 'gray' },
@@ -116,7 +117,7 @@ export default function MenuManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!editingItem && isMenuLimitReached) {
-      alert('Your menu items limit reached contact admin');
+      toast.warning('Your menu items limit reached. Please contact admin.');
       return;
     }
     const cleanQuantities = quantities
@@ -124,7 +125,7 @@ export default function MenuManagement() {
       .map(q => ({ size: q.size.trim(), price: Number(q.price) }));
 
     if (cleanQuantities.length === 0) {
-      alert('Please add at least one portion / quantity with a valid price (e.g. Full: ₹200).');
+      toast.warning('Please add at least one portion / quantity with a valid price (e.g. Full: ₹200).');
       return;
     }
 
@@ -157,12 +158,13 @@ export default function MenuManagement() {
         setQuantities([{ size: 'Full', price: '' }]);
         setImageFile(null);
         fetchMenu();
+        toast.success(editingItem ? 'Menu item updated successfully!' : 'Item added to menu!');
       } else {
-        alert(json.message);
+        toast.error(json.message || 'Error saving item');
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving item.');
+      toast.error('Error saving item.');
     } finally {
       setIsLoading(false);
     }
@@ -188,16 +190,29 @@ export default function MenuManagement() {
 
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this menu item?')) return;
+    const ok = await showConfirm({
+      title: 'Delete Menu Item',
+      message: 'Are you sure you want to delete this menu item? This action cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!ok) return;
+
     setDeletingId(id);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/menu/${id}`, {
         method: 'DELETE',
         headers: getHeaders()
       });
-      if (res.ok) setItems(prev => prev.filter(i => i._id !== id));
+      if (res.ok) {
+        setItems(prev => prev.filter(i => i._id !== id));
+        toast.success('Menu item deleted');
+      } else {
+        toast.error('Failed to delete menu item');
+      }
     } catch (err) {
       console.error(err);
+      toast.error('Error deleting menu item');
     } finally {
       setDeletingId(null);
     }

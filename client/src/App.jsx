@@ -51,6 +51,7 @@ import ClickSpark from './components/ui/ClickSpark';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
 import { fetchWithRetry } from './utils/api';
+import { DialogProvider } from './context/DialogContext';
 
 function SubdomainWrapper({ subdomain, children }) {
   // status: 'loading' | 'valid' | 'notFound' | 'unavailable'
@@ -295,7 +296,9 @@ function App() {
       desktopOnly={true}
     >
       <ErrorBoundary>
-        {renderRoutes()}
+        <DialogProvider>
+          {renderRoutes()}
+        </DialogProvider>
       </ErrorBoundary>
     </ClickSpark>
   );

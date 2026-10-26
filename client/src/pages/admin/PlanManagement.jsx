@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 import { useSocketEvents } from '../../lib/socket';
+import { toast, showConfirm } from '../../context/DialogContext';
 
 export default function PlanManagement() {
   const [plans, setPlans] = useState([]);
@@ -147,20 +148,27 @@ export default function PlanManagement() {
         setOverrideModalOpen(false);
         setSelectedRestaurantForOverride(null);
         await fetchData();
-        alert('Restaurant plan successfully updated!');
+        toast.success('Restaurant plan successfully updated!');
       } else {
-        alert(data.message || 'Failed to update restaurant plan override');
+        toast.error(data.message || 'Failed to update restaurant plan override');
       }
     } catch (err) {
       console.error('[PlanManagement] Error saving plan override:', err);
-      alert('Network error while saving plan override');
+      toast.error('Network error while saving plan override');
     } finally {
       setIsSavingOverride(false);
     }
   };
 
   const handleRemoveOverride = async (restaurant) => {
-    if (!window.confirm(`Reset "${restaurant.name}" back to standard platform plan tier?`)) return;
+    const ok = await showConfirm({
+      title: 'Reset Plan Override',
+      message: `Reset "${restaurant.name}" back to standard platform plan tier?`,
+      confirmText: 'Reset',
+      type: 'warning'
+    });
+    if (!ok) return;
+
     try {
       const assignedPlan = plans.find(p => p.id === restaurant.plan_id) || plans[0];
       const payload = {
@@ -179,12 +187,13 @@ export default function PlanManagement() {
       const data = await res.json();
       if (data.success) {
         await fetchData();
+        toast.success(`Plan override removed for "${restaurant.name}"`);
       } else {
-        alert(data.message || 'Failed to remove plan override');
+        toast.error(data.message || 'Failed to remove plan override');
       }
     } catch (err) {
       console.error(err);
-      alert('Error removing plan override');
+      toast.error('Error removing plan override');
     }
   };
 
@@ -245,7 +254,7 @@ export default function PlanManagement() {
   const handleSavePlan = async (e) => {
     e.preventDefault();
     if (!planForm.name.trim()) {
-      alert('Plan name is required');
+      toast.warning('Plan name is required');
       return;
     }
 
@@ -310,12 +319,13 @@ export default function PlanManagement() {
       if (data.success) {
         setShowPlanModal(false);
         fetchData();
+        toast.success(editingPlan ? 'Plan updated successfully!' : 'New plan created successfully!');
       } else {
-        alert(data.message || 'Failed to save plan');
+        toast.error(data.message || 'Failed to save plan');
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving plan');
+      toast.error('Error saving plan');
     } finally {
       setIsSubmitting(false);
     }
@@ -331,17 +341,25 @@ export default function PlanManagement() {
       const data = await res.json();
       if (data.success) {
         fetchData();
+        toast.success(`Plan marked as ${newStatus === 'ACTIVE' ? 'Active' : 'Inactive'}`);
       } else {
-        alert(data.message || 'Failed to update plan status');
+        toast.error(data.message || 'Failed to update plan status');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error');
+      toast.error('Network error updating plan status');
     }
   };
 
   const handleDeletePlan = async (planId) => {
-    if (!window.confirm('Are you sure you want to delete this plan?')) return;
+    const ok = await showConfirm({
+      title: 'Delete Subscription Plan',
+      message: 'Are you sure you want to delete this plan? This action cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!ok) return;
+
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/plans/${planId}`, {
         method: 'DELETE'
@@ -349,12 +367,13 @@ export default function PlanManagement() {
       const data = await res.json();
       if (data.success) {
         fetchData();
+        toast.success('Plan deleted successfully');
       } else {
-        alert(data.message || 'Cannot delete plan');
+        toast.error(data.message || 'Cannot delete plan');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error');
+      toast.error('Network error deleting plan');
     }
   };
 
@@ -367,12 +386,13 @@ export default function PlanManagement() {
       const data = await res.json();
       if (data.success) {
         fetchData();
+        toast.success('Plan change request approved successfully!');
       } else {
-        alert(data.message || 'Failed to approve request');
+        toast.error(data.message || 'Failed to approve request');
       }
     } catch (err) {
       console.error(err);
-      alert('Error approving request');
+      toast.error('Error approving request');
     } finally {
       setActionLoading(null);
     }
@@ -393,12 +413,13 @@ export default function PlanManagement() {
         setRejectingRequest(null);
         setRejectReason('');
         fetchData();
+        toast.info('Plan change request rejected');
       } else {
-        alert(data.message || 'Failed to reject request');
+        toast.error(data.message || 'Failed to reject request');
       }
     } catch (err) {
       console.error(err);
-      alert('Error rejecting request');
+      toast.error('Error rejecting request');
     } finally {
       setActionLoading(null);
     }

@@ -21,6 +21,7 @@ import {
   Store
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { showConfirm, toast } from '../../context/DialogContext';
 
 export default function LiveOrders() {
   const [orders, setOrders] = useState([]);
@@ -331,12 +332,12 @@ export default function LiveOrders() {
         ));
         fetchData();
       } else {
-        alert(data.message || 'Failed to accept order');
+        toast.error(data.message || 'Failed to accept order');
         fetchData();
       }
     } catch (e) {
       console.error(e);
-      alert('Network error accepting order');
+      toast.error('Network error accepting order');
       fetchData();
     }
   };
@@ -356,12 +357,13 @@ export default function LiveOrders() {
         if (editingOrder && (editingOrder.id === orderId || editingOrder._id === orderId)) {
           setEditingOrder(null);
         }
+        toast.success('Order rejected');
       } else {
-        alert(data.message || 'Failed to reject order');
+        toast.error(data.message || 'Failed to reject order');
       }
     } catch (e) {
       console.error(e);
-      alert('Network error rejecting order');
+      toast.error('Network error rejecting order');
     }
   };
 
@@ -388,7 +390,7 @@ export default function LiveOrders() {
         }
         fetchData();
       } else {
-        alert(data.message || 'Could not update status');
+        toast.error(data.message || 'Could not update status');
         fetchData();
       }
     } catch (err) {
@@ -399,9 +401,14 @@ export default function LiveOrders() {
 
   const handleCancelOccupation = async (order) => {
     const tableNum = order.tableNumber || order.table || 'this table';
-    if (!window.confirm(`Cancel occupation for Table ${tableNum}? This will free the table so another customer can scan and occupy.`)) {
-      return;
-    }
+    const confirmed = await showConfirm({
+      title: 'Cancel Occupation',
+      message: `Cancel occupation for Table ${tableNum}? This will free the table so another customer can scan and occupy.`,
+      confirmText: 'Cancel Occupation',
+      confirmVariant: 'danger',
+      icon: 'warning'
+    });
+    if (!confirmed) return;
 
     try {
       const orderId = order.id || order._id;
@@ -429,8 +436,9 @@ export default function LiveOrders() {
       const data = await res.json();
       if (data.success) {
         fetchData();
+        toast.success(`Table ${tableNum} occupation cancelled`);
       } else {
-        alert(data.message || 'Could not cancel table occupation');
+        toast.error(data.message || 'Could not cancel table occupation');
         fetchData();
       }
     } catch (err) {
@@ -440,7 +448,14 @@ export default function LiveOrders() {
   };
 
   const handleDeleteOrderItem = async (orderId, itemId, itemName) => {
-    if (!window.confirm(`Delete "${itemName || 'this item'}" from the order?`)) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Order Item',
+      message: `Delete "${itemName || 'this item'}" from the order?`,
+      confirmText: 'Delete Item',
+      confirmVariant: 'danger',
+      icon: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/orders/items/${itemId}`, {
@@ -465,12 +480,13 @@ export default function LiveOrders() {
             return { ...prev, items: updatedItems, total: newTotal, subtotal: newTotal };
           });
         }
+        toast.success(`Removed "${itemName || 'item'}" from order`);
       } else {
-        alert(data.message || 'Failed to delete item.');
+        toast.error(data.message || 'Failed to delete item.');
       }
     } catch (e) {
       console.error(e);
-      alert('Network error deleting item');
+      toast.error('Network error deleting item');
     }
   };
 
@@ -517,11 +533,11 @@ export default function LiveOrders() {
           });
         }
       } else {
-        alert(data.message || 'Failed to update quantity.');
+        toast.error(data.message || 'Failed to update quantity.');
       }
     } catch (e) {
       console.error(e);
-      alert('Network error updating item quantity');
+      toast.error('Network error updating item quantity');
     }
   };
 
@@ -678,11 +694,11 @@ export default function LiveOrders() {
         // Sync with backend in background
         fetchData();
       } else {
-        alert(data.message || 'Failed to add items to order.');
+        toast.error(data.message || 'Failed to add items to order.');
       }
     } catch (e) {
       console.error(e);
-      alert('Network error adding items to order');
+      toast.error('Network error adding items to order');
     } finally {
       setIsSubmitting(false);
     }
@@ -1018,8 +1034,15 @@ export default function LiveOrders() {
                           </div>
 
                           <button 
-                            onClick={() => {
-                              if (window.confirm(`Mark Table ${order.tableNumber || order.table}'s order as completed? This will free the table for new customers.`)) {
+                            onClick={async () => {
+                              const confirmed = await showConfirm({
+                                title: 'Complete Order & Free Table',
+                                message: `Mark Table ${order.tableNumber || order.table}'s order as completed? This will free the table for new customers.`,
+                                confirmText: 'Complete & Free Table',
+                                confirmVariant: 'primary',
+                                icon: 'info'
+                              });
+                              if (confirmed) {
                                 updateOrderStatus(order.id || order._id, 'COMPLETED');
                               }
                             }}

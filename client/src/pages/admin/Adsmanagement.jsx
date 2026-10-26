@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 import { useSocketEvents } from '../../lib/socket';
+import { toast, showConfirm } from '../../context/DialogContext';
 
 const DEFAULT_BANNER_IMAGE = 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
 
@@ -124,11 +125,18 @@ export default function AdsManagement() {
 
   // Delete Inquiry
   const handleDeleteInquiry = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this advertisement inquiry?')) return;
+    const ok = await showConfirm({
+      title: 'Delete Ad Inquiry',
+      message: 'Are you sure you want to delete this advertisement inquiry?',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!ok) return;
 
     // 1. Update in UI state
     const filtered = inquiries.filter(inq => inq._id !== id);
     setInquiries(filtered);
+    toast.success('Inquiry deleted');
 
     // 2. Update local storage
     try {
@@ -231,11 +239,12 @@ export default function AdsManagement() {
         setImageFile(null);
         setImagePreview('');
         fetchAds();
+        toast.success(editingAd ? 'Banner updated successfully!' : 'Banner created successfully!');
       } else {
-        alert(data.message || 'Failed to save banner');
+        toast.error(data.message || 'Failed to save banner');
       }
     } catch (err) {
-      alert('Network error');
+      toast.error('Network error saving banner');
     } finally {
       setIsLoading(false);
     }
@@ -249,17 +258,25 @@ export default function AdsManagement() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this banner?')) return;
+    const ok = await showConfirm({
+      title: 'Delete Ad Banner',
+      message: 'Are you sure you want to delete this banner? This action cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!ok) return;
+
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/ads/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setAds(ads.filter(ad => ad._id !== id));
+        toast.success('Banner deleted successfully');
       } else {
-        alert(data.message || 'Failed to delete');
+        toast.error(data.message || 'Failed to delete banner');
       }
     } catch (err) {
-      alert('Network error');
+      toast.error('Network error deleting banner');
     }
   };
 

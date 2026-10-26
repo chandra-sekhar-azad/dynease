@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QrCode, Plus, Download, Printer, Trash2, Loader2, X, AlertCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useSocketEvents } from '../../lib/socket';
+import { showConfirm, toast } from '../../context/DialogContext';
 
 export default function TablesManagement() {
   const [tables, setTables] = useState([]);
@@ -111,7 +112,14 @@ export default function TablesManagement() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this table?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Table',
+      message: 'Are you sure you want to delete this table? Customers will no longer be able to scan and place orders at this table.',
+      confirmText: 'Delete Table',
+      confirmVariant: 'danger',
+      icon: 'danger'
+    });
+    if (!confirmed) return;
     
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/tables/${id}`, {
@@ -121,14 +129,26 @@ export default function TablesManagement() {
       
       if (res.ok) {
         setTables(tables.filter(t => t._id !== id));
+        toast.success('Table deleted successfully');
+      } else {
+        toast.error('Failed to delete table');
       }
     } catch (err) {
       console.error('Failed to delete table', err);
+      toast.error('Failed to delete table');
     }
   };
 
   const handleFreeTable = async (table) => {
-    if (!window.confirm(`Free Table ${table.tableNumber}? This will cancel any active table occupation and allow new customers to scan.`)) return;
+    const confirmed = await showConfirm({
+      title: 'Free Table',
+      message: `Free Table ${table.tableNumber}? This will cancel any active table occupation and allow new customers to scan.`,
+      confirmText: 'Free Table',
+      confirmVariant: 'warning',
+      icon: 'warning'
+    });
+    if (!confirmed) return;
+
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/tables/${table._id}/cancel-allocation`, {
         method: 'POST',
@@ -137,9 +157,13 @@ export default function TablesManagement() {
       if (res.ok) {
         setTables(tables.map(t => t._id === table._id ? { ...t, isOccupied: false } : t));
         fetchTables();
+        toast.success(`Table ${table.tableNumber} is now free`);
+      } else {
+        toast.error('Failed to free table');
       }
     } catch (err) {
       console.error('Failed to free table', err);
+      toast.error('Failed to free table');
     }
   };
 

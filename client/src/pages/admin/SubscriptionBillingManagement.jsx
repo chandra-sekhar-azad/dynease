@@ -6,6 +6,7 @@ import {
   CheckCircle2, Users, Store, DollarSign
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
+import { toast, showConfirm } from '../../context/DialogContext';
 
 export default function SubscriptionBillingManagement() {
   const [restaurants, setRestaurants] = useState([]);
@@ -132,13 +133,13 @@ export default function SubscriptionBillingManagement() {
       if (data.success) {
         setEditingRestaurant(null);
         await fetchData();
-        alert('Plan and days remaining updated successfully!');
+        toast.success('Plan and days remaining updated successfully!');
       } else {
-        alert(data.message || 'Failed to update plan details');
+        toast.error(data.message || 'Failed to update plan details');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error while updating plan');
+      toast.error('Network error while updating plan');
     } finally {
       setIsSaving(false);
     }
@@ -147,7 +148,13 @@ export default function SubscriptionBillingManagement() {
   const handleDirectAddDays = async (restaurant, daysToAdd) => {
     const current = restaurant.daysRemaining || 0;
     const newDays = current + daysToAdd;
-    if (!window.confirm(`Extend ${restaurant.name} subscription by +${daysToAdd} days (total ${newDays} days remaining)?`)) return;
+    const ok = await showConfirm({
+      title: 'Extend Subscription',
+      message: `Extend ${restaurant.name} subscription by +${daysToAdd} days (total ${newDays} days remaining)?`,
+      confirmText: 'Extend',
+      type: 'info'
+    });
+    if (!ok) return;
 
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurant._id}/billing`, {
@@ -161,12 +168,13 @@ export default function SubscriptionBillingManagement() {
       const data = await res.json();
       if (data.success) {
         fetchData();
+        toast.success(`Subscription extended by +${daysToAdd} days`);
       } else {
-        alert(data.message || 'Error updating billing');
+        toast.error(data.message || 'Error updating billing');
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to extend billing');
+      toast.error('Failed to extend billing');
     }
   };
 

@@ -13,6 +13,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useSocketEvents } from '../../lib/socket';
+import { showConfirm } from '../../context/DialogContext';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -264,7 +265,14 @@ export default function StaffRoster() {
   };
 
   const handleDeleteShift = async (shift) => {
-    if (!window.confirm(`Delete "${formatShift(shift)}"?`)) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Shift',
+      message: `Are you sure you want to delete shift "${formatShift(shift)}"?`,
+      confirmText: 'Delete Shift',
+      confirmVariant: 'danger',
+      icon: 'danger'
+    });
+    if (!confirmed) return;
     try {
       const res = await fetch(`${API}/restaurant/shifts/${shift._id}`, {
         method: 'DELETE',

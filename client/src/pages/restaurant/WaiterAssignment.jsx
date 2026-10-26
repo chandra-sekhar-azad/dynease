@@ -5,6 +5,7 @@ import {
   Save, RefreshCw, BarChart3, History, HelpCircle,
   Lock, AlertTriangle
 } from 'lucide-react';
+import { toast } from '../../context/DialogContext';
 
 export default function WaiterAssignment() {
   const [activeTab, setActiveTab] = useState('TABLES'); // 'TABLES' | 'WORKLOAD' | 'SETTINGS' | 'HISTORY' | 'REQUESTS'
@@ -86,12 +87,13 @@ export default function WaiterAssignment() {
       if (data.success) {
         setTables(prev => prev.map(t => t._id === tableId ? data.data.table : t));
         fetchAllData(); // Refresh history & workload
+        toast.success('Table assigned successfully!');
       } else {
-        alert(data.message || 'Failed to assign table');
+        toast.error(data.message || 'Failed to assign table');
       }
     } catch (e) {
       console.error(e);
-      alert('Error assigning table');
+      toast.error('Error assigning table');
     }
   };
 
@@ -106,13 +108,13 @@ export default function WaiterAssignment() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Assignment settings saved successfully!');
+        toast.success('Assignment settings saved successfully!');
       } else {
-        alert(data.message || 'Failed to save settings');
+        toast.error(data.message || 'Failed to save settings');
       }
     } catch (e) {
       console.error(e);
-      alert('Network error while saving settings');
+      toast.error('Network error while saving settings');
     } finally {
       setSavingSettings(false);
     }
@@ -424,7 +426,7 @@ export default function WaiterAssignment() {
                     key={modeOpt.id}
                     onClick={() => {
                       if (isLocked) {
-                        alert('Dynamic and Hybrid assignment modes are disabled for your restaurant by System Admin. Only Manual Assignment is permitted.');
+                        toast.warning('Dynamic and Hybrid assignment modes are disabled for your restaurant by System Admin. Only Manual Assignment is permitted.');
                         return;
                       }
                       setSettings({ ...settings, mode: modeOpt.id });

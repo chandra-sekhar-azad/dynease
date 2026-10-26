@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Check, X, Loader2, Eye, MapPin, Mail, Phone, Crown } from 'lucide-react';
 import { authFetch } from '../../utils/api';
+import { toast, showConfirm } from '../../context/DialogContext';
 
 export default function RequestsManagement() {
   const [requests, setRequests] = useState([]);
@@ -29,7 +30,15 @@ export default function RequestsManagement() {
     }
   };
 
-  const handleApprove = async (id) => {
+  const handleApprove = async (id, name) => {
+    const ok = await showConfirm({
+      title: 'Approve Registration',
+      message: name ? `Approve registration for "${name}"?` : 'Approve this restaurant registration?',
+      confirmText: 'Approve',
+      type: 'info'
+    });
+    if (!ok) return;
+
     setActionLoading(id);
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/requests/${id}/approve`, {
@@ -39,11 +48,13 @@ export default function RequestsManagement() {
       if (res.ok && data.success) {
         setRequests(requests.filter(req => (req._id || req.id) !== id));
         setSelectedReq(null);
+        toast.success('Registration request approved successfully!');
       } else {
-        alert(data.message || 'Failed to approve');
+        toast.error(data.message || 'Failed to approve');
       }
     } catch (error) {
       console.error('Error approve request:', error);
+      toast.error('Network error approving request');
     } finally {
       setActionLoading(null);
     }
@@ -66,11 +77,13 @@ export default function RequestsManagement() {
         setShowRejectModal(false);
         setSelectedReq(null);
         setRejectReason('');
+        toast.info('Registration request rejected');
       } else {
-        alert(data.message || 'Failed to reject');
+        toast.error(data.message || 'Failed to reject');
       }
     } catch (error) {
       console.error('Error reject request:', error);
+      toast.error('Network error rejecting request');
     } finally {
       setActionLoading(null);
     }

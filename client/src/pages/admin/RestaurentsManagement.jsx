@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 import { useSocketEvents } from '../../lib/socket';
+import { toast, showConfirm } from '../../context/DialogContext';
 
 export default function RestaurantsManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -151,19 +152,26 @@ export default function RestaurantsManagement() {
         setShowAddModal(false);
         setFormData({ restaurantName: '', ownerName: '', ownerPhone: '', ownerEmail: '', ownerPassword: '' });
         fetchData();
-        alert('Restaurant and Owner Account Created Successfully!');
+        toast.success('Restaurant and Owner Account Created Successfully!');
       } else {
-        alert(data.message || 'Error creating restaurant');
+        toast.error(data.message || 'Error creating restaurant');
       }
     } catch (err) {
-      alert('Network error. Is the backend running?');
+      toast.error('Network error. Is the backend running?');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this restaurant? This action cannot be undone.')) return;
+    const ok = await showConfirm({
+      title: 'Delete Restaurant',
+      message: 'Are you sure you want to delete this restaurant? This action cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!ok) return;
+
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${id}`, {
         method: 'DELETE'
@@ -171,12 +179,12 @@ export default function RestaurantsManagement() {
       const data = await res.json();
       if (data.success) {
         fetchData();
-        alert('Restaurant deleted successfully');
+        toast.success('Restaurant deleted successfully');
       } else {
-        alert(data.message || 'Error deleting restaurant');
+        toast.error(data.message || 'Error deleting restaurant');
       }
     } catch (err) {
-      alert('Network error.');
+      toast.error('Network error deleting restaurant.');
     }
   };
 
@@ -190,14 +198,15 @@ export default function RestaurantsManagement() {
       if (data.success) {
         setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'sent' }));
         setTimeout(() => setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' })), 3000);
+        toast.success('Login credentials sent successfully via WhatsApp!');
       } else {
         setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' }));
-        alert(data.message || 'Failed to send credentials via WhatsApp');
+        toast.error(data.message || 'Failed to send credentials via WhatsApp');
       }
     } catch (err) {
       console.error(err);
       setSendingCredentials(prev => ({ ...prev, [restaurantId]: 'idle' }));
-      alert('Network error while sending WhatsApp message.');
+      toast.error('Network error while sending WhatsApp message.');
     }
   };
 
@@ -216,11 +225,12 @@ export default function RestaurantsManagement() {
       const data = await res.json();
       if (data.success) {
         fetchData();
+        toast.success(`Restaurant status updated to ${newStatus ? 'Active' : 'Inactive'}`);
       } else {
-        alert(data.message || 'Failed to update status');
+        toast.error(data.message || 'Failed to update status');
       }
     } catch (err) {
-      alert('Network error updating restaurant status');
+      toast.error('Network error updating restaurant status');
     } finally {
       setTogglingStatus(null);
     }
@@ -251,30 +261,37 @@ export default function RestaurantsManagement() {
           return r;
         }));
       } else {
-        alert(data.message || 'Failed to update assignment mode');
+        toast.error(data.message || 'Failed to update assignment mode');
       }
     } catch (err) {
-      alert('Network error updating assignment mode');
+      toast.error('Network error updating assignment mode');
     } finally {
       setTogglingAssignment(null);
     }
   };
 
   const handleApprovePlanRequest = async (requestId) => {
-    if (!window.confirm('Approve this subscription plan change request? The restaurant plan will be updated.')) return;
+    const ok = await showConfirm({
+      title: 'Approve Plan Request',
+      message: 'Approve this subscription plan change request? The restaurant plan will be updated.',
+      confirmText: 'Approve',
+      type: 'info'
+    });
+    if (!ok) return;
+
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/plan-requests/${requestId}/approve`, {
         method: 'POST'
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        alert('Plan change request approved successfully!');
+        toast.success('Plan change request approved successfully!');
         fetchData();
       } else {
-        alert(data.message || 'Failed to approve plan change request');
+        toast.error(data.message || 'Failed to approve plan change request');
       }
     } catch (err) {
-      alert('Network error approving plan change request');
+      toast.error('Network error approving plan change request');
     }
   };
 
@@ -288,13 +305,13 @@ export default function RestaurantsManagement() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        alert('Plan change request rejected.');
+        toast.info('Plan change request rejected.');
         fetchData();
       } else {
-        alert(data.message || 'Failed to reject plan change request');
+        toast.error(data.message || 'Failed to reject plan change request');
       }
     } catch (err) {
-      alert('Network error rejecting plan change request');
+      toast.error('Network error rejecting plan change request');
     }
   };
 
@@ -304,7 +321,13 @@ export default function RestaurantsManagement() {
   const handleApproveRegistration = async (request) => {
     const id = getRequestId(request);
     if (!id) return;
-    if (!window.confirm(`Approve "${request.name}"? The restaurant and its owner account will be activated.`)) return;
+    const ok = await showConfirm({
+      title: 'Approve Registration',
+      message: `Approve "${request.name}"? The restaurant and its owner account will be activated.`,
+      confirmText: 'Approve',
+      type: 'info'
+    });
+    if (!ok) return;
 
     setRequestActionLoading(id);
     try {
@@ -316,12 +339,13 @@ export default function RestaurantsManagement() {
         setRequests(prev => prev.filter(r => getRequestId(r) !== id));
         setSelectedReq(null);
         fetchData();
+        toast.success(`"${request.name}" approved and activated!`);
       } else {
-        alert(data.message || 'Failed to approve request');
+        toast.error(data.message || 'Failed to approve request');
       }
     } catch (err) {
       console.error('Error approving request:', err);
-      alert('Network error while approving request');
+      toast.error('Network error while approving request');
     } finally {
       setRequestActionLoading(null);
     }
@@ -344,12 +368,13 @@ export default function RestaurantsManagement() {
         setShowRejectModal(false);
         setSelectedReq(null);
         setRejectReason('');
+        toast.info('Registration request rejected');
       } else {
-        alert(data.message || 'Failed to reject request');
+        toast.error(data.message || 'Failed to reject request');
       }
     } catch (err) {
       console.error('Error rejecting request:', err);
-      alert('Network error while rejecting request');
+      toast.error('Network error while rejecting request');
     } finally {
       setRequestActionLoading(null);
     }
@@ -385,12 +410,12 @@ export default function RestaurantsManagement() {
       if (data.success) {
         setShowEditModal(false);
         fetchData();
-        alert('Restaurant updated successfully!');
+        toast.success('Restaurant updated successfully!');
       } else {
-        alert(data.message || 'Error updating restaurant');
+        toast.error(data.message || 'Error updating restaurant');
       }
     } catch (err) {
-      alert('Network error.');
+      toast.error('Network error updating restaurant.');
     } finally {
       setIsLoading(false);
     }
@@ -469,13 +494,13 @@ export default function RestaurantsManagement() {
       if (data.success) {
         setEditingRestaurantBilling(null);
         await fetchData();
-        alert('Subscription & Billing updated successfully!');
+        toast.success('Subscription & Billing updated successfully!');
       } else {
-        alert(data.message || 'Failed to update billing details');
+        toast.error(data.message || 'Failed to update billing details');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error while updating billing');
+      toast.error('Network error while updating billing');
     } finally {
       setIsSavingBilling(false);
     }
@@ -484,7 +509,13 @@ export default function RestaurantsManagement() {
   const handleDirectAddDays = async (restaurant, daysToAdd) => {
     const current = restaurant.daysRemaining || 0;
     const newDays = current + daysToAdd;
-    if (!window.confirm(`Extend ${restaurant.name} subscription by +${daysToAdd} days (total ${newDays} days remaining)?`)) return;
+    const ok = await showConfirm({
+      title: 'Extend Subscription',
+      message: `Extend ${restaurant.name} subscription by +${daysToAdd} days (total ${newDays} days remaining)?`,
+      confirmText: 'Extend',
+      type: 'info'
+    });
+    if (!ok) return;
 
     try {
       const res = await authFetch(`${import.meta.env.VITE_API_URL}/admin/restaurants/${restaurant._id}/billing`, {
@@ -497,12 +528,13 @@ export default function RestaurantsManagement() {
       const data = await res.json();
       if (data.success) {
         fetchData();
+        toast.success(`Subscription extended by +${daysToAdd} days`);
       } else {
-        alert(data.message || 'Error updating billing');
+        toast.error(data.message || 'Error updating billing');
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to extend billing');
+      toast.error('Failed to extend billing');
     }
   };
 

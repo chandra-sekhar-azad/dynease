@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, X, Check, Search, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useSocketEvents } from '../../lib/socket';
+import { toast, showConfirm } from '../../context/DialogContext';
 
 export default function StaffManagement() {
   const [staffList, setStaffList] = useState([]);
@@ -110,7 +111,7 @@ export default function StaffManagement() {
 
   const openAddModal = () => {
     if (isStaffLimitReached) {
-      alert('Your staff accounts limit reached contact admin');
+      toast.warning('Your staff accounts limit reached. Please contact admin.');
       return;
     }
     setEditingId(null);
@@ -148,7 +149,7 @@ export default function StaffManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!editingId && isStaffLimitReached) {
-      alert('Your staff accounts limit reached contact admin');
+      toast.warning('Your staff accounts limit reached. Please contact admin.');
       return;
     }
     try {
@@ -171,16 +172,24 @@ export default function StaffManagement() {
       if (data.success) {
         setShowModal(false);
         fetchStaff();
+        toast.success(editingId ? 'Staff member updated successfully!' : 'Staff member created successfully!');
       } else {
-        alert(data.message || 'Error saving staff');
+        toast.error(data.message || 'Error saving staff');
       }
     } catch (err) {
-      alert('Network error');
+      toast.error('Network error saving staff');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this staff member?')) return;
+    const ok = await showConfirm({
+      title: 'Delete Staff Member',
+      message: 'Are you sure you want to delete this staff member? This action cannot be undone.',
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!ok) return;
+
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/staff/${id}`, {
         method: 'DELETE',
@@ -189,11 +198,12 @@ export default function StaffManagement() {
       const data = await res.json();
       if (data.success) {
         fetchStaff();
+        toast.success('Staff member deleted successfully');
       } else {
-        alert(data.message || 'Error deleting');
+        toast.error(data.message || 'Error deleting staff member');
       }
     } catch (err) {
-      alert('Network error');
+      toast.error('Network error deleting staff member');
     }
   };
 

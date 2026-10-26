@@ -31,6 +31,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import GuidedTour from '../components/tour/GuidedTour';
 import { TOUR_STEPS } from '../components/tour/tourSteps';
+import { toast } from '../context/DialogContext';
 
 // Initial Mock Data for Spice Garden Bistro Demo
 const INITIAL_STATS = {
@@ -555,7 +556,7 @@ export default function DemoPage() {
                 <p className="text-xs sm:text-sm text-gray-500">Configure dish items, pricing, dietary tags, and real-time availability toggles.</p>
               </div>
               <button
-                onClick={() => alert('In the live platform, restaurant owners can add dishes with high-resolution photos, custom variant add-ons, and pricing tiers.')}
+                onClick={() => toast.info('In the live platform, restaurant owners can add dishes with high-resolution photos, custom variant add-ons, and pricing tiers.')}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
               >
                 <Plus size={16} /> Add Menu Item
@@ -634,7 +635,7 @@ export default function DemoPage() {
                 <p className="text-xs sm:text-sm text-gray-500">Each table possesses a stable contactless QR code for direct digital ordering.</p>
               </div>
               <button
-                onClick={() => alert('In the live platform, restaurants can generate high-resolution print ready QR flyers or batch-download SVGs for tables.')}
+                onClick={() => toast.info('In the live platform, restaurants can generate high-resolution print ready QR flyers or batch-download SVGs for tables.')}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
               >
                 <Plus size={16} /> Add New Table
@@ -686,13 +687,13 @@ export default function DemoPage() {
 
                     <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                       <button
-                        onClick={() => alert(`Downloaded printable SVG QR code for Table ${table.number}`)}
+                        onClick={() => toast.success(`Downloaded printable SVG QR code for Table ${table.number}`)}
                         className="flex-1 py-2 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Download size={14} /> Download SVG
                       </button>
                       <button
-                        onClick={() => alert(`Opening preview of table ${table.number} customer digital menu`)}
+                        onClick={() => toast.info(`Opening preview of table ${table.number} customer digital menu`)}
                         className="py-2 px-3 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors flex items-center justify-center gap-1 cursor-pointer"
                         title="Simulate diner scan"
                       >
@@ -792,7 +793,7 @@ export default function DemoPage() {
 
                   <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center gap-2">
                     <button
-                      onClick={() => alert(`Marked ${ticket.ticket} ready for waiter delivery!`)}
+                      onClick={() => toast.success(`Marked ${ticket.ticket} ready for waiter delivery!`)}
                       className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
                     >
                       <CheckCircle size={15} /> Order Complete
