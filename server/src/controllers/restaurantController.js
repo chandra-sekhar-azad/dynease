@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { db, schema } = require('../db/client');
-const { eq, and, sql, desc, or, isNull, gte, lte, inArray } = require('drizzle-orm');
+const { eq, and, sql, desc, or, isNull, gte, lte, inArray, ne } = require('drizzle-orm');
 const {
   restaurants,
   users,
