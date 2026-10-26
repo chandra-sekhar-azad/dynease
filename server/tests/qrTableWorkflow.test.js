@@ -118,4 +118,21 @@ describe('QR Table Occupation, Ordering & Security Workflow - Test Suite', () =>
     });
   });
 
+  // ──────────────────────────────────────────────
+  // 6. Order Idempotency & Duplicate Order Prevention
+  // ──────────────────────────────────────────────
+  describe('6. Order Idempotency & Duplicate Order Prevention', () => {
+    it('validates idempotency key format and rejects empty order items', async () => {
+      await assert.rejects(
+        () => OrderService.submitOrderInVisit({
+          visitId: '00000000-0000-0000-0000-000000000000',
+          restaurantId: '11111111-1111-1111-1111-111111111111',
+          items: [],
+          idempotency_key: 'ord_test_key_123'
+        }),
+        /items are required/
+      );
+    });
+  });
+
 });

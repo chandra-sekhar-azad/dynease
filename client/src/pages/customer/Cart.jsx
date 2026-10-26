@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Minus, Plus, ShoppingBag, ArrowLeft, Trash2, Receipt, Loader2, CheckCircle2, FileText, User, Phone, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
@@ -35,6 +35,7 @@ export default function Cart() {
   });
   const [showContactDetails, setShowContactDetails] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [error, setError] = useState('');
 
   const tableLabel = session?.table?.tableNumber ? `Table ${session.table.tableNumber}` : null;
@@ -44,6 +45,8 @@ export default function Cart() {
   const total = parseFloat((cartSubtotal + taxAmount).toFixed(2));
 
   const handlePlaceOrder = async () => {
+    if (isSubmittingRef.current || loading) return;
+
     if (!session?.table?.id) {
       setError('No active table session found. Please scan a table QR code to place an order.');
       return;
@@ -53,12 +56,14 @@ export default function Cart() {
       return;
     }
 
+    isSubmittingRef.current = true;
     setError('');
     setLoading(true);
 
     try {
       const trimmedName = name.trim();
       const trimmedPhone = phone.trim();
+      const idempotencyKey = 'ord_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
 
       const body = {
         tableId: session.table.id,
@@ -70,12 +75,17 @@ export default function Cart() {
           size: i.size || undefined
         })),
         specialInstructions: specialInstructions.trim() || undefined,
-        orderId: latestLiveOrder?.id || undefined
+        orderId: latestLiveOrder?.id || undefined,
+        idempotencyKey
       };
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/public/orders`, {
         method: 'POST',
-        headers: getTenantHeaders(),
+        headers: {
+          ...getTenantHeaders(),
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey
+        },
         credentials: 'include',
         body: JSON.stringify(body)
       });
@@ -102,6 +112,7 @@ export default function Cart() {
       setError('Network connection error. Please check your internet and try again.');
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

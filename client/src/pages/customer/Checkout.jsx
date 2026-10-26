@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ArrowLeft, Loader2, CheckCircle, Plus, UtensilsCrossed } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRestaurant, getTenantHeaders } from '../../context/RestaurantContext';
@@ -10,6 +10,7 @@ export default function Checkout() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [error, setError] = useState('');
 
   const taxPercent = session?.restaurant?.taxPercent || 0;
@@ -32,20 +33,29 @@ export default function Checkout() {
   }
 
   const handlePlaceOrder = async () => {
+    if (isSubmittingRef.current || loading) return;
+
+    isSubmittingRef.current = true;
     setError('');
     setLoading(true);
     try {
+      const idempotencyKey = 'ord_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
       const body = {
         tableId: session.table.id,
         customerName: name.trim() || 'Guest',
         customerPhone: phone.trim() || undefined,
         items: cart.map(i => ({ menuItemId: i.menuItemId, quantity: i.quantity, size: i.size || undefined })),
-        orderId: latestLiveOrder?.id || undefined
+        orderId: latestLiveOrder?.id || undefined,
+        idempotencyKey
       };
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/public/orders`, {
         method: 'POST',
-        headers: getTenantHeaders(),
+        headers: {
+          ...getTenantHeaders(),
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey
+        },
         body: JSON.stringify(body)
       });
       const data = await res.json();
@@ -64,6 +74,7 @@ export default function Checkout() {
       setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

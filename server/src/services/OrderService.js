@@ -1,5 +1,5 @@
 const { db, schema } = require('../db/client');
-const { eq, and, sql, isNull } = require('drizzle-orm');
+const { eq, and, sql, isNull, desc } = require('drizzle-orm');
 const { restaurants, tables, menu_categories_items, order_details, customer_orders, order_items, leads } = schema;
 const { logAudit } = require('./AuditService');
 
@@ -179,6 +179,49 @@ class OrderService {
 
       let visit;
       if (existingVisit) {
+        // Guard: check if an identical order was created on this visit within the last 5 seconds
+        const recentOrders = await tx.select().from(customer_orders).where(
+          and(
+            eq(customer_orders.visit_id, existingVisit.id),
+            eq(customer_orders.restaurant_id, restaurant_id),
+            sql`${customer_orders.createdat} >= NOW() - INTERVAL '5 seconds'`,
+            eq(customer_orders.subtotal, totalAmount.toFixed(2))
+          )
+        ).orderBy(desc(customer_orders.createdat)).limit(3);
+
+        for (const ro of recentOrders) {
+          const roItems = await tx.select().from(order_items).where(
+            eq(order_items.order_id, ro.id)
+          );
+          if (roItems.length === validatedItems.length) {
+            const allMatch = validatedItems.every(vi =>
+              roItems.some(ri => ri.menu_item_id === vi.menu_item_id && ri.quantity === vi.quantity)
+            );
+            if (allMatch) {
+              console.log(`[OrderService] Suppressed duplicate rapid order creation for table ${table_id} on visit ${existingVisit.id}`);
+              return {
+                order: {
+                  ...ro,
+                  id: ro.id,
+                  visitId: existingVisit.id,
+                  total_amount: existingVisit.total_amount,
+                  final_amount: existingVisit.final_amount,
+                  tax_amount: existingVisit.tax_amount || '0.00',
+                  discount_amount: existingVisit.discount_amount || '0.00',
+                  table_id: existingVisit.table_id || table_id,
+                  customer_name: existingVisit.customer_name,
+                  customer_phone: existingVisit.customer_phone,
+                  assigned_waiter_id: existingVisit.assigned_waiter_id,
+                  app_status: existingVisit.app_status || 'PENDING'
+                },
+                visit: existingVisit,
+                items: roItems,
+                duplicate: true
+              };
+            }
+          }
+        }
+
         const newTotalAmount = (parseFloat(existingVisit.total_amount || 0) + totalAmount).toFixed(2);
         const newFinalAmount = (parseFloat(existingVisit.final_amount || 0) + totalAmount).toFixed(2);
 
@@ -609,6 +652,36 @@ class OrderService {
           customizations: item.customizations || '',
           item_status: 'PENDING'
         });
+      }
+
+      // Guard: check if an identical order was created on this visit within the last 5 seconds
+      const recentOrders = await tx.select().from(customer_orders).where(
+        and(
+          eq(customer_orders.visit_id, visit.id),
+          eq(customer_orders.restaurant_id, restaurantId),
+          sql`${customer_orders.createdat} >= NOW() - INTERVAL '5 seconds'`,
+          eq(customer_orders.subtotal, subtotalAmount.toFixed(2))
+        )
+      ).orderBy(desc(customer_orders.createdat)).limit(3);
+
+      for (const ro of recentOrders) {
+        const roItems = await tx.select().from(order_items).where(
+          eq(order_items.order_id, ro.id)
+        );
+        if (roItems.length === validatedItems.length) {
+          const allMatch = validatedItems.every(vi =>
+            roItems.some(ri => ri.menu_item_id === vi.menu_item_id && ri.quantity === vi.quantity)
+          );
+          if (allMatch) {
+            console.log(`[OrderService] Suppressed duplicate rapid order submission on visit ${visit.id} (returning order ${ro.id})`);
+            return {
+              order: ro,
+              items: roItems,
+              visit,
+              duplicate: true
+            };
+          }
+        }
       }
 
       // 4. Create separate customer_orders record

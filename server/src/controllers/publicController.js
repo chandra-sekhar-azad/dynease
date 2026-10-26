@@ -666,13 +666,15 @@ exports.createOrder = async (req, res, next) => {
         createdAt: order.createdat
       };
 
-      RealtimeService.orderCreated({
-        restaurantId: currentRestaurantId,
-        order: formattedOrder,
-        orderId: order.id,
-        tableId: table.id,
-        waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
-      });
+      if (!result.duplicate) {
+        RealtimeService.orderCreated({
+          restaurantId: currentRestaurantId,
+          order: formattedOrder,
+          orderId: order.id,
+          tableId: table.id,
+          waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
+        });
+      }
 
       return res.status(201).json({
         success: true,
@@ -753,13 +755,15 @@ exports.createOrder = async (req, res, next) => {
         createdAt: order.createdat
       };
 
-      RealtimeService.orderCreated({
-        restaurantId,
-        order: formattedOrder,
-        orderId: order.id,
-        tableId: table.id,
-        waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
-      });
+      if (!result.duplicate) {
+        RealtimeService.orderCreated({
+          restaurantId,
+          order: formattedOrder,
+          orderId: order.id,
+          tableId: table.id,
+          waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
+        });
+      }
 
       return res.status(201).json({
         success: true,
@@ -827,13 +831,15 @@ exports.createOrder = async (req, res, next) => {
       createdAt: order.createdat || order.date
     };
 
-    RealtimeService.orderCreated({
-      restaurantId,
-      order: formattedOrder,
-      orderId: order.id,
-      tableId: table.id,
-      waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
-    });
+    if (!result.duplicate) {
+      RealtimeService.orderCreated({
+        restaurantId,
+        order: formattedOrder,
+        orderId: order.id,
+        tableId: table.id,
+        waiterId: assignedWaiterId ? assignedWaiterId.toString() : null
+      });
+    }
 
     res.status(201).json({
       success: true,
