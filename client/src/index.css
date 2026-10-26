@@ -74,17 +74,52 @@ a, button {
   -webkit-transform: rotateY(180deg);
 }
 
-/* Hide scrollbar utility */
+/* ───────────────────────────────────────────────────────────── */
+/* Universal Small & Tiny Scrollbar                              */
+/* ───────────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.45) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.38);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.65);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Hide scrollbar utility (overrides universal scrollbar when needed) */
 .no-scrollbar::-webkit-scrollbar,
 .scrollbar-none::-webkit-scrollbar,
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
+
 .no-scrollbar,
 .scrollbar-none,
 .scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
+
 
 
