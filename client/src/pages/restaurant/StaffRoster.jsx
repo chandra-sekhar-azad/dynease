@@ -188,11 +188,20 @@ export default function StaffRoster() {
   const saveRoster = async (staffId, changes) => {
     const key = `${staffId}|${selectedDate}`;
     const existing = rosterMap.get(key);
+    const shiftChanged = changes.shiftId !== undefined;
+    const nextShiftId = shiftChanged ? changes.shiftId || null : existing?.shiftId || null;
+    // Selecting a shift means the staff member is working that day. Status only
+    // changes to Holiday/Leave when the owner explicitly selects it.
+    const nextShiftType = changes.shiftType !== undefined
+      ? changes.shiftType
+      : shiftChanged && nextShiftId
+        ? 'WORKING'
+        : existing?.shiftType || 'WORKING';
     const payload = {
       userId: staffId,
       date: selectedDate,
-      shiftId: changes.shiftId !== undefined ? changes.shiftId || null : existing?.shiftId || null,
-      shiftType: changes.shiftType !== undefined ? changes.shiftType : existing?.shiftType || 'WORKING',
+      shiftId: nextShiftId,
+      shiftType: nextShiftType,
     };
     setSavingKey(key);
     try {
@@ -526,13 +535,16 @@ export default function StaffRoster() {
                       </td>
                       <td className="py-3 px-5">
                         <select
-                          value={entry?.shiftType || 'WORKING'}
+                          value={entry?.shiftType || ''}
                           onChange={(e) => saveRoster(member._id, { shiftType: e.target.value })}
                           disabled={isSaving}
                           className={`border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-60 ${
-                            SHIFT_TYPE_STYLES[entry?.shiftType || 'WORKING']
+                            entry?.shiftType
+                              ? SHIFT_TYPE_STYLES[entry.shiftType]
+                              : 'bg-gray-50 text-gray-500 border-gray-200'
                           }`}
                         >
+                          <option value="" disabled>Not set</option>
                           {SHIFT_TYPES.map((t) => (
                             <option key={t} value={t}>
                               {t.charAt(0) + t.slice(1).toLowerCase()}
