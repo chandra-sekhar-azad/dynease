@@ -85,7 +85,8 @@ export default function WaiterAssignment() {
       });
       const data = await res.json();
       if (data.success) {
-        setTables(prev => prev.map(t => t._id === tableId ? data.data.table : t));
+        const updatedTbl = data.data.table;
+        setTables(prev => prev.map(t => ((t._id || t.id) === tableId ? { ...t, ...updatedTbl } : t)));
         fetchAllData(); // Refresh history & workload
         toast.success('Table assigned successfully!');
       } else {
@@ -196,9 +197,13 @@ export default function WaiterAssignment() {
             {tables.map(table => {
               const primaryWaiter = table.primaryWaiterId;
               const isAssigned = !!primaryWaiter;
+              const waiterObj = typeof primaryWaiter === 'object' && primaryWaiter !== null 
+                ? primaryWaiter 
+                : waiters.find(w => (w._id || w.id) === primaryWaiter);
+              const waiterVal = waiterObj?._id || waiterObj?.id || (typeof primaryWaiter === 'string' ? primaryWaiter : '');
 
               return (
-                <div key={table._id} className="border border-gray-200 hover:border-green-300 rounded-2xl p-5 shadow-sm transition-all bg-white flex flex-col justify-between">
+                <div key={table._id || table.id} className="border border-gray-200 hover:border-green-300 rounded-2xl p-5 shadow-sm transition-all bg-white flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -216,16 +221,16 @@ export default function WaiterAssignment() {
                       <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
                         Primary Assigned Waiter
                       </span>
-                      {isAssigned ? (
+                      {isAssigned && waiterObj ? (
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
                             <UserCheck size={16} className="text-green-600" />
-                            {primaryWaiter.name}
+                            {waiterObj.name || 'Assigned Waiter'}
                           </span>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            primaryWaiter.shiftStatus === 'ON_SHIFT' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            waiterObj.shiftStatus === 'ON_SHIFT' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                           }`}>
-                            {primaryWaiter.shiftStatus === 'ON_SHIFT' ? 'On Duty' : 'Off Duty'}
+                            {waiterObj.shiftStatus === 'ON_SHIFT' ? 'On Duty' : 'Off Duty'}
                           </span>
                         </div>
                       ) : (
@@ -241,14 +246,14 @@ export default function WaiterAssignment() {
                       Assign / Change Primary Waiter:
                     </label>
                     <select
-                      value={primaryWaiter?._id || ''}
-                      onChange={(e) => handleAssignTable(table._id, e.target.value)}
+                      value={waiterVal}
+                      onChange={(e) => handleAssignTable(table._id || table.id, e.target.value)}
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none"
                     >
                       <option value="">-- No Waiter Assigned --</option>
                       {waiters.map(w => (
-                        <option key={w._id} value={w._id}>
-                          {w.name} ({w.shiftStatus === 'ON_SHIFT' ? 'On Duty' : 'Off Duty'} · {w.totalWorkload}/{w.workloadCapacity} orders)
+                        <option key={w._id || w.id} value={w._id || w.id}>
+                          {w.name} ({w.shiftStatus === 'ON_SHIFT' ? 'On Duty' : 'Off Duty'} · {w.totalWorkload || 0}/{w.workloadCapacity || 5} orders)
                         </option>
                       ))}
                     </select>

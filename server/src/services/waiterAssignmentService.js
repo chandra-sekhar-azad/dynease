@@ -16,6 +16,7 @@ const { restaurants, tables, tables_assignment, users, order_details, customer_o
 const { service_requests, assignment_events } = require('../db/schema/compat');
 const { logAudit } = require('./AuditService');
 const RealtimeService = require('./RealtimeService');
+const { isUuid } = require('../utils/tenant');
 
 // In-memory presence & availability cache (waiterId -> presence object)
 const waiterPresenceCache = new Map();
@@ -888,7 +889,7 @@ class WaiterAssignmentService {
    * 5. Table-Level Assignment (Manager or System assigns primary waiter to a table)
    */
   static async assignTableWaiter(restaurantId, tableId, staffId, actorId, options = {}) {
-    const { allowOffDutyOverride = false, reason = 'Manager assigned waiter' } = options;
+    const { allowOffDutyOverride = true, reason = 'Manager assigned waiter' } = options;
 
     return await db.transaction(async (tx) => {
       let staff = null;
@@ -908,7 +909,7 @@ class WaiterAssignmentService {
         staff = foundStaff;
 
         if (!allowOffDutyOverride) {
-          const presence = this.getWaiterPresence(staffId);
+          const presence = await this.getOrRestoreWaiterPresence(staffId, restaurantId);
           if (presence.shiftStatus !== 'ON_SHIFT' && presence.availabilityStatus === 'OFF_SHIFT') {
             throw new Error(`Cannot assign off-duty waiter (${staff.name}) without explicit override.`);
           }
@@ -945,7 +946,7 @@ class WaiterAssignmentService {
           table_id: tableId,
           staff_id: staffId,
           assignment_type: options.assignmentType || 'MANUAL',
-          assigned_by: actorId,
+          assigned_by: isUuid(actorId) ? actorId : null,
           assignment_status: 'ASSIGNED',
           assigned_at: new Date()
         }).returning();
@@ -980,7 +981,7 @@ class WaiterAssignmentService {
 
       await logAudit({
         restaurant_id: restaurantId,
-        user_id: actorId,
+        user_id: isUuid(actorId) ? actorId : null,
         action: staffId ? (previousWaiterId ? 'TABLE_REASSIGNED' : 'TABLE_ASSIGNED_MANUAL') : 'TABLE_ASSIGNMENT_RELEASED',
         entity_type: 'TABLE_ASSIGNMENT',
         entity_id: newAssignment ? newAssignment.id : tableId,

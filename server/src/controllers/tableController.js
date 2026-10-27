@@ -3,6 +3,7 @@ const { db, schema } = require('../db/client');
 const { eq, and, sql, desc } = require('drizzle-orm');
 const { tables, tables_assignment, users, restaurants, table_session, order_details } = schema;
 const TableAssignmentService = require('../services/TableAssignmentService');
+const WaiterAssignmentService = require('../services/waiterAssignmentService');
 const SubscriptionService = require('../services/SubscriptionService');
 
 exports.getTables = async (req, res, next) => {
@@ -22,7 +23,7 @@ exports.getTables = async (req, res, next) => {
         eq(tables_assignment.restaurant_id, restaurantId),
         eq(tables_assignment.assignment_status, 'ASSIGNED')
       )
-    );
+    ).orderBy(desc(tables_assignment.assigned_at));
 
     // Fetch occupied tables: active table_session OR active order_details
     const activeSessions = await db.select({ table_id: table_session.table_id }).from(table_session).where(
@@ -52,22 +53,25 @@ exports.getTables = async (req, res, next) => {
     );
     const staffMap = new Map();
     for (const s of staffRows) {
+      const presence = await WaiterAssignmentService.getOrRestoreWaiterPresence(s.id, restaurantId);
       staffMap.set(s.id, {
         _id: s.id,
         id: s.id,
         name: s.name,
         email: s.email,
         phone: s.phone_number,
-        shiftStatus: 'ON_SHIFT',
-        availabilityStatus: s.user_status === 'ACTIVE' ? 'AVAILABLE' : 'OFFLINE',
-        acceptingOrders: s.user_status === 'ACTIVE',
-        workloadCapacity: 5
+        shiftStatus: presence.shiftStatus,
+        availabilityStatus: presence.availabilityStatus,
+        acceptingOrders: presence.acceptingOrders,
+        workloadCapacity: presence.workloadCapacity || 5
       });
     }
 
     const assignmentMap = new Map();
     for (const a of assignments) {
-      assignmentMap.set(a.table_id, staffMap.get(a.staff_id) || null);
+      if (!assignmentMap.has(a.table_id)) {
+        assignmentMap.set(a.table_id, staffMap.get(a.staff_id) || null);
+      }
     }
 
     const domain = req.tenantRegistry?.subdomain || 'app';
@@ -236,13 +240,33 @@ exports.createTable = async (req, res, next) => {
       is_deleted: false
     }).returning();
 
+    let primaryWaiterObj = null;
     if (primaryWaiterId) {
       await TableAssignmentService.assignWaiterManually({
         restaurantId,
         tableId: newTable.id,
         staffId: primaryWaiterId,
-        actorId: req.user.id
-      }).catch((err) => console.warn('[CreateTable] Assignment warning:', err.message));
+        actorId: req.user.id,
+        options: { allowOffDutyOverride: true }
+      });
+
+      const [staff] = await db.select().from(users).where(
+        and(eq(users.id, primaryWaiterId), eq(users.restaurant_id, restaurantId))
+      ).limit(1);
+      if (staff) {
+        const presence = await WaiterAssignmentService.getOrRestoreWaiterPresence(staff.id, restaurantId);
+        primaryWaiterObj = {
+          _id: staff.id,
+          id: staff.id,
+          name: staff.name,
+          email: staff.email,
+          phone: staff.phone_number,
+          shiftStatus: presence.shiftStatus,
+          availabilityStatus: presence.availabilityStatus,
+          acceptingOrders: presence.acceptingOrders,
+          workloadCapacity: presence.workloadCapacity || 5
+        };
+      }
     }
 
     const formattedTable = {
@@ -253,9 +277,9 @@ exports.createTable = async (req, res, next) => {
       tableName: `Table ${newTable.table_code}`,
       capacity: capacity || 4,
       section: section || 'Main Area',
-      primaryWaiterId: primaryWaiterId || null,
+      primaryWaiterId: primaryWaiterObj,
       assignmentMode: assignmentMode || 'HYBRID',
-      assignmentStatus: primaryWaiterId ? 'ASSIGNED' : 'UNASSIGNED',
+      assignmentStatus: primaryWaiterObj ? 'ASSIGNED' : 'UNASSIGNED',
       status: newTable.table_status,
       qrToken: newTable.qr_token,
       qrCodeUrl: `${baseUrl}/menu/${newTable.qr_token}`
@@ -291,20 +315,61 @@ exports.updateTable = async (req, res, next) => {
 
     const [updatedTable] = await db.update(tables).set(updateData).where(eq(tables.id, tableId)).returning();
 
+    let primaryWaiterObj = null;
     if (primaryWaiterId !== undefined) {
       if (primaryWaiterId) {
         await TableAssignmentService.assignWaiterManually({
           restaurantId,
           tableId,
           staffId: primaryWaiterId,
-          actorId: req.user.id
-        }).catch((err) => console.warn('[UpdateTable] Assignment warning:', err.message));
+          actorId: req.user.id,
+          options: { allowOffDutyOverride: true }
+        });
+
+        const [staff] = await db.select().from(users).where(
+          and(eq(users.id, primaryWaiterId), eq(users.restaurant_id, restaurantId))
+        ).limit(1);
+        if (staff) {
+          const presence = await WaiterAssignmentService.getOrRestoreWaiterPresence(staff.id, restaurantId);
+          primaryWaiterObj = {
+            _id: staff.id,
+            id: staff.id,
+            name: staff.name,
+            email: staff.email,
+            phone: staff.phone_number,
+            shiftStatus: presence.shiftStatus,
+            availabilityStatus: presence.availabilityStatus,
+            acceptingOrders: presence.acceptingOrders,
+            workloadCapacity: presence.workloadCapacity || 5
+          };
+        }
       } else {
         await TableAssignmentService.releaseAssignment({
           restaurantId,
           tableId,
           actorId: req.user.id
-        }).catch((err) => console.warn('[UpdateTable] Release warning:', err.message));
+        });
+      }
+    } else {
+      const [currAsgn] = await db.select().from(tables_assignment).where(
+        and(eq(tables_assignment.table_id, tableId), eq(tables_assignment.assignment_status, 'ASSIGNED'))
+      ).orderBy(desc(tables_assignment.assigned_at)).limit(1);
+      if (currAsgn) {
+        const [staff] = await db.select().from(users).where(eq(users.id, currAsgn.staff_id)).limit(1);
+        if (staff) {
+          const presence = await WaiterAssignmentService.getOrRestoreWaiterPresence(staff.id, restaurantId);
+          primaryWaiterObj = {
+            _id: staff.id,
+            id: staff.id,
+            name: staff.name,
+            email: staff.email,
+            phone: staff.phone_number,
+            shiftStatus: presence.shiftStatus,
+            availabilityStatus: presence.availabilityStatus,
+            acceptingOrders: presence.acceptingOrders,
+            workloadCapacity: presence.workloadCapacity || 5
+          };
+        }
       }
     }
 
@@ -322,7 +387,7 @@ exports.updateTable = async (req, res, next) => {
       status: updatedTable.table_status,
       qrToken: updatedTable.qr_token,
       qrCodeUrl: `${baseUrl}/menu/${updatedTable.qr_token}`,
-      primaryWaiterId: primaryWaiterId || null
+      primaryWaiterId: primaryWaiterObj
     };
 
     const io = req.app.get('io');

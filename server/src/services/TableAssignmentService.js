@@ -19,7 +19,7 @@ class TableAssignmentService {
       tableId,
       staffId,
       actorId,
-      { assignmentType: 'MANUAL', ...options }
+      { assignmentType: 'MANUAL', allowOffDutyOverride: true, ...options }
     );
   }
 
