@@ -6,9 +6,30 @@ const { restaurants, users, plans, ads, order_details, order_items, audit_log, p
 const RestaurantProvisioningService = require('../services/RestaurantProvisioningService');
 const LifecycleService = require('../services/LifecycleService');
 const whatsapp = require('../utils/whatsapp');
-const { getPublicPlans, getPlan } = require('../config/plans');
+const { getPublicPlans, getPlan, isAdsEnabledForPlan } = require('../config/plans');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const RealtimeService = require('../services/RealtimeService');
+const { resolveAdsVisibility, normalizeAdsOverride } = require('../utils/adsVisibility');
+const { clearAdsPolicyCache } = require('./publicController');
+
+/**
+ * Resolves the plan-level ads default for a restaurant row using the same
+ * precedence as SubscriptionService (plan override, then stored config).
+ */
+function resolvePlanShowAds(restaurantRow, planRow) {
+  const overridePlan = restaurantRow.is_plan_overridden && restaurantRow.overriden_plan
+    ? getPlan(restaurantRow.overriden_plan)
+    : null;
+  const basePlan = getPlan(planRow?.name) || getPlan(planRow?.configuration?.planId);
+  const planConfig = overridePlan || basePlan;
+  const features = {
+    ...(planConfig?.features || {}),
+    ...(!overridePlan ? (planRow?.configuration?.features || {}) : {})
+  };
+
+  if (features.showAds !== undefined) return features.showAds === true;
+  return isAdsEnabledForPlan(planConfig?.planId);
+}
 
 // ──────────────────────────────────────────
 //  RESTAURANT MANAGEMENT
@@ -147,6 +168,8 @@ exports.getAllRestaurants = async (req, res, next) => {
       const effectivePlanId = r.plan_id || defaultStarterId;
       const planObj = effectivePlanId ? planMap.get(effectivePlanId) : null;
       const planName = r.overriden_plan || (planObj ? planObj.name : 'Starter');
+      const planShowAds = resolvePlanShowAds(r, planObj);
+      const adsVisibility = resolveAdsVisibility(planShowAds, r.ads_enabled);
 
       const renewalReq = pendingPlanReqMap.get(r.id) || null;
 
@@ -176,6 +199,11 @@ exports.getAllRestaurants = async (req, res, next) => {
         plan_id: effectivePlanId,
         is_plan_overridden: r.is_plan_overridden,
         overriden_plan: r.overriden_plan,
+        ads_enabled: r.ads_enabled ?? null,
+        adsEnabled: adsVisibility.adsEnabled,
+        adsEnabledOverride: adsVisibility.adsEnabledOverride,
+        adsEnabledSource: adsVisibility.adsEnabledSource,
+        planShowAds,
         table_allocation_mode: r.table_allocation_mode || 'MANUAL',
         allowAutoAssignment: r.table_allocation_mode === 'DYNAMIC',
         subscriptionStatus: (calculatedDaysRemaining <= 0 || r.restaurant_status === 'EXPIRED')
@@ -356,7 +384,8 @@ exports.updateRestaurantBilling = async (req, res, next) => {
       overriddenPlan, 
       note,
       subscriptionEndDate,
-      daysRemaining
+      daysRemaining,
+      adsEnabled
     } = req.body;
 
     const [existing] = await db.select().from(restaurants).where(
@@ -397,6 +426,10 @@ exports.updateRestaurantBilling = async (req, res, next) => {
 
     if (overriddenPlan !== undefined) {
       updateData.overriden_plan = overriddenPlan;
+    }
+
+    if (adsEnabled !== undefined) {
+      updateData.ads_enabled = normalizeAdsOverride(adsEnabled);
     }
 
     if (req.body.planId) {
@@ -443,6 +476,10 @@ exports.updateRestaurantBilling = async (req, res, next) => {
       });
     });
 
+    // The public banner policy is cached briefly; invalidate it so an admin
+    // ads toggle takes effect immediately.
+    clearAdsPolicyCache();
+
     const [updated] = await db.select().from(restaurants).where(eq(restaurants.id, id)).limit(1);
 
     const now = new Date();
@@ -459,7 +496,8 @@ exports.updateRestaurantBilling = async (req, res, next) => {
       plan_id: updated.plan_id,
       selectedPlan: (updated.overriden_plan || 'Starter').toUpperCase(),
       is_plan_overridden: updated.is_plan_overridden,
-      overriden_plan: updated.overriden_plan
+      overriden_plan: updated.overriden_plan,
+      adsEnabledOverride: updated.ads_enabled ?? null
     });
 
     res.status(200).json({
@@ -469,6 +507,7 @@ exports.updateRestaurantBilling = async (req, res, next) => {
         restaurant: {
           ...updated,
           selectedPlan: (updated.overriden_plan || 'Starter').toUpperCase(),
+          adsEnabledOverride: updated.ads_enabled ?? null,
           subscriptionStartDate: updated.subscription_start_date || updated.createdat,
           subscriptionEndDate: effectiveEndDate,
           daysRemaining: isSubActive ? calculatedDaysRemaining : 0
@@ -855,6 +894,8 @@ exports.updatePlan = async (req, res, next) => {
       details: updateData
     });
 
+    clearAdsPolicyCache();
+
     res.status(200).json({ success: true, message: 'Plan updated successfully', data: { plan } });
   } catch (error) {
     next(error);
@@ -980,6 +1021,8 @@ exports.approvePlanRequest = async (req, res, next) => {
         }
       });
     });
+
+    clearAdsPolicyCache();
 
     RealtimeService.adminEvent('plan_request_updated', {
       id,

@@ -1252,6 +1252,13 @@ exports.createServiceRequest = async (req, res, next) => {
 const ADS_POLICY_TTL_MS = 60 * 1000;
 const adsPolicyCache = new Map();
 
+// Admin changes to a restaurant's ads override should not wait for the TTL.
+function clearAdsPolicyCache() {
+  adsPolicyCache.clear();
+}
+
+exports.clearAdsPolicyCache = clearAdsPolicyCache;
+
 async function resolveAdsPolicy(req) {
   const registry = req.tenantRegistry || req.restaurant || null;
   const rawRestaurantId =

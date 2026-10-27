@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Clock, CheckCircle, Search, Filter } from 'lucide-react';
+import { Loader2, Clock, Search, X } from 'lucide-react';
 
 export default function Orders() {
   const navigate = useNavigate();
@@ -10,6 +10,9 @@ export default function Orders() {
   const [connected, setConnected] = useState(false);
   const [activeTab, setActiveTab] = useState('LIVE'); // 'LIVE' or 'PAST'
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [dateFilter, setDateFilter] = useState('');
+  const [tableFilter, setTableFilter] = useState('ALL');
   const [historyPolicy, setHistoryPolicy] = useState({ days: null, planName: null, loaded: false });
 
   const getHeaders = () => {
@@ -133,11 +136,52 @@ export default function Orders() {
     }
   };
 
+  const toDateKey = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const formatOrderDate = (value) => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const formatOrderTime = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   // Live orders are anything not COMPLETED or CANCELLED
   const liveOrders = orders.filter(o => !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status));
   const pastOrders = orders.filter(o => ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status));
 
-  const displayOrders = (activeTab === 'LIVE' ? liveOrders : pastOrders).filter(o => {
+  const getOrderTable = (order) => String(order.tableNumber || order.tableId?.tableNumber || 'Takeaway');
+
+  const tableOptions = Array.from(new Set(pastOrders.map(getOrderTable)))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+  const filteredPastOrders = pastOrders.filter(o => {
+    if (statusFilter !== 'ALL' && (o.status || '').toUpperCase() !== statusFilter) return false;
+    if (dateFilter && toDateKey(o.createdAt) !== dateFilter) return false;
+    if (tableFilter !== 'ALL' && getOrderTable(o) !== tableFilter) return false;
+    return true;
+  });
+
+  const hasPastFilters = statusFilter !== 'ALL' || dateFilter !== '' || tableFilter !== 'ALL';
+
+  const clearPastFilters = () => {
+    setStatusFilter('ALL');
+    setDateFilter('');
+    setTableFilter('ALL');
+  };
+
+  const displayOrders = (activeTab === 'LIVE' ? liveOrders : filteredPastOrders).filter(o => {
     const searchString = `${o.orderNumber || ''} ${o.tableNumber || ''} ${o.assignedWaiter?.name || o.waiterName || ''} ${o.customerName || ''} ${o.customerPhone || ''}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
@@ -192,6 +236,71 @@ export default function Orders() {
         </div>
 
         <div className="p-3 sm:p-6">
+          {activeTab === 'PAST' && (
+            <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50/60 p-3 sm:p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label htmlFor="past-status-filter" className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                    Status
+                  </label>
+                  <select
+                    id="past-status-filter"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="PAID">Paid</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="past-date-filter" className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                    Date
+                  </label>
+                  <input
+                    id="past-date-filter"
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="past-table-filter" className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                    Table
+                  </label>
+                  <select
+                    id="past-table-filter"
+                    value={tableFilter}
+                    onChange={(e) => setTableFilter(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="ALL">All Tables</option>
+                    {tableOptions.map((table) => (
+                      <option key={table} value={table}>
+                        {table === 'Takeaway' ? 'Takeaway' : `Table ${table}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-gray-500">
+                  Showing <span className="font-semibold text-gray-700">{displayOrders.length}</span> of {pastOrders.length} past orders
+                </p>
+                <button
+                  type="button"
+                  onClick={clearPastFilters}
+                  disabled={!hasPastFilters}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <X size={14} /> Clear filters
+                </button>
+              </div>
+            </div>
+          )}
           {activeTab === 'PAST' && historyPolicy.loaded && (
             <div className="mb-4 flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-xs text-emerald-900">
               <Clock size={16} className="mt-0.5 shrink-0 text-emerald-600" />
@@ -209,7 +318,20 @@ export default function Orders() {
           ) : displayOrders.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
               <Clock size={48} className="mx-auto mb-4 opacity-50" />
-              <p>No orders found for the selected category.</p>
+              <p>
+                {activeTab === 'PAST' && hasPastFilters
+                  ? 'No past orders match the selected filters.'
+                  : 'No orders found for the selected category.'}
+              </p>
+              {activeTab === 'PAST' && hasPastFilters && (
+                <button
+                  type="button"
+                  onClick={clearPastFilters}
+                  className="mt-4 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  <X size={14} /> Clear filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -222,7 +344,9 @@ export default function Orders() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Items</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                      {activeTab === 'PAST' ? 'Date' : 'Time'}
+                    </th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
@@ -261,9 +385,14 @@ export default function Orders() {
                         </span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {activeTab === 'PAST'
-                          ? new Date(order.createdAt).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-                          : new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {activeTab === 'PAST' ? (
+                          <div>
+                            <p className="font-medium text-gray-700">{formatOrderDate(order.createdAt)}</p>
+                            <p className="text-xs text-gray-400">{formatOrderTime(order.createdAt)}</p>
+                          </div>
+                        ) : (
+                          formatOrderTime(order.createdAt)
+                        )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-right">
                         {activeTab === 'LIVE' && (

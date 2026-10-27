@@ -45,6 +45,7 @@ export default function RestaurantsManagement() {
   const [editEndDate, setEditEndDate] = useState('');
   const [editPlan, setEditPlan] = useState('STARTER');
   const [editStatus, setEditStatus] = useState('ACTIVE');
+  const [editAdsMode, setEditAdsMode] = useState('DEFAULT'); // 'DEFAULT' | 'ENABLED' | 'DISABLED'
   const [editNote, setEditNote] = useState('');
   const [isSavingBilling, setIsSavingBilling] = useState(false);
 
@@ -438,6 +439,10 @@ export default function RestaurantsManagement() {
 
     setEditPlan(restaurant.selectedPlan || 'STARTER');
     setEditStatus(restaurant.subscriptionStatus || 'ACTIVE');
+    setEditAdsMode(
+      restaurant.adsEnabledOverride === true ? 'ENABLED' :
+      restaurant.adsEnabledOverride === false ? 'DISABLED' : 'DEFAULT'
+    );
     setEditNote('');
   };
 
@@ -482,6 +487,7 @@ export default function RestaurantsManagement() {
         isPlanOverridden: true,
         overriddenPlan: editPlan.toUpperCase(),
         subscriptionStatus: editStatus,
+        adsEnabled: editAdsMode === 'DEFAULT' ? null : editAdsMode === 'ENABLED',
         note: editNote || `Admin updated plan to ${editPlan} (${editDaysRemaining} days remaining)`
       };
 
@@ -581,6 +587,15 @@ export default function RestaurantsManagement() {
     { id: 'PRO', name: 'Pro / Custom', price: 'Enterprise', desc: 'Unlimited tables & staff' },
     { id: 'FREE', name: 'Free Trial', price: '₹0', desc: '14-day evaluation trial' }
   ];
+
+  const planShowsAdsByDefault = (planId) => {
+    const id = String(planId || '').toUpperCase();
+    return id !== 'PRO' && id !== 'CUSTOM';
+  };
+
+  const effectiveEditAds = editAdsMode === 'DEFAULT'
+    ? planShowsAdsByDefault(editPlan)
+    : editAdsMode === 'ENABLED';
 
   return (
     <div className="space-y-6">
@@ -1193,6 +1208,15 @@ export default function RestaurantsManagement() {
                             <AlertTriangle size={11} /> Request: {r.renewalRequest.plan}
                           </div>
                         )}
+                        <div className={`mt-1 inline-flex items-center gap-1 text-[10px] font-bold ${
+                          r.adsEnabled ? 'text-sky-700' : 'text-gray-500'
+                        }`}>
+                          {r.adsEnabled ? <Eye size={11} /> : <EyeOff size={11} />}
+                          <span>Ads {r.adsEnabled ? 'On' : 'Off'}</span>
+                          {r.adsEnabledSource === 'PLAN' && (
+                            <span className="text-gray-400 font-semibold">· Plan</span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-4">
@@ -1712,6 +1736,38 @@ export default function RestaurantsManagement() {
                   <option value="EXPIRED">EXPIRED</option>
                   <option value="SUSPENDED">SUSPENDED</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Ads Visibility</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'DEFAULT', label: 'Plan Default', hint: planShowsAdsByDefault(editPlan) ? 'Shown' : 'Hidden' },
+                    { id: 'ENABLED', label: 'Yes', hint: 'Always shown' },
+                    { id: 'DISABLED', label: 'No', hint: 'Always hidden' }
+                  ].map(opt => (
+                    <button
+                      type="button"
+                      key={opt.id}
+                      onClick={() => setEditAdsMode(opt.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        editAdsMode === opt.id
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-600/20'
+                          : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      <div className="text-xs font-black">{opt.label}</div>
+                      <div className="text-[10px] text-gray-500 font-semibold mt-0.5">{opt.hint}</div>
+                    </button>
+                  ))}
+                </div>
+                <p className={`mt-1.5 text-[11px] font-medium ${
+                  effectiveEditAds ? 'text-emerald-700' : 'text-gray-500'
+                }`}>
+                  {effectiveEditAds
+                    ? "Ads will be shown on this restaurant's customer menu."
+                    : "Ads will be hidden on this restaurant's customer menu."}
+                </p>
               </div>
 
               <div>

@@ -50,6 +50,13 @@
       "when": 1792865052927,
       "tag": "0006_careful_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793117588596,
+      "tag": "0007_restaurant_ads_visibility",
+      "breakpoints": true
     }
   ]
 }

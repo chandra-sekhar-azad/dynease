@@ -2,6 +2,7 @@ const { getPlan, PLANS, hasEntitlement, isAdsEnabledForPlan } = require('../conf
 const { db, schema } = require('../db/client');
 const { eq, and, sql, isNull } = require('drizzle-orm');
 const { restaurants, tables, menu_categories_items, users, plans, audit_log } = schema;
+const { resolveAdsVisibility } = require('../utils/adsVisibility');
 const crypto = require('crypto');
 
 class SubscriptionService {
@@ -65,9 +66,10 @@ class SubscriptionService {
       ...(planConfig.features || {}),
       ...(storedPlan?.configuration?.features || {})
     };
-    const showAds = planFeatures.showAds !== undefined
+    const planShowAds = planFeatures.showAds !== undefined
       ? planFeatures.showAds === true
       : isAdsEnabledForPlan(planConfig.planId);
+    const adsVisibility = resolveAdsVisibility(planShowAds, restaurant.ads_enabled);
 
     const now = new Date();
     const subStartDate = restaurant.subscription_start_date || restaurant.createdat;
@@ -91,15 +93,19 @@ class SubscriptionService {
       pricePaise: planConfig.monthlyPricePaise || 0,
       limits: planLimits,
       features: planFeatures,
-      showAds
+      planShowAds,
+      adsEnabledOverride: adsVisibility.adsEnabledOverride,
+      adsEnabledSource: adsVisibility.adsEnabledSource,
+      showAds: adsVisibility.adsEnabled
     };
   }
 
   /**
    * Resolves whether platform ads/banners may be shown to customers of a
-   * restaurant. Custom/Enterprise plans are ad-free (showAds: false);
-   * Starter, Growth and Business are ad-supported.
-   * Unknown restaurants fail open to preserve existing banner behaviour.
+   * restaurant. A restaurant-level admin override wins over the plan default:
+   * Custom/Enterprise plans are ad-free by default, while Starter, Growth and
+   * Business are ad-supported. Unknown restaurants fail open to preserve
+   * existing banner behaviour.
    */
   async areAdsEnabledForRestaurant(restaurantId = null, subdomain = null) {
     try {

@@ -36,6 +36,8 @@ const restaurants = pgTable(
       .notNull()
       .default(false),
     overriden_plan: varchar('overriden_plan', { length: 100 }),
+    // null = follow the plan's showAds entitlement; true/false = restaurant override
+    ads_enabled: boolean('ads_enabled'),
     domain: varchar('domain', { length: 255 }).notNull(),
     table_allocation_mode: tableAllocationModeEnum('table_allocation_mode')
       .notNull()
