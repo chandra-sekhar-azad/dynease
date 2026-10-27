@@ -1,179 +1,796 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-
-const MENU_ITEMS = [
-  { id: '1', name: 'Margherita Pizza', price: 12.99, category: 'Mains' },
-  { id: '2', name: 'Pepperoni Pizza', price: 14.99, category: 'Mains' },
-  { id: '3', name: 'Caesar Salad', price: 8.99, category: 'Starters' },
-  { id: '4', name: 'Garlic Bread', price: 4.99, category: 'Starters' },
-  { id: '5', name: 'Coca Cola', price: 2.99, category: 'Drinks' },
-  { id: '6', name: 'Lemonade', price: 3.49, category: 'Drinks' },
-];
+import { Ionicons } from '@expo/vector-icons';
+import apiClient from '../../api/client';
 
 export default function NewOrderScreen() {
   const router = useRouter();
-  const [cart, setCart] = useState<{id: string, name: string, price: number, quantity: number}[]>([]);
-  const [activeCategory, setActiveCategory] = useState('Mains');
+  const [tables, setTables] = useState<any[]>([]);
+  const [selectedTable, setSelectedTable] = useState<any | null>(null);
+  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [categories, setCategories] = useState<string[]>(['ALL']);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [cart, setCart] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [activeVisitsMap, setActiveVisitsMap] = useState<Record<string, string>>({});
 
-  const categories = ['Starters', 'Mains', 'Drinks'];
-  const filteredMenu = MENU_ITEMS.filter(item => item.category === activeCategory);
+  const loadData = useCallback(async () => {
+    try {
+      const [tablesRes, menuRes, ordersRes] = await Promise.all([
+        apiClient.get('/restaurant/tables').catch(() => ({ data: { success: false, data: { tables: [] } } })),
+        apiClient.get('/restaurant/menu').catch(() => ({ data: { success: false, data: { menuItems: [] } } })),
+        apiClient.get('/restaurant/orders').catch(() => ({ data: { success: false, data: { orders: [] } } })),
+      ]);
 
-  const addToCart = (item: any) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.id === item.id);
-      if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      // Process Tables
+      if (tablesRes.data?.success && tablesRes.data.data?.tables) {
+        const rawTables = tablesRes.data.data.tables.filter((t: any) => !t.is_deleted);
+        setTables(rawTables);
+        if (rawTables.length > 0 && !selectedTable) {
+          setSelectedTable(rawTables[0]);
+        }
       }
-      return [...prev, { ...item, quantity: 1 }];
+
+      // Process Active Orders to know which tables have active visits
+      if (ordersRes.data?.success && ordersRes.data.data?.orders) {
+        const active = ordersRes.data.data.orders.filter((o: any) =>
+          !['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status)
+        );
+        const map: Record<string, string> = {};
+        active.forEach((o: any) => {
+          if (o.tableId) map[o.tableId] = o.id || o._id;
+        });
+        setActiveVisitsMap(map);
+      }
+
+      // Process Menu Items
+      if (menuRes.data?.success) {
+        const rawItems = menuRes.data.data?.menuItems || menuRes.data.data?.items || [];
+        const available = rawItems.filter((i: any) => i.isAvailable !== false && i.menuItemStatus !== 'UNAVAILABLE');
+        setMenuItems(available);
+
+        // Derive categories
+        const catSet = new Set<string>();
+        available.forEach((item: any) => {
+          const cat = item.categoryName || item.category || item.category_name;
+          if (cat) catSet.add(cat);
+        });
+        setCategories(['ALL', ...Array.from(catSet)]);
+      }
+    } catch (err) {
+      console.error('[NewOrder] Load data error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedTable]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const addToCart = (item: any, selectedPortion?: any) => {
+    const sizeName = selectedPortion?.name || selectedPortion?.size || '';
+    const itemPrice = selectedPortion ? Number(selectedPortion.price) : Number(item.price || item.basePrice || 0);
+    const cartKey = `${item.id || item._id}-${sizeName}`;
+
+    setCart(prev => {
+      const idx = prev.findIndex(ci => ci.cartKey === cartKey);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx].quantity += 1;
+        return copy;
+      }
+      return [
+        ...prev,
+        {
+          cartKey,
+          menuItemId: item.id || item._id,
+          itemName: item.name || item.itemName,
+          size: sizeName,
+          price: itemPrice,
+          quantity: 1,
+        }
+      ];
     });
   };
 
-  const removeFromCart = (id: string) => {
+  const updateCartQty = (cartKey: string, delta: number) => {
     setCart(prev => {
-      const existing = prev.find(i => i.id === id);
-      if (existing && existing.quantity > 1) {
-        return prev.map(i => i.id === id ? { ...i, quantity: i.quantity - 1 } : i);
-      }
-      return prev.filter(i => i.id !== id);
+      return prev
+        .map(ci => {
+          if (ci.cartKey === cartKey) {
+            const nextQty = ci.quantity + delta;
+            return nextQty > 0 ? { ...ci, quantity: nextQty } : null;
+          }
+          return ci;
+        })
+        .filter(Boolean);
     });
   };
 
-  const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const filteredMenuItems = menuItems.filter(item => {
+    const cat = item.categoryName || item.category || item.category_name || '';
+    if (selectedCategory !== 'ALL' && cat !== selectedCategory) return false;
+
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const nameMatch = (item.name || item.itemName || '').toLowerCase().includes(q);
+    const descMatch = (item.description || '').toLowerCase().includes(q);
+    return nameMatch || descMatch;
+  });
+
+  const handlePlaceOrder = async () => {
+    if (!selectedTable) {
+      Alert.alert('Table Required', 'Please select a table to place an order.');
+      return;
+    }
+    if (cart.length === 0) {
+      Alert.alert('Empty Order', 'Please select at least one dish from the menu.');
+      return;
+    }
+
+    const tableId = selectedTable.id || selectedTable._id;
+    const tableCode = selectedTable.table_code || selectedTable.tableCode || selectedTable.table_number || 'Table';
+    const activeVisitId = activeVisitsMap[tableId];
+
+    setIsSubmitting(true);
+    try {
+      if (activeVisitId) {
+        // Add items to existing active visit
+        const payloadItems = cart.map(item => ({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          size: item.size || ''
+        }));
+        const res = await apiClient.post(`/restaurant/orders/${activeVisitId}/items`, {
+          items: payloadItems
+        });
+        if (res.data?.success) {
+          Alert.alert(
+            '✓ Items Added!',
+            `Added ${totalItemsCount} dish(es) to active Table ${tableCode} order.`,
+            [{ text: 'OK', onPress: () => router.replace('/(waiter)') }]
+          );
+          setCart([]);
+        } else {
+          Alert.alert('Order Error', res.data?.message || 'Failed to add items to table.');
+        }
+      } else {
+        // Fresh order creation
+        const payloadItems = cart.map(item => ({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          size: item.size || ''
+        }));
+        const res = await apiClient.post('/public/orders', {
+          tableId,
+          customerName: 'Dine-in Guest',
+          items: payloadItems
+        });
+
+        if (res.data?.success) {
+          Alert.alert(
+            '✓ Order Placed!',
+            `Order created successfully for Table ${tableCode}.`,
+            [{ text: 'View Live Orders', onPress: () => router.replace('/(waiter)') }]
+          );
+          setCart([]);
+        } else {
+          Alert.alert('Order Error', res.data?.message || 'Failed to place order.');
+        }
+      }
+    } catch (err: any) {
+      console.error('[NewOrder] Placement error:', err);
+      Alert.alert('Order Failed', err.response?.data?.message || 'Network error while placing order.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>New Order (Table 2)</Text>
-        <View style={{ width: 50 }} />
-      </View>
-
-      <View style={styles.content}>
-        {/* Menu Section */}
-        <View style={styles.menuSection}>
-          <View style={styles.categoryTabs}>
-            {categories.map(cat => (
-              <TouchableOpacity 
-                key={cat} 
-                style={[styles.tab, activeCategory === cat && styles.activeTab]}
-                onPress={() => setActiveCategory(cat)}
-              >
-                <Text style={[styles.tabText, activeCategory === cat && styles.activeTabText]}>{cat}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          <FlatList 
-            data={filteredMenu}
-            keyExtractor={item => item.id}
-            numColumns={2}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.menuItem} onPress={() => addToCart(item)}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
-                <View style={styles.addButton}><Text style={styles.addText}>+</Text></View>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-
-        {/* Cart Section */}
-        <View style={styles.cartSection}>
-          <Text style={styles.cartTitle}>Current Order</Text>
-          <ScrollView style={styles.cartList}>
-            {cart.length === 0 ? (
-              <Text style={styles.emptyCart}>No items added yet</Text>
-            ) : (
-              cart.map(item => (
-                <View key={item.id} style={styles.cartItem}>
-                  <View style={styles.cartItemInfo}>
-                    <Text style={styles.cartItemName}>{item.name}</Text>
-                    <Text style={styles.cartItemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.quantityControls}>
-                    <TouchableOpacity style={styles.qtyBtn} onPress={() => removeFromCart(item.id)}>
-                      <Text style={styles.qtyBtnText}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.qtyText}>{item.quantity}</Text>
-                    <TouchableOpacity style={styles.qtyBtn} onPress={() => addToCart(item)}>
-                      <Text style={styles.qtyBtnText}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            )}
-          </ScrollView>
-
-          <View style={styles.checkoutFooter}>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalValue}>${totalAmount.toFixed(2)}</Text>
+      {/* Table Selector Strip */}
+      <View style={styles.tableStrip}>
+        <View style={styles.tableStripHeader}>
+          <Text style={styles.tableStripTitle}>Select Table</Text>
+          {selectedTable ? (
+            <View style={styles.selectedTableBadge}>
+              <Text style={styles.selectedTableBadgeText}>
+                Active: Table {selectedTable.table_code || selectedTable.tableCode || selectedTable.table_number}
+              </Text>
             </View>
-            <TouchableOpacity 
-              style={[styles.submitButton, cart.length === 0 && styles.disabledButton]}
-              disabled={cart.length === 0}
-              onPress={() => {
-                alert('Order Sent to Kitchen!');
-                router.back();
-              }}
-            >
-              <Text style={styles.submitButtonText}>Send to Kitchen</Text>
-            </TouchableOpacity>
-          </View>
+          ) : null}
         </View>
+
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={tables}
+          keyExtractor={(item) => String(item.id || item._id)}
+          contentContainerStyle={styles.tableList}
+          renderItem={({ item }) => {
+            const isSelected = selectedTable && (selectedTable.id || selectedTable._id) === (item.id || item._id);
+            const tableId = item.id || item._id;
+            const hasVisit = !!activeVisitsMap[tableId];
+            const code = item.table_code || item.tableCode || item.table_number || 'T';
+
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.tableCard,
+                  isSelected ? styles.tableCardSelected : null,
+                  hasVisit ? styles.tableCardOccupied : null,
+                ]}
+                onPress={() => setSelectedTable(item)}
+              >
+                <View style={styles.tableCardRow}>
+                  <View style={[styles.statusDot, { backgroundColor: hasVisit ? '#f59e0b' : '#22c55e' }]} />
+                  <Text style={[styles.tableCodeText, isSelected ? styles.tableCodeTextSelected : null]}>
+                    T{code}
+                  </Text>
+                </View>
+                <Text style={[styles.tableSubText, isSelected ? styles.tableCodeTextSelected : null]}>
+                  {hasVisit ? 'Occupied' : 'Vacant'}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
       </View>
+
+      {/* Search & Categories Bar */}
+      <View style={styles.searchSection}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={18} color="#64748b" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search menu dishes..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#94a3b8"
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color="#94a3b8" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Categories horizontal scroll */}
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={categories}
+          keyExtractor={(item) => item}
+          contentContainerStyle={styles.categoriesList}
+          renderItem={({ item }) => {
+            const isSelected = selectedCategory === item;
+            return (
+              <TouchableOpacity
+                style={[styles.categoryChip, isSelected ? styles.categoryChipActive : null]}
+                onPress={() => setSelectedCategory(item)}
+              >
+                <Text style={[styles.categoryChipText, isSelected ? styles.categoryChipTextActive : null]}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
+
+      {/* Menu Items List */}
+      {loading ? (
+        <View style={styles.loaderCenter}>
+          <ActivityIndicator size="large" color="#16a34a" />
+          <Text style={styles.loadingText}>Loading restaurant menu...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredMenuItems}
+          keyExtractor={(item) => String(item.id || item._id)}
+          contentContainerStyle={styles.menuList}
+          renderItem={({ item }) => {
+            const portions = item.portions && Array.isArray(item.portions) && item.portions.length > 0 ? item.portions : null;
+            const basePrice = item.price || item.basePrice || (portions ? portions[0]?.price : 0);
+            const isVeg = item.isVegetarian || item.foodType === 'VEG';
+
+            return (
+              <View style={styles.menuCard}>
+                <View style={styles.menuCardTop}>
+                  <View style={styles.menuCardDetails}>
+                    <View style={styles.foodTypeBadge}>
+                      <View style={[styles.foodTypeInner, { backgroundColor: isVeg ? '#16a34a' : '#ef4444' }]} />
+                      <Text style={styles.menuItemName}>{item.name || item.itemName}</Text>
+                    </View>
+                    {item.description ? (
+                      <Text style={styles.menuItemDesc} numberOfLines={2}>
+                        {item.description}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.menuItemPrice}>₹{Number(basePrice || 0).toFixed(0)}</Text>
+                </View>
+
+                {/* Portions or Simple Add */}
+                {portions ? (
+                  <View style={styles.portionsContainer}>
+                    <Text style={styles.portionsLabel}>Select Size:</Text>
+                    <View style={styles.portionsRow}>
+                      {portions.map((p: any, idx: number) => {
+                        const portionCartKey = `${item.id || item._id}-${p.name || p.size || ''}`;
+                        const inCart = cart.find(ci => ci.cartKey === portionCartKey);
+
+                        return (
+                          <View key={idx} style={styles.portionButton}>
+                            <View>
+                              <Text style={styles.portionName}>{p.name || p.size}</Text>
+                              <Text style={styles.portionPrice}>₹{Number(p.price).toFixed(0)}</Text>
+                            </View>
+                            {inCart ? (
+                              <View style={styles.qtyControlRow}>
+                                <TouchableOpacity
+                                  style={styles.qtyBtn}
+                                  onPress={() => updateCartQty(portionCartKey, -1)}
+                                >
+                                  <Ionicons name="remove" size={14} color="#15803d" />
+                                </TouchableOpacity>
+                                <Text style={styles.qtyNum}>{inCart.quantity}</Text>
+                                <TouchableOpacity
+                                  style={styles.qtyBtn}
+                                  onPress={() => updateCartQty(portionCartKey, 1)}
+                                >
+                                  <Ionicons name="add" size={14} color="#15803d" />
+                                </TouchableOpacity>
+                              </View>
+                            ) : (
+                              <TouchableOpacity
+                                style={styles.addPortionBtn}
+                                onPress={() => addToCart(item, p)}
+                              >
+                                <Text style={styles.addPortionBtnText}>+ Add</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.simpleAddContainer}>
+                    {(() => {
+                      const simpleCartKey = `${item.id || item._id}-`;
+                      const inCart = cart.find(ci => ci.cartKey === simpleCartKey);
+                      if (inCart) {
+                        return (
+                          <View style={styles.qtyControlRow}>
+                            <TouchableOpacity
+                              style={styles.qtyBtn}
+                              onPress={() => updateCartQty(simpleCartKey, -1)}
+                            >
+                              <Ionicons name="remove" size={14} color="#15803d" />
+                            </TouchableOpacity>
+                            <Text style={styles.qtyNum}>{inCart.quantity}</Text>
+                            <TouchableOpacity
+                              style={styles.qtyBtn}
+                              onPress={() => updateCartQty(simpleCartKey, 1)}
+                            >
+                              <Ionicons name="add" size={14} color="#15803d" />
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      }
+                      return (
+                        <TouchableOpacity
+                          style={styles.simpleAddBtn}
+                          onPress={() => addToCart(item)}
+                        >
+                          <Ionicons name="add" size={16} color="#ffffff" />
+                          <Text style={styles.simpleAddBtnText}>Add Dish</Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
+                  </View>
+                )}
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="fast-food-outline" size={48} color="#94a3b8" />
+              <Text style={styles.emptyTitle}>No dishes found</Text>
+              <Text style={styles.emptySubtitle}>Try searching for a different dish name or category.</Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Floating Bottom Cart Bar */}
+      {cart.length > 0 ? (
+        <View style={styles.cartBar}>
+          <View style={styles.cartBarInfo}>
+            <Text style={styles.cartBarItemsCount}>{totalItemsCount} items selected</Text>
+            <Text style={styles.cartBarTotal}>Total: ₹{totalAmount.toFixed(0)}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.placeOrderBtn, isSubmitting ? styles.placeOrderBtnDisabled : null]}
+            onPress={handlePlaceOrder}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <Text style={styles.placeOrderBtnText}>
+                  {selectedTable && activeVisitsMap[selectedTable.id || selectedTable._id]
+                    ? 'Add to Table'
+                    : 'Punch Order'}
+                </Text>
+                <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' 
+  container: {
+    flex: 1,
+    backgroundColor: '#f1f5f9',
   },
-  backButton: { padding: 8 },
-  backButtonText: { color: '#16a34a', fontSize: 16, fontWeight: '600' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#0f172a' },
-  content: { flex: 1, flexDirection: 'row' },
-  
-  menuSection: { flex: 2, padding: 15, borderRightWidth: 1, borderRightColor: '#e2e8f0' },
-  categoryTabs: { flexDirection: 'row', marginBottom: 15 },
-  tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#e2e8f0', marginRight: 10 },
-  activeTab: { backgroundColor: '#16a34a' },
-  tabText: { color: '#64748b', fontWeight: '600' },
-  activeTabText: { color: '#fff' },
-  
-  menuItem: { 
-    flex: 1, margin: 5, backgroundColor: '#fff', padding: 15, borderRadius: 12, 
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 
+  tableStrip: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
-  itemName: { fontSize: 16, fontWeight: 'bold', color: '#0f172a', marginBottom: 5 },
-  itemPrice: { fontSize: 14, color: '#16a34a', fontWeight: '600' },
-  addButton: { position: 'absolute', bottom: 10, right: 10, backgroundColor: '#16a34a', width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
-  addText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-
-  cartSection: { flex: 1, backgroundColor: '#fff', flexDirection: 'column' },
-  cartTitle: { fontSize: 18, fontWeight: 'bold', padding: 15, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  cartList: { flex: 1, padding: 15 },
-  emptyCart: { textAlign: 'center', color: '#94a3b8', marginTop: 20 },
-  cartItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 10 },
-  cartItemInfo: { flex: 1 },
-  cartItemName: { fontSize: 15, fontWeight: '600', color: '#0f172a' },
-  cartItemPrice: { fontSize: 14, color: '#64748b', marginTop: 4 },
-  quantityControls: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 8 },
-  qtyBtn: { padding: 8, paddingHorizontal: 12 },
-  qtyBtnText: { fontSize: 18, color: '#16a34a', fontWeight: 'bold' },
-  qtyText: { fontSize: 16, fontWeight: '600', paddingHorizontal: 8 },
-  
-  checkoutFooter: { padding: 20, backgroundColor: '#f8fafc', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  totalLabel: { fontSize: 18, fontWeight: '600', color: '#64748b' },
-  totalValue: { fontSize: 24, fontWeight: 'bold', color: '#0f172a' },
-  submitButton: { backgroundColor: '#16a34a', padding: 16, borderRadius: 12, alignItems: 'center' },
-  disabledButton: { backgroundColor: '#94a3b8' },
-  submitButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  tableStripHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  tableStripTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  selectedTableBadge: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  selectedTableBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  tableList: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  tableCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  tableCardSelected: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  tableCardOccupied: {
+    borderColor: '#f59e0b',
+  },
+  tableCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  tableCodeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  tableCodeTextSelected: {
+    color: '#ffffff',
+  },
+  tableSubText: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  searchSection: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    gap: 10,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0f172a',
+    padding: 0,
+  },
+  categoriesList: {
+    gap: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  categoryChipActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  categoryChipTextActive: {
+    color: '#ffffff',
+  },
+  menuList: {
+    padding: 14,
+    paddingBottom: 90,
+    gap: 10,
+  },
+  menuCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 14,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  menuCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  menuCardDetails: {
+    flex: 1,
+  },
+  foodTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  foodTypeInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  menuItemName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  menuItemDesc: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  menuItemPrice: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  portionsContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  portionsLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 6,
+  },
+  portionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  portionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 12,
+  },
+  portionName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  portionPrice: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  addPortionBtn: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  addPortionBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  simpleAddContainer: {
+    alignItems: 'flex-end',
+    marginTop: 10,
+  },
+  simpleAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#16a34a',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  simpleAddBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  qtyControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#dcfce7',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  qtyBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyNum: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#15803d',
+    paddingHorizontal: 4,
+  },
+  loaderCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginTop: 8,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  cartBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  cartBarInfo: {
+    gap: 2,
+  },
+  cartBarItemsCount: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  cartBarTotal: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  placeOrderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#16a34a',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  placeOrderBtnDisabled: {
+    opacity: 0.6,
+  },
+  placeOrderBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
 });

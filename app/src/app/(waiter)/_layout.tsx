@@ -40,6 +40,16 @@ export default function WaiterLayout() {
         }}
       />
       <Drawer.Screen
+        name="new-order"
+        options={{
+          drawerLabel: 'Take Order',
+          title: 'Take Order',
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="restaurant-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
         name="past-orders"
         options={{
           drawerLabel: 'Past Orders',

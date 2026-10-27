@@ -1,45 +1,111 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Switch,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import apiClient from '../../api/client';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [restaurantName, setRestaurantName] = useState<string>('Dynease');
   const [loading, setLoading] = useState(true);
+  const [isOnShift, setIsOnShift] = useState(true);
+  const [isUpdatingShift, setIsUpdatingShift] = useState(false);
+  const [tables, setTables] = useState<any[]>([]);
+
+  const fetchProfileData = useCallback(async () => {
+    try {
+      const [meRes, tablesRes] = await Promise.all([
+        apiClient.get('/auth/me'),
+        apiClient.get('/restaurant/tables').catch(() => ({ data: { success: false, data: { tables: [] } } }))
+      ]);
+
+      if (meRes.data?.success && meRes.data.data?.user) {
+        const u = meRes.data.data.user;
+        setUser(u);
+        const onShift = u.shiftStatus === 'ON_SHIFT' || u.availabilityStatus === 'AVAILABLE';
+        setIsOnShift(onShift);
+
+        const rName = u.restaurantId?.name || (await SecureStore.getItemAsync('restaurantName'));
+        if (rName) setRestaurantName(rName);
+
+        if (tablesRes.data?.success && tablesRes.data.data?.tables) {
+          const allTables = tablesRes.data.data.tables;
+          const assignedIds = new Set((u.assignedTables || []).map((t: any) => t.id || t._id || t.tableId || t));
+          const matched = allTables.filter((tbl: any) => assignedIds.has(tbl.id || tbl._id));
+          setTables(matched.length > 0 ? matched : u.assignedTables || []);
+        } else {
+          setTables(u.assignedTables || []);
+        }
+      }
+    } catch (e) {
+      console.error('[Profile] Error fetching:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        const [meRes, tablesRes] = await Promise.all([
-          apiClient.get('/auth/me'),
-          apiClient.get('/restaurant/tables')
-        ]);
-        
-        if (meRes.data?.success && meRes.data.data.user) {
-          const userData = meRes.data.data.user;
-          if (tablesRes.data?.success && tablesRes.data.data.tables) {
-            const allTables = tablesRes.data.data.tables;
-            userData.assignedTables = (userData.assignedTables || []).map((t: any) => {
-              const tableId = typeof t === 'string' ? t : t._id;
-              return allTables.find((tbl: any) => tbl._id === tableId) || t;
-            });
-          }
-          setUser(userData);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProfileData();
-  }, []);
+  }, [fetchProfileData]);
+
+  const handleToggleShift = async (value: boolean) => {
+    setIsUpdatingShift(true);
+    try {
+      const payload = {
+        shiftStatus: value ? 'ON_SHIFT' : 'OFF_SHIFT',
+        availabilityStatus: value ? 'AVAILABLE' : 'OFF_SHIFT',
+        acceptingOrders: value
+      };
+      const res = await apiClient.patch('/restaurant/waiters/my-availability', payload);
+      if (res.data?.success) {
+        setIsOnShift(value);
+      } else {
+        Alert.alert('Error', res.data?.message || 'Failed to update shift');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || 'Could not update shift');
+    } finally {
+      setIsUpdatingShift(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out of your staff account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            await SecureStore.deleteItemAsync('token');
+            await SecureStore.deleteItemAsync('subdomain');
+            await SecureStore.deleteItemAsync('restaurantName');
+            await SecureStore.deleteItemAsync('role');
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
@@ -47,83 +113,128 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Failed to load profile.</Text>
+        <Text style={styles.errorText}>Failed to load staff profile.</Text>
       </View>
     );
   }
 
-  const assignedTables = user.assignedTables || [];
-
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Profile</Text>
-        <Text style={styles.subtitle}>View your personal info and assigned tables</Text>
-      </View>
-
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {/* Profile Card */}
       <View style={styles.card}>
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
-            <Ionicons name="person" size={48} color="#16a34a" />
+            <Ionicons name="person" size={36} color="#16a34a" />
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.name}>{user.name}</Text>
+            <Text style={styles.restaurantName}>{restaurantName}</Text>
             <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>{user.role?.replace('_', ' ')}</Text>
+              <Text style={styles.roleText}>WAITER / FLOOR STAFF</Text>
             </View>
           </View>
         </View>
 
+        {/* Shift Status Banner inside card */}
+        <View style={styles.shiftBox}>
+          <View>
+            <Text style={styles.shiftTitle}>Duty Status</Text>
+            <Text style={styles.shiftSubtext}>
+              {isOnShift ? 'Active — Receiving order assignments' : 'Paused — No new assignments'}
+            </Text>
+          </View>
+          <Switch
+            value={isOnShift}
+            onValueChange={handleToggleShift}
+            disabled={isUpdatingShift}
+            trackColor={{ false: '#cbd5e1', true: '#86efac' }}
+            thumbColor={isOnShift ? '#16a34a' : '#f8fafc'}
+          />
+        </View>
+
+        {/* Contact details */}
         <View style={styles.detailsContainer}>
           <View style={styles.detailRow}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="mail" size={20} color="#64748b" />
+            <View style={styles.iconCircle}>
+              <Ionicons name="mail-outline" size={18} color="#64748b" />
             </View>
             <View>
-              <Text style={styles.detailLabel}>Email Address</Text>
+              <Text style={styles.detailLabel}>Email</Text>
               <Text style={styles.detailValue}>{user.email}</Text>
             </View>
           </View>
 
           <View style={styles.detailRow}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="call" size={20} color="#64748b" />
+            <View style={styles.iconCircle}>
+              <Ionicons name="call-outline" size={18} color="#64748b" />
             </View>
             <View>
-              <Text style={styles.detailLabel}>Phone Number</Text>
+              <Text style={styles.detailLabel}>Phone</Text>
               <Text style={styles.detailValue}>{user.phone || 'Not provided'}</Text>
             </View>
           </View>
         </View>
-
-        <View style={styles.tablesContainer}>
-          <View style={styles.tablesHeader}>
-            <Ionicons name="grid" size={20} color="#16a34a" />
-            <Text style={styles.tablesTitle}>Assigned Tables</Text>
-          </View>
-          
-          {assignedTables.length === 0 ? (
-            <Text style={styles.noTablesText}>No tables currently assigned to you.</Text>
-          ) : (
-            <View style={styles.tablesGrid}>
-              {assignedTables.map((table: any) => (
-                <View key={table._id} style={styles.tableBadge}>
-                  <Text style={styles.tableBadgeText}>
-                    Table {table.tableNumber} {table.tableName ? `(${table.tableName})` : ''}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
       </View>
-      <View style={[styles.card, { padding: 24, marginTop: -15 }]}>
-        <View style={styles.tablesHeader}>
-          <Ionicons name="help-buoy" size={20} color="#16a34a" />
-          <Text style={styles.tablesTitle}>Support</Text>
+
+      {/* Assigned Tables Card */}
+      <View style={styles.card}>
+        <View style={styles.cardSectionHeader}>
+          <View style={styles.sectionHeaderLeft}>
+            <Ionicons name="grid-outline" size={20} color="#16a34a" />
+            <Text style={styles.sectionTitle}>Assigned Tables</Text>
+          </View>
+          <View style={styles.capacityBadge}>
+            <Text style={styles.capacityText}>
+              {tables.length} {tables.length === 1 ? 'Table' : 'Tables'}
+            </Text>
+          </View>
         </View>
-        <Text style={{ color: '#64748b', marginBottom: 5 }}>Need help or have questions?</Text>
-        <Text style={{ color: '#16a34a', fontWeight: 'bold' }}>contact@dynease.in</Text>
+
+        {tables.length === 0 ? (
+          <View style={styles.emptyTablesBox}>
+            <Ionicons name="information-circle-outline" size={24} color="#94a3b8" />
+            <Text style={styles.emptyTablesText}>
+              No tables specifically allocated yet. Restaurant manager or dynamic assignment will allocate active tables.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.tablesGrid}>
+            {tables.map((tbl: any, idx: number) => {
+              const code = tbl.tableCode || tbl.tableNumber || tbl.table_code || `T${idx + 1}`;
+              const capacity = tbl.capacity || tbl.seatingCapacity;
+              const isOccupied = tbl.is_occupied || tbl.status === 'OCCUPIED';
+
+              return (
+                <View key={tbl.id || tbl._id || idx} style={styles.tableChip}>
+                  <View style={[styles.tableStatusDot, { backgroundColor: isOccupied ? '#f59e0b' : '#22c55e' }]} />
+                  <View>
+                    <Text style={styles.tableChipCode}>Table {code}</Text>
+                    {capacity ? <Text style={styles.tableChipCap}>{capacity} Seats</Text> : null}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* App Support & Info */}
+      <View style={styles.card}>
+        <View style={styles.cardSectionHeader}>
+          <View style={styles.sectionHeaderLeft}>
+            <Ionicons name="headset-outline" size={20} color="#16a34a" />
+            <Text style={styles.sectionTitle}>System Support</Text>
+          </View>
+        </View>
+        <Text style={styles.supportDesc}>
+          For account or POS device support, contact Dynease Technical Support:
+        </Text>
+        <Text style={styles.supportEmail}>support@dynease.in</Text>
+
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={18} color="#ef4444" />
+          <Text style={styles.logoutBtnText}>Log Out of Staff Account</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -132,149 +243,225 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
-    padding: 15,
+    backgroundColor: '#f1f5f9',
+  },
+  contentContainer: {
+    padding: 14,
+    paddingBottom: 30,
+    gap: 12,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f1f5f9',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#64748b',
   },
   errorText: {
     color: '#ef4444',
     fontSize: 16,
   },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 4,
-  },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 16,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden',
-    marginBottom: 30,
+    shadowRadius: 3,
+    elevation: 2,
   },
   profileHeader: {
     flexDirection: 'row',
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
     alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#dcfce7',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 20,
+    justifyContent: 'center',
   },
   profileInfo: {
     flex: 1,
   },
   name: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#0f172a',
   },
+  restaurantName: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
   roleBadge: {
-    backgroundColor: '#dcfce7',
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-    marginTop: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 6,
   },
   roleText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#15803d',
-    fontSize: 12,
-    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  shiftBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 16,
+  },
+  shiftTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  shiftSubtext: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
   },
   detailsContainer: {
-    padding: 24,
+    gap: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    gap: 12,
   },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
     alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'center',
   },
   detailLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
-    marginBottom: 2,
   },
   detailValue: {
-    fontSize: 16,
-    color: '#0f172a',
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginTop: 1,
   },
-  tablesContainer: {
-    backgroundColor: '#f8fafc',
-    padding: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+  cardSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
   },
-  tablesHeader: {
+  sectionHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: 8,
   },
-  tablesTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
     color: '#0f172a',
-    marginLeft: 8,
   },
-  noTablesText: {
+  capacityBadge: {
+    backgroundColor: '#dcfce7',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  capacityText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  emptyTablesBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    gap: 8,
+  },
+  emptyTablesText: {
+    fontSize: 12,
     color: '#64748b',
-    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   tablesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 8,
   },
-  tableBadge: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  tableChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
     borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    marginRight: 10,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
+    gap: 8,
   },
-  tableBadgeText: {
-    color: '#334155',
-    fontWeight: '600',
-  }
+  tableStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  tableChipCode: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  tableChipCap: {
+    fontSize: 10,
+    color: '#64748b',
+  },
+  supportDesc: {
+    fontSize: 13,
+    color: '#64748b',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  supportEmail: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#16a34a',
+    marginBottom: 16,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#fee2e2',
+  },
+  logoutBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
 });
