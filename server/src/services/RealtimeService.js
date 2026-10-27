@@ -119,6 +119,10 @@ const tableUpdated = (restaurantId, table) => {
 const waiterStatusUpdated = (restaurantId, payload) => {
   if (!io || !restaurantId) return;
   emit(`restaurant:${restaurantId}`, 'waiter_status_updated', payload);
+  emit(`waiter:${restaurantId}`, 'waiter_status_updated', payload);
+  if (payload?.waiterId) {
+    emit(`waiter_user:${payload.waiterId}`, 'waiter_status_updated', payload);
+  }
 };
 
 /** Menu / categories changed — customers and admins should refetch. */

@@ -331,6 +331,21 @@ exports.getMe = async (req, res, next) => {
         _id: a.table_id,
         id: a.table_id
       }));
+
+      try {
+        const WaiterAssignmentService = require('../services/waiterAssignmentService');
+        const presence = await WaiterAssignmentService.getOrRestoreWaiterPresence(user.id, user.restaurant_id);
+        user.shiftStatus = presence.shiftStatus || 'OFF_SHIFT';
+        user.availabilityStatus = presence.availabilityStatus || 'OFF_SHIFT';
+        user.acceptingOrders = presence.acceptingOrders !== undefined ? presence.acceptingOrders : false;
+        user.workloadCapacity = presence.workloadCapacity || 5;
+      } catch (presErr) {
+        console.warn('[getMe] Failed to get waiter presence:', presErr.message);
+        user.shiftStatus = 'OFF_SHIFT';
+        user.availabilityStatus = 'OFF_SHIFT';
+        user.acceptingOrders = false;
+        user.workloadCapacity = 5;
+      }
     }
 
     delete user.password_hash;

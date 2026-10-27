@@ -18,7 +18,10 @@ import {
   Search,
   Check,
   QrCode,
-  Store
+  Store,
+  Radio,
+  Coffee,
+  Power
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { showConfirm, toast } from '../../context/DialogContext';
@@ -66,7 +69,15 @@ export default function LiveOrders() {
       
       const meData = await meRes.json();
       if (meData.success && meData.data.user) {
-        setWaiter(meData.data.user);
+        const u = meData.data.user;
+        setWaiter(prev => ({
+          ...prev,
+          ...u,
+          shiftStatus: u.shiftStatus ?? prev?.shiftStatus ?? 'OFF_SHIFT',
+          availabilityStatus: u.availabilityStatus ?? prev?.availabilityStatus ?? 'OFF_SHIFT',
+          acceptingOrders: u.acceptingOrders !== undefined ? u.acceptingOrders : (prev?.acceptingOrders ?? false),
+          workloadCapacity: u.workloadCapacity ?? prev?.workloadCapacity ?? 5
+        }));
       }
 
       const ordersData = await ordersRes.json();
@@ -264,44 +275,99 @@ export default function LiveOrders() {
       });
     });
 
+    socket.on('waiter_status_updated', (payload) => {
+      if (!payload) return;
+      const targetId = payload.waiterId || payload.id || payload._id;
+      setWaiter(prev => {
+        if (!prev) return prev;
+        const myId = prev.id || prev._id;
+        if (targetId && String(targetId) === String(myId)) {
+          return {
+            ...prev,
+            shiftStatus: payload.shiftStatus ?? prev.shiftStatus,
+            availabilityStatus: payload.availabilityStatus ?? prev.availabilityStatus,
+            acceptingOrders: payload.acceptingOrders !== undefined ? payload.acceptingOrders : prev.acceptingOrders,
+            workloadCapacity: payload.workloadCapacity ?? prev.workloadCapacity
+          };
+        }
+        return prev;
+      });
+    });
+
     return () => {
       clearInterval(pollInterval);
       socket.disconnect();
     };
   }, [navigate]);
 
-  const toggleShift = async () => {
+  const updateWaiterStatus = async (targetStatus) => {
     if (!waiter) return;
-    const newShift = waiter.shiftStatus === 'ON_SHIFT' ? 'OFF_SHIFT' : 'ON_SHIFT';
+    const isEndingShift = targetStatus === 'OFF_SHIFT';
+
+    if (isEndingShift) {
+      const confirmed = await showConfirm(
+        'End Shift',
+        'Are you sure you want to end your shift and go off duty? You will stop receiving customer order assignments.'
+      );
+      if (!confirmed) return;
+    }
+
+    const prevWaiter = { ...waiter };
+    const newShift = isEndingShift ? 'OFF_SHIFT' : 'ON_SHIFT';
+    const newAvail = isEndingShift ? 'OFF_SHIFT' : targetStatus;
+    const newAccepting = newShift === 'ON_SHIFT' && newAvail === 'AVAILABLE';
+
+    // Optimistic UI update
+    setWaiter(prev => ({
+      ...prev,
+      shiftStatus: newShift,
+      availabilityStatus: newAvail,
+      acceptingOrders: newAccepting
+    }));
+
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/waiters/my-availability`, {
         method: 'PATCH',
         headers: getHeaders(),
-        body: JSON.stringify({ shiftStatus: newShift })
+        body: JSON.stringify({
+          shiftStatus: newShift,
+          availabilityStatus: newAvail,
+          acceptingOrders: newAccepting
+        })
       });
       const data = await res.json();
-      if (data.success) {
-        setWaiter(prev => ({ ...prev, shiftStatus: newShift }));
+      if (data.success && data.data?.user) {
+        setWaiter(prev => ({
+          ...prev,
+          ...data.data.user
+        }));
+        const statusLabel = 
+          newAvail === 'AVAILABLE' ? 'Available (Accepting Orders)' :
+          newAvail === 'BUSY' ? 'Busy (Hold New Orders)' :
+          newAvail === 'PAUSED' ? 'On Break / Paused' : 'Off Duty';
+        toast.success(`Duty status: ${statusLabel}`);
+      } else {
+        setWaiter(prevWaiter);
+        toast.error(data.message || 'Failed to update status');
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error('Error updating waiter presence:', err);
+      setWaiter(prevWaiter);
+      toast.error('Network error updating status');
     }
   };
 
-  const updateAvailability = async (status) => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/restaurant/waiters/my-availability`, {
-        method: 'PATCH',
-        headers: getHeaders(),
-        body: JSON.stringify({ availabilityStatus: status })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setWaiter(prev => ({ ...prev, availabilityStatus: status }));
-      }
-    } catch (e) {
-      console.error(e);
+  const toggleShift = () => {
+    if (!waiter) return;
+    if (waiter.shiftStatus === 'ON_SHIFT') {
+      updateWaiterStatus('OFF_SHIFT');
+    } else {
+      updateWaiterStatus('AVAILABLE');
     }
+  };
+
+  const updateAvailability = (status) => {
+    updateWaiterStatus(status);
   };
 
   const handleAcceptOrder = async (orderId) => {
@@ -737,12 +803,46 @@ export default function LiveOrders() {
     <div className="flex flex-col h-full space-y-6">
       {/* Top Presence & Shift Control Bar */}
       {waiter && (
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${waiter.shiftStatus === 'ON_SHIFT' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className={`w-3.5 h-3.5 rounded-full flex-shrink-0 transition-colors ${
+              waiter.shiftStatus === 'ON_SHIFT'
+                ? waiter.availabilityStatus === 'AVAILABLE'
+                  ? 'bg-emerald-500 ring-4 ring-emerald-100 animate-pulse'
+                  : waiter.availabilityStatus === 'BUSY'
+                    ? 'bg-amber-500 ring-4 ring-amber-100'
+                    : 'bg-indigo-500 ring-4 ring-indigo-100'
+                : 'bg-gray-400 ring-4 ring-gray-100'
+            }`} />
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-bold text-gray-800 text-sm">{waiter.name} · {waiter.shiftStatus === 'ON_SHIFT' ? 'On Duty' : 'Off Duty'}</p>
+                <span className="font-bold text-gray-900 text-sm">{waiter.name}</span>
+                
+                {/* Duty & Availability Badge */}
+                {waiter.shiftStatus === 'ON_SHIFT' ? (
+                  waiter.availabilityStatus === 'AVAILABLE' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      On Duty · Available
+                    </span>
+                  ) : waiter.availabilityStatus === 'BUSY' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      On Duty · Busy
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      <Coffee size={12} className="text-indigo-600" />
+                      On Duty · On Break
+                    </span>
+                  )
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                    Off Duty
+                  </span>
+                )}
+
                 {(waiter.restaurantName || waiter.restaurantId?.restaurant_name || waiter.restaurantId?.name || waiter.restaurant?.name) && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
                     <Store size={12} className="text-orange-600" />
@@ -750,34 +850,84 @@ export default function LiveOrders() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500">
-                Workload: {myOrders.length} active orders · Capacity: {waiter.workloadCapacity || 5} · Status: <span className="font-semibold text-green-700">{waiter.availabilityStatus}</span>
+              <p className="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+                <span>Workload: <strong className="text-gray-800">{myOrders.length}</strong> active orders</span>
+                <span>·</span>
+                <span>Capacity: <strong className="text-gray-800">{waiter.workloadCapacity || 5}</strong></span>
+                <span>·</span>
+                <span>
+                  Accepting Orders:{' '}
+                  <strong className={waiter.shiftStatus === 'ON_SHIFT' && waiter.availabilityStatus === 'AVAILABLE' ? 'text-emerald-600' : 'text-gray-500'}>
+                    {waiter.shiftStatus === 'ON_SHIFT' && waiter.availabilityStatus === 'AVAILABLE' ? 'Yes' : 'No'}
+                  </strong>
+                </span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleShift}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                waiter.shiftStatus === 'ON_SHIFT'
-                  ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                  : 'bg-green-600 text-white hover:bg-green-700'
-              }`}
-            >
-              {waiter.shiftStatus === 'ON_SHIFT' ? 'End Shift' : 'Start Shift'}
-            </button>
-
-            {waiter.shiftStatus === 'ON_SHIFT' && (
-              <select
-                value={waiter.availabilityStatus || 'AVAILABLE'}
-                onChange={(e) => updateAvailability(e.target.value)}
-                className="bg-gray-50 border border-gray-200 text-xs font-semibold rounded-lg px-2.5 py-1.5 text-gray-700 focus:outline-none"
+          {/* Action Status Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            {waiter.shiftStatus !== 'ON_SHIFT' ? (
+              <button
+                onClick={() => updateWaiterStatus('AVAILABLE')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-sm hover:shadow transition-all cursor-pointer"
+                title="Start your shift and begin receiving customer orders"
               >
-                <option value="AVAILABLE">Available</option>
-                <option value="PAUSED">Break / Paused</option>
-                <option value="OFF_SHIFT">Off Duty</option>
-              </select>
+                <Power size={14} />
+                Start Shift
+              </button>
+            ) : (
+              <>
+                <div className="inline-flex rounded-xl p-1 bg-gray-100 border border-gray-200 gap-1">
+                  <button
+                    onClick={() => updateWaiterStatus('AVAILABLE')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      waiter.availabilityStatus === 'AVAILABLE'
+                        ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
+                        : 'text-gray-600 hover:text-emerald-700 hover:bg-emerald-50'
+                    }`}
+                    title="Available to accept new orders"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${waiter.availabilityStatus === 'AVAILABLE' ? 'bg-white' : 'bg-emerald-500'}`} />
+                    Available
+                  </button>
+
+                  <button
+                    onClick={() => updateWaiterStatus('BUSY')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      waiter.availabilityStatus === 'BUSY'
+                        ? 'bg-amber-500 text-white shadow-sm ring-1 ring-amber-400'
+                        : 'text-gray-600 hover:text-amber-700 hover:bg-amber-50'
+                    }`}
+                    title="Busy with current tables — hold new order assignments"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${waiter.availabilityStatus === 'BUSY' ? 'bg-white' : 'bg-amber-500'}`} />
+                    Busy
+                  </button>
+
+                  <button
+                    onClick={() => updateWaiterStatus('PAUSED')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      waiter.availabilityStatus === 'PAUSED'
+                        ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-500'
+                        : 'text-gray-600 hover:text-indigo-700 hover:bg-indigo-50'
+                    }`}
+                    title="Take a break / paused"
+                  >
+                    <Coffee size={13} className={waiter.availabilityStatus === 'PAUSED' ? 'text-white' : 'text-indigo-600'} />
+                    Break
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => updateWaiterStatus('OFF_SHIFT')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                  title="End shift and go off duty"
+                >
+                  <Power size={13} />
+                  End Shift
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -810,9 +960,10 @@ export default function LiveOrders() {
           </button>
         </div>
 
-        <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${connected ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-          {connected ? 'Live' : 'Offline'}
+        <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${connected ? 'text-slate-600 bg-slate-100 border border-slate-200' : 'text-rose-600 bg-rose-50 border border-rose-200'}`}>
+          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+          <Radio size={13} className={connected ? 'text-emerald-600' : 'text-rose-500'} />
+          {connected ? 'Realtime Connected' : 'Disconnected'}
         </span>
       </div>
 

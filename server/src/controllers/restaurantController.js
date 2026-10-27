@@ -1654,6 +1654,26 @@ exports.getWaitersWorkload = async (req, res) => {
   }
 };
 
+exports.getMyAvailability = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const restaurantId = req.user.restaurantId;
+    const presence = await WaiterAssignmentService.getOrRestoreWaiterPresence(userId, restaurantId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userId,
+        restaurantId,
+        ...presence
+      }
+    });
+  } catch (error) {
+    console.error('[RestaurantController] Error fetching availability:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
 exports.updateMyAvailability = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;

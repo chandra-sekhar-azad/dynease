@@ -39,6 +39,7 @@ router.get('/assignment/settings', restaurantController.getAssignmentSettings);
 router.put('/assignment/settings', restrictTo('RESTAURANT_OWNER'), restaurantController.updateAssignmentSettings);
 router.get('/assignment/history', restaurantController.getAssignmentHistory);
 router.get('/waiters/workload', restaurantController.getWaitersWorkload);
+router.get('/waiters/my-availability', restaurantController.getMyAvailability);
 router.patch('/waiters/my-availability', restaurantController.updateMyAvailability);
 
 // ── Service Request routes ──

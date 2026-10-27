@@ -22,20 +22,72 @@ const waiterPresenceCache = new Map();
 
 class WaiterAssignmentService {
   /**
-   * Helper: Get presence object for a waiter with fallbacks
+   * Helper: Get presence object for a waiter with fallbacks (synchronous)
    */
   static getWaiterPresence(waiterId) {
-    if (!waiterId) return { shiftStatus: 'OFF_SHIFT', availabilityStatus: 'OFFLINE', acceptingOrders: false, lastAssignedAt: null };
+    if (!waiterId) return { shiftStatus: 'OFF_SHIFT', availabilityStatus: 'OFF_SHIFT', acceptingOrders: false, lastAssignedAt: null };
     const cached = waiterPresenceCache.get(waiterId);
     if (cached) return cached;
     return {
-      shiftStatus: 'ON_SHIFT',
-      availabilityStatus: 'AVAILABLE',
-      acceptingOrders: true,
+      shiftStatus: 'OFF_SHIFT',
+      availabilityStatus: 'OFF_SHIFT',
+      acceptingOrders: false,
       workloadCapacity: 5,
       sections: [],
       lastAssignedAt: null
     };
+  }
+
+  /**
+   * Helper: Restore presence from DB (assignment_events) if not in memory cache
+   */
+  static async getOrRestoreWaiterPresence(waiterId, restaurantId) {
+    if (!waiterId) return { shiftStatus: 'OFF_SHIFT', availabilityStatus: 'OFF_SHIFT', acceptingOrders: false, lastAssignedAt: null };
+    const cached = waiterPresenceCache.get(waiterId);
+    if (cached) return cached;
+
+    try {
+      const [latestEvent] = await db.select().from(assignment_events).where(
+        and(
+          eq(assignment_events.staff_id, waiterId),
+          eq(assignment_events.event_type, 'AVAILABILITY_UPDATE')
+        )
+      ).orderBy(desc(assignment_events.createdat)).limit(1);
+
+      if (latestEvent && latestEvent.details && typeof latestEvent.details === 'object') {
+        const details = latestEvent.details;
+        const shiftStatus = details.shiftStatus || 'OFF_SHIFT';
+        const availabilityStatus = details.availabilityStatus || (shiftStatus === 'ON_SHIFT' ? 'AVAILABLE' : 'OFF_SHIFT');
+        const acceptingOrders = details.acceptingOrders !== undefined 
+          ? details.acceptingOrders 
+          : (shiftStatus === 'ON_SHIFT' && availabilityStatus === 'AVAILABLE');
+
+        const restored = {
+          shiftStatus,
+          availabilityStatus,
+          acceptingOrders,
+          workloadCapacity: details.workloadCapacity || 5,
+          sections: details.sections || [],
+          lastAssignedAt: details.lastAssignedAt || null,
+          updatedAt: details.updatedAt || latestEvent.createdat
+        };
+        waiterPresenceCache.set(waiterId, restored);
+        return restored;
+      }
+    } catch (err) {
+      console.warn('[WaiterAssignmentService.getOrRestoreWaiterPresence] DB lookup warning:', err.message);
+    }
+
+    const defaultPresence = {
+      shiftStatus: 'OFF_SHIFT',
+      availabilityStatus: 'OFF_SHIFT',
+      acceptingOrders: false,
+      workloadCapacity: 5,
+      sections: [],
+      lastAssignedAt: null
+    };
+    waiterPresenceCache.set(waiterId, defaultPresence);
+    return defaultPresence;
   }
 
   /**
@@ -55,9 +107,49 @@ class WaiterAssignmentService {
    */
   static async updateWaiterAvailability(restaurantId, waiterId, data = {}) {
     const current = this.getWaiterPresence(waiterId);
+    let shiftStatus = data.shiftStatus !== undefined ? data.shiftStatus : current.shiftStatus;
+    let availabilityStatus = data.availabilityStatus !== undefined ? data.availabilityStatus : current.availabilityStatus;
+    let acceptingOrders = data.acceptingOrders !== undefined ? data.acceptingOrders : current.acceptingOrders;
+
+    // Harmonize shiftStatus and availabilityStatus
+    if (data.shiftStatus === 'OFF_SHIFT') {
+      shiftStatus = 'OFF_SHIFT';
+      availabilityStatus = 'OFF_SHIFT';
+      acceptingOrders = false;
+    } else if (data.shiftStatus === 'ON_SHIFT') {
+      shiftStatus = 'ON_SHIFT';
+      if (!data.availabilityStatus || data.availabilityStatus === 'OFF_SHIFT') {
+        availabilityStatus = 'AVAILABLE';
+        acceptingOrders = true;
+      }
+    }
+
+    if (data.availabilityStatus) {
+      if (data.availabilityStatus === 'OFF_SHIFT') {
+        shiftStatus = 'OFF_SHIFT';
+        availabilityStatus = 'OFF_SHIFT';
+        acceptingOrders = false;
+      } else if (data.availabilityStatus === 'AVAILABLE') {
+        shiftStatus = 'ON_SHIFT';
+        availabilityStatus = 'AVAILABLE';
+        acceptingOrders = true;
+      } else if (data.availabilityStatus === 'BUSY') {
+        shiftStatus = 'ON_SHIFT';
+        availabilityStatus = 'BUSY';
+        acceptingOrders = false;
+      } else if (data.availabilityStatus === 'PAUSED') {
+        shiftStatus = 'ON_SHIFT';
+        availabilityStatus = 'PAUSED';
+        acceptingOrders = false;
+      }
+    }
+
     const updated = {
       ...current,
       ...data,
+      shiftStatus,
+      availabilityStatus,
+      acceptingOrders,
       updatedAt: new Date()
     };
     waiterPresenceCache.set(waiterId, updated);
@@ -73,6 +165,7 @@ class WaiterAssignmentService {
           shiftStatus: updated.shiftStatus,
           availabilityStatus: updated.availabilityStatus,
           acceptingOrders: updated.acceptingOrders,
+          workloadCapacity: updated.workloadCapacity || current.workloadCapacity || 5,
           updatedAt: updated.updatedAt
         }
       });
@@ -409,9 +502,9 @@ class WaiterAssignmentService {
       const RECENT_WINDOW_MS = 15 * 60 * 1000;
 
       for (const st of staffRows) {
-        const presence = this.getWaiterPresence(st.id);
+        const presence = await this.getOrRestoreWaiterPresence(st.id, restaurantId);
 
-        if (presence.shiftStatus !== 'ON_SHIFT' || presence.acceptingOrders === false || presence.availabilityStatus === 'PAUSED') {
+        if (presence.shiftStatus !== 'ON_SHIFT' || presence.acceptingOrders === false || presence.availabilityStatus === 'PAUSED' || presence.availabilityStatus === 'BUSY') {
           continue;
         }
 
@@ -664,10 +757,11 @@ class WaiterAssignmentService {
         ).limit(1);
 
         if (primaryWaiter) {
-          const presence = this.getWaiterPresence(primaryWaiter.id);
+          const presence = await this.getOrRestoreWaiterPresence(primaryWaiter.id, restaurantId);
           const isEligible = presence.shiftStatus === 'ON_SHIFT' &&
                              presence.acceptingOrders !== false &&
-                             presence.availabilityStatus !== 'PAUSED';
+                             presence.availabilityStatus !== 'PAUSED' &&
+                             presence.availabilityStatus !== 'BUSY';
 
           if (isEligible) {
             const capacity = presence.workloadCapacity || settings.defaultCapacity || 5;
@@ -1580,7 +1674,7 @@ class WaiterAssignmentService {
 
     const result = [];
     for (const st of staffRows) {
-      const presence = this.getWaiterPresence(st.id);
+      const presence = await this.getOrRestoreWaiterPresence(st.id, restaurantId);
       const { activeOrdersCount, activeRequestsCount, totalWorkload } = await this.getWaiterWorkload(
         null,
         restaurantId,
