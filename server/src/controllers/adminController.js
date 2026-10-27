@@ -150,6 +150,16 @@ exports.getAllRestaurants = async (req, res, next) => {
 
       const renewalReq = pendingPlanReqMap.get(r.id) || null;
 
+      const subStartDate = r.subscription_start_date || r.createdat;
+      const subEndDate = r.subscription_end_date 
+        ? new Date(r.subscription_end_date) 
+        : new Date(new Date(r.createdat).getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const msLeft = subEndDate.getTime() - now.getTime();
+      const calculatedDaysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+      const isSubActive = r.restaurant_status === 'ACTIVE' || r.restaurant_status === 'TRIAL';
+      const daysRemaining = isSubActive ? calculatedDaysRemaining : 0;
+
       return {
         _id: r.id,
         id: r.id,
@@ -168,10 +178,12 @@ exports.getAllRestaurants = async (req, res, next) => {
         overriden_plan: r.overriden_plan,
         table_allocation_mode: r.table_allocation_mode || 'MANUAL',
         allowAutoAssignment: r.table_allocation_mode === 'DYNAMIC',
-        subscriptionStatus: r.restaurant_status === 'ACTIVE' ? 'ACTIVE' : r.restaurant_status,
-        subscriptionStartDate: r.createdat,
-        subscriptionEndDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-        daysRemaining: r.restaurant_status === 'ACTIVE' ? 30 : 0,
+        subscriptionStatus: (calculatedDaysRemaining <= 0 || r.restaurant_status === 'EXPIRED')
+          ? 'EXPIRED'
+          : (r.restaurant_status === 'ACTIVE' ? 'ACTIVE' : r.restaurant_status),
+        subscriptionStartDate: subStartDate,
+        subscriptionEndDate: subEndDate,
+        daysRemaining: daysRemaining,
         renewalRequest: renewalReq,
         createdAt: r.createdat,
         createdat: r.createdat,
@@ -337,7 +349,15 @@ exports.updateRestaurantAssignmentMode = async (req, res, next) => {
 exports.updateRestaurantBilling = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { selectedPlan, subscriptionStatus, isPlanOverridden, overriddenPlan, note } = req.body;
+    const { 
+      selectedPlan, 
+      subscriptionStatus, 
+      isPlanOverridden, 
+      overriddenPlan, 
+      note,
+      subscriptionEndDate,
+      daysRemaining
+    } = req.body;
 
     const [existing] = await db.select().from(restaurants).where(
       and(eq(restaurants.id, id), eq(restaurants.is_deleted, false))
@@ -349,8 +369,26 @@ exports.updateRestaurantBilling = async (req, res, next) => {
 
     const updateData = { updatedat: new Date() };
 
-    if (subscriptionStatus && ['ACTIVE', 'PAUSED', 'INACTIVE'].includes(subscriptionStatus)) {
-      updateData.restaurant_status = subscriptionStatus;
+    if (subscriptionStatus) {
+      const st = subscriptionStatus.toUpperCase();
+      if (['ACTIVE', 'TRIAL'].includes(st)) {
+        updateData.restaurant_status = 'ACTIVE';
+      } else if (['PAUSED', 'INACTIVE', 'EXPIRED', 'SUSPENDED'].includes(st)) {
+        updateData.restaurant_status = st === 'PAUSED' ? 'PAUSED' : 'INACTIVE';
+      }
+    }
+
+    if (subscriptionEndDate) {
+      updateData.subscription_end_date = new Date(subscriptionEndDate);
+    } else if (daysRemaining !== undefined && daysRemaining !== null) {
+      const days = Math.max(0, parseInt(daysRemaining, 10) || 0);
+      const target = new Date();
+      target.setDate(target.getDate() + days);
+      updateData.subscription_end_date = target;
+    }
+
+    if (!existing.subscription_start_date) {
+      updateData.subscription_start_date = existing.createdat || new Date();
     }
 
     if (isPlanOverridden !== undefined) {
@@ -407,6 +445,14 @@ exports.updateRestaurantBilling = async (req, res, next) => {
 
     const [updated] = await db.select().from(restaurants).where(eq(restaurants.id, id)).limit(1);
 
+    const now = new Date();
+    const effectiveEndDate = updated.subscription_end_date 
+      ? new Date(updated.subscription_end_date) 
+      : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const msLeft = effectiveEndDate.getTime() - now.getTime();
+    const calculatedDaysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+    const isSubActive = updated.restaurant_status === 'ACTIVE' || subscriptionStatus === 'ACTIVE';
+
     RealtimeService.adminEvent('restaurant_updated', {
       id,
       name: updated.name,
@@ -422,7 +468,10 @@ exports.updateRestaurantBilling = async (req, res, next) => {
       data: { 
         restaurant: {
           ...updated,
-          selectedPlan: (updated.overriden_plan || 'Starter').toUpperCase()
+          selectedPlan: (updated.overriden_plan || 'Starter').toUpperCase(),
+          subscriptionStartDate: updated.subscription_start_date || updated.createdat,
+          subscriptionEndDate: effectiveEndDate,
+          daysRemaining: isSubActive ? calculatedDaysRemaining : 0
         } 
       }
     });
@@ -905,9 +954,14 @@ exports.approvePlanRequest = async (req, res, next) => {
         updatedat: new Date()
       }).where(eq(plan_requests.id, id));
 
-      // 2. Update restaurant plan_id
+      // 2. Update restaurant plan_id and subscription validity
+      const cycleDays = request.billing_cycle === 'annual' ? 365 : 30;
+      const targetEndDate = new Date(Date.now() + cycleDays * 24 * 60 * 60 * 1000);
       await tx.update(restaurants).set({
         plan_id: request.plan_id,
+        restaurant_status: 'ACTIVE',
+        subscription_start_date: new Date(),
+        subscription_end_date: targetEndDate,
         updatedat: new Date()
       }).where(eq(restaurants.id, request.restaurant_id));
 

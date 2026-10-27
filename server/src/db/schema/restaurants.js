@@ -42,6 +42,9 @@ const restaurants = pgTable(
       .default('MANUAL'),
     is_deleted: boolean('is_deleted').notNull().default(false),
     rejection_reason: text('rejection_reason'),
+    subscription_start_date: timestamp('subscription_start_date', { withTimezone: true })
+      .defaultNow(),
+    subscription_end_date: timestamp('subscription_end_date', { withTimezone: true }),
     createdat: timestamp('createdat', { withTimezone: true })
       .notNull()
       .defaultNow(),

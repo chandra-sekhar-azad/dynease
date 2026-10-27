@@ -56,6 +56,8 @@ class RestaurantProvisioningService {
           restaurant_status: 'ACTIVE',
           plan_id: planId,
           table_allocation_mode: 'MANUAL',
+          subscription_start_date: new Date(),
+          subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           is_deleted: false
         }).returning();
         restaurantRecord = newRest;

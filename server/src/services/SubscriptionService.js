@@ -42,18 +42,24 @@ class SubscriptionService {
     }
 
     const now = new Date();
-    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const subStartDate = restaurant.subscription_start_date || restaurant.createdat;
+    const periodEnd = restaurant.subscription_end_date 
+      ? new Date(restaurant.subscription_end_date) 
+      : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const msLeft = periodEnd.getTime() - now.getTime();
+    const remainingDays = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
 
     return {
       restaurantId: restaurant.id,
       subdomain: restaurant.domain,
       planId: planConfig.planId,
       billingCycle: 'monthly',
-      status: restaurant.restaurant_status === 'ACTIVE' ? 'active' : 'suspended',
-      startDate: restaurant.createdat,
-      currentPeriodStart: restaurant.createdat,
+      status: (restaurant.restaurant_status === 'ACTIVE' && remainingDays > 0) ? 'active' : 'suspended',
+      startDate: subStartDate,
+      currentPeriodStart: subStartDate,
       currentPeriodEnd: periodEnd,
       nextBillingDate: periodEnd,
+      remainingDays: remainingDays,
       pricePaise: planConfig.monthlyPricePaise || 0,
       limits: planConfig.limits,
       features: planConfig.features

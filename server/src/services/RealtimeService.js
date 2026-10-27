@@ -195,6 +195,7 @@ const visitClosed = ({ restaurantId, tableId, visitId, tableNumber }) => {
 
 module.exports = {
   init,
+  emit,
   orderCreated,
   orderUpdated,
   orderItemsAdded,

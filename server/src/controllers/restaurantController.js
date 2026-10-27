@@ -2089,16 +2089,29 @@ exports.getSubscription = async (req, res) => {
     // Fetch active plans available in system
     const availablePlansList = await db.select().from(plans).where(eq(plans.plan_status, 'ACTIVE')).orderBy(plans.createdat);
 
+    const now = new Date();
+    const subStartDate = restaurant.subscription_start_date || restaurant.createdat;
+    const subEndDate = restaurant.subscription_end_date 
+      ? new Date(restaurant.subscription_end_date) 
+      : new Date(new Date(restaurant.createdat).getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const msLeft = subEndDate.getTime() - now.getTime();
+    const calculatedDaysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+    const isSubActive = restaurant.restaurant_status === 'ACTIVE' || restaurant.restaurant_status === 'TRIAL';
+    const remainingDays = isSubActive ? calculatedDaysRemaining : 0;
+
     res.status(200).json({
       success: true,
       data: {
         plan: canonicalPlan.planId,
         planName: canonicalPlan.name,
         billingCycle: 'monthly',
-        status: restaurant.restaurant_status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
-        startDate: restaurant.createdat,
-        endDate: null,
-        remainingDays: 365,
+        status: (calculatedDaysRemaining <= 0 || restaurant.restaurant_status === 'EXPIRED') 
+          ? 'EXPIRED' 
+          : (restaurant.restaurant_status === 'ACTIVE' ? 'ACTIVE' : restaurant.restaurant_status),
+        startDate: subStartDate,
+        endDate: subEndDate,
+        remainingDays: remainingDays,
         limits: canonicalPlan.limits,
         features: canonicalPlan.features,
         displayFeatures: canonicalPlan.displayFeatures,
