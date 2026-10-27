@@ -8,7 +8,7 @@ delete process.env.CORS_ALLOWED_DOMAINS;
 process.env.CORS_ALLOWED_ORIGINS = 'https://special.partner.io';
 
 const { normalizeSubdomain, baseDomain, isUuid } = require('../src/utils/tenant');
-const { isAllowedOrigin, DOMAINS } = require('../src/config/cors');
+const { isAllowedOrigin, corsOptions, DOMAINS } = require('../src/config/cors');
 
 test('tenant: normalizeSubdomain reduces hosts/slugs to the tenant slug', () => {
   assert.equal(normalizeSubdomain('chandrikafamilyrestaurant'), 'chandrikafamilyrestaurant');
@@ -71,4 +71,14 @@ test('cors: dev mode allows localhost, 127.0.0.1, and all *.localhost subdomains
   } finally {
     process.env.NODE_ENV = originalEnv;
   }
+});
+
+test('cors: allowedHeaders includes idempotency-key and x-table-session-token', () => {
+  const opts = corsOptions();
+  const lowerHeaders = opts.allowedHeaders.map(h => h.toLowerCase());
+  assert.ok(lowerHeaders.includes('idempotency-key'), 'idempotency-key must be in allowedHeaders');
+  assert.ok(lowerHeaders.includes('x-table-session-token'), 'x-table-session-token must be in allowedHeaders');
+  assert.ok(lowerHeaders.includes('content-type'), 'content-type must be in allowedHeaders');
+  assert.ok(lowerHeaders.includes('authorization'), 'authorization must be in allowedHeaders');
+  assert.ok(lowerHeaders.includes('x-tenant-subdomain'), 'x-tenant-subdomain must be in allowedHeaders');
 });

@@ -116,7 +116,30 @@ function corsOptions() {
     // Auth uses cookies/credentials in the client, so keep them enabled.
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Subdomain', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Tenant-Subdomain',
+      'x-tenant-subdomain',
+      'X-Requested-With',
+      'x-requested-with',
+      'Idempotency-Key',
+      'idempotency-key',
+      'X-Table-Session-Token',
+      'x-table-session-token',
+      'Accept',
+      'Origin',
+      'Cache-Control',
+      'Pragma'
+    ],
+    exposedHeaders: [
+      'Content-Range',
+      'X-Content-Range',
+      'Idempotency-Key',
+      'idempotency-key',
+      'X-Table-Session-Token',
+      'x-table-session-token'
+    ],
     optionsSuccessStatus: 204, // OPTIONS preflight -> 204 No Content
     maxAge: 86400              // cache the preflight result for 24h
   };
