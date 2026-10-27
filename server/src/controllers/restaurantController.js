@@ -26,6 +26,7 @@ const WaiterAssignmentService = require('../services/waiterAssignmentService');
 const OrderService = require('../services/OrderService');
 const CustomerSessionService = require('../services/CustomerSessionService');
 const { getPlan, getPublicPlans } = require('../config/plans');
+const CategoryOrderingService = require('../services/CategoryOrderingService');
 
 
 // ──────────────────────────────────────────
@@ -88,6 +89,14 @@ exports.createCategory = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Category name is required.' });
     }
 
+    if (displayOrder !== undefined && displayOrder !== null && displayOrder !== '') {
+      try {
+        CategoryOrderingService.validatePriority(displayOrder);
+      } catch (valErr) {
+        return res.status(valErr.statusCode || 400).json({ success: false, message: valErr.message });
+      }
+    }
+
     const [existing] = await db.select().from(menu_categories).where(
       and(
         eq(menu_categories.restaurant_id, restaurantId),
@@ -114,15 +123,26 @@ exports.createCategory = async (req, res) => {
     }
 
     const normType = (type?.trim()?.toLowerCase() === 'non-veg') ? 'non-veg' : 'veg';
-    const [category] = await db.insert(menu_categories).values({
-      restaurant_id: restaurantId,
-      category: name.trim(),
-      description: description?.trim() || '',
-      type: normType,
-      image,
-      display_order: displayOrder !== undefined && displayOrder !== '' ? parseInt(displayOrder, 10) : 0,
-      menu_category_status: 'ACTIVE'
-    }).returning();
+
+    const category = await db.transaction(async (tx) => {
+      const assignedOrder = await CategoryOrderingService.shiftForCreate({
+        tx,
+        restaurantId,
+        targetPriority: displayOrder
+      });
+
+      const [newCat] = await tx.insert(menu_categories).values({
+        restaurant_id: restaurantId,
+        category: name.trim(),
+        description: description?.trim() || '',
+        type: normType,
+        image,
+        display_order: assignedOrder,
+        menu_category_status: 'ACTIVE'
+      }).returning();
+
+      return newCat;
+    });
 
     RealtimeService.menuUpdated(restaurantId);
 
@@ -143,6 +163,9 @@ exports.createCategory = async (req, res) => {
     });
   } catch (error) {
     console.error('[RestaurantController] Error creating category:', error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -153,22 +176,19 @@ exports.updateCategory = async (req, res) => {
     const { id } = req.params;
     const { name, description, displayOrder, isActive, type } = req.body;
 
-    const updateFields = {
-      updatedat: new Date()
-    };
-
-    if (name) updateFields.category = name.trim();
-    if (description !== undefined) updateFields.description = description.trim();
-    if (type !== undefined) updateFields.type = (type.trim().toLowerCase() === 'non-veg') ? 'non-veg' : 'veg';
-    if (displayOrder !== undefined && displayOrder !== '') updateFields.display_order = parseInt(displayOrder, 10);
-    if (isActive !== undefined) {
-      updateFields.menu_category_status = (isActive === true || isActive === 'true') ? 'ACTIVE' : 'INACTIVE';
+    if (displayOrder !== undefined && displayOrder !== null && displayOrder !== '') {
+      try {
+        CategoryOrderingService.validatePriority(displayOrder);
+      } catch (valErr) {
+        return res.status(valErr.statusCode || 400).json({ success: false, message: valErr.message });
+      }
     }
 
+    let uploadedImage = null;
     if (req.file) {
       try {
         const uploadResult = await uploadToCloudinary(req.file.buffer, `dynease/categories/${restaurantId}`);
-        updateFields.image = {
+        uploadedImage = {
           public_id: uploadResult.public_id,
           secure_url: uploadResult.secure_url
         };
@@ -177,17 +197,70 @@ exports.updateCategory = async (req, res) => {
       }
     }
 
-    const [category] = await db.update(menu_categories).set(updateFields).where(
-      and(
-        eq(menu_categories.id, id),
-        eq(menu_categories.restaurant_id, restaurantId),
-        isNull(menu_categories.deletedat)
-      )
-    ).returning();
+    const updatedCategory = await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(menu_categories).where(
+        and(
+          eq(menu_categories.id, id),
+          eq(menu_categories.restaurant_id, restaurantId),
+          isNull(menu_categories.deletedat)
+        )
+      ).limit(1);
 
-    if (!category) {
-      return res.status(404).json({ success: false, message: 'Category not found.' });
-    }
+      if (!existing) {
+        const err = new Error('Category not found.');
+        err.statusCode = 404;
+        throw err;
+      }
+
+      if (name && name.trim().toLowerCase() !== existing.category.toLowerCase()) {
+        const [duplicate] = await tx.select().from(menu_categories).where(
+          and(
+            eq(menu_categories.restaurant_id, restaurantId),
+            eq(sql`LOWER(${menu_categories.category})`, name.trim().toLowerCase()),
+            ne(menu_categories.id, id),
+            isNull(menu_categories.deletedat)
+          )
+        ).limit(1);
+
+        if (duplicate) {
+          const err = new Error('A category with this name already exists.');
+          err.statusCode = 409;
+          throw err;
+        }
+      }
+
+      // Reorder with automatic positional shifting if displayOrder provided
+      if (displayOrder !== undefined && displayOrder !== null && displayOrder !== '') {
+        await CategoryOrderingService.reorderCategory({
+          tx,
+          restaurantId,
+          categoryId: id,
+          targetPriority: displayOrder
+        });
+      }
+
+      const updateFields = {
+        updatedat: new Date()
+      };
+      if (name) updateFields.category = name.trim();
+      if (description !== undefined) updateFields.description = description.trim();
+      if (type !== undefined) updateFields.type = (type.trim().toLowerCase() === 'non-veg') ? 'non-veg' : 'veg';
+      if (isActive !== undefined) {
+        updateFields.menu_category_status = (isActive === true || isActive === 'true') ? 'ACTIVE' : 'INACTIVE';
+      }
+      if (uploadedImage) {
+        updateFields.image = uploadedImage;
+      }
+
+      const [cat] = await tx.update(menu_categories).set(updateFields).where(
+        and(
+          eq(menu_categories.id, id),
+          eq(menu_categories.restaurant_id, restaurantId)
+        )
+      ).returning();
+
+      return cat;
+    });
 
     RealtimeService.menuUpdated(restaurantId);
 
@@ -195,19 +268,22 @@ exports.updateCategory = async (req, res) => {
       success: true,
       data: {
         category: {
-          _id: category.id,
-          id: category.id,
-          name: category.category,
-          description: category.description,
-          image: category.image || null,
-          displayOrder: category.display_order,
-          type: category.type || 'all',
-          isActive: category.menu_category_status === 'ACTIVE'
+          _id: updatedCategory.id,
+          id: updatedCategory.id,
+          name: updatedCategory.category,
+          description: updatedCategory.description,
+          image: updatedCategory.image || null,
+          displayOrder: updatedCategory.display_order,
+          type: updatedCategory.type || 'all',
+          isActive: updatedCategory.menu_category_status === 'ACTIVE'
         }
       }
     });
   } catch (error) {
     console.error('[RestaurantController] Error updating category:', error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -244,20 +320,22 @@ exports.deleteCategory = async (req, res) => {
       });
     }
 
-    await db.update(menu_categories).set({
-      deletedat: new Date()
-    }).where(
-      and(
-        eq(menu_categories.id, id),
-        eq(menu_categories.restaurant_id, restaurantId)
-      )
-    );
+    await db.transaction(async (tx) => {
+      await CategoryOrderingService.deleteCategoryWithShift({
+        tx,
+        restaurantId,
+        categoryId: id
+      });
+    });
 
     RealtimeService.menuUpdated(restaurantId);
 
     res.status(200).json({ success: true, message: 'Category deleted.' });
   } catch (error) {
     console.error('[RestaurantController] Error deleting category:', error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };

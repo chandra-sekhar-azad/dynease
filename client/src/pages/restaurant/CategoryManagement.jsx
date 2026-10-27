@@ -99,8 +99,8 @@ export default function CategoryManagement() {
     setNewCategoryName('');
     setNewCategoryDesc('');
     setCategoryType('veg');
-    // Default priority order to next sequential integer
-    const maxOrder = categories.reduce((max, c) => Math.max(max, c.displayOrder ?? 0), -1);
+    // Default priority order to next sequential integer (1-indexed)
+    const maxOrder = categories.reduce((max, c) => Math.max(max, c.displayOrder ?? 0), 0);
     setCategoryDisplayOrder(maxOrder + 1);
     setCategoryImage(null);
     setPreviewImage(null);
@@ -112,7 +112,7 @@ export default function CategoryManagement() {
     setNewCategoryName(cat.name);
     setNewCategoryDesc(cat.description || '');
     setCategoryType((cat.type || '').toLowerCase() === 'non-veg' ? 'non-veg' : 'veg');
-    setCategoryDisplayOrder(cat.displayOrder ?? 0);
+    setCategoryDisplayOrder(cat.displayOrder ?? 1);
     setCategoryImage(null);
     setPreviewImage(cat.image?.secure_url || null);
     setShowModal(true);
@@ -127,7 +127,7 @@ export default function CategoryManagement() {
       formData.append('name', newCategoryName.trim());
       formData.append('description', newCategoryDesc.trim());
       formData.append('type', categoryType);
-      formData.append('displayOrder', categoryDisplayOrder);
+      formData.append('displayOrder', Math.max(1, parseInt(categoryDisplayOrder, 10) || 1));
       if (categoryImage) {
         formData.append('image', categoryImage);
       }
@@ -147,17 +147,8 @@ export default function CategoryManagement() {
       });
       const data = await res.json();
       if (data.success) {
-        if (editingCategory) {
-          setCategories(prev => {
-            const next = prev.map(c => c._id === editingCategory._id ? data.data.category : c);
-            return next.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
-          });
-        } else {
-          setCategories(prev => {
-            const next = [...prev, data.data.category];
-            return next.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
-          });
-        }
+        // Positional shifting alters orders of other categories, so refresh the full list from server
+        await fetchCategories();
         setShowModal(false);
       } else {
         toast.error(data.message || 'Failed to save category');
@@ -187,15 +178,27 @@ export default function CategoryManagement() {
       });
       const data = await res.json();
       if (data.success) {
-        setCategories(prev => {
-          const next = prev.map(c => c._id === catId ? { ...c, ...data.data.category } : c);
-          return next.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
-        });
+        if (updates.displayOrder !== undefined) {
+          // Automatic positional shifting affects other categories, so refresh the full list
+          await fetchCategories();
+        } else {
+          setCategories(prev => {
+            const next = prev.map(c => c._id === catId ? { ...c, ...data.data.category } : c);
+            return next.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+          });
+        }
       } else {
         toast.error(data.message || 'Update failed');
+        if (updates.displayOrder !== undefined) {
+          await fetchCategories(); // Revert back to authoritative server order
+        }
       }
     } catch (err) {
       console.error('Error updating category:', err);
+      toast.error('Error updating category.');
+      if (updates.displayOrder !== undefined) {
+        await fetchCategories();
+      }
     } finally {
       setQuickUpdatingId(null);
     }
@@ -225,7 +228,8 @@ export default function CategoryManagement() {
       });
       const data = await res.json();
       if (data.success) {
-        setCategories(prev => prev.filter(c => c._id !== cat._id));
+        // Subsequent categories shift up, so refresh the full category list
+        await fetchCategories();
         toast.success(`Category "${cat.name}" deleted successfully`);
       } else {
         toast.error(data.message || 'Error deleting category');
@@ -268,7 +272,7 @@ export default function CategoryManagement() {
             Category Management
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-            Set category types (Veg / Non-Veg) and priority order (0, 1, 2, 3...) for your menu
+            Set category types (Veg / Non-Veg) and priority order (1, 2, 3...) for your menu
           </p>
         </div>
         
@@ -408,14 +412,20 @@ export default function CategoryManagement() {
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
-                            min="0"
+                            min="1"
                             step="1"
-                            defaultValue={cat.displayOrder ?? 0}
+                            defaultValue={cat.displayOrder ?? 1}
                             key={`${cat._id}-${cat.displayOrder}`}
                             onBlur={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              if (!isNaN(val) && val !== (cat.displayOrder ?? 0)) {
-                                handleQuickUpdate(cat._id, { displayOrder: Math.max(0, val) });
+                              const raw = e.target.value.trim();
+                              const val = parseInt(raw, 10);
+                              if (isNaN(val) || val < 1) {
+                                toast.error('Priority must be a valid integer greater than or equal to 1.');
+                                e.target.value = cat.displayOrder ?? 1;
+                                return;
+                              }
+                              if (val !== (cat.displayOrder ?? 1)) {
+                                handleQuickUpdate(cat._id, { displayOrder: val });
                               }
                             }}
                             onKeyDown={(e) => {
@@ -424,10 +434,10 @@ export default function CategoryManagement() {
                               }
                             }}
                             className="w-16 px-2 py-1 text-center font-bold text-gray-800 bg-gray-50 hover:bg-white focus:bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-xs transition-colors"
-                            title="Priority order: 0 is highest priority (appears first on customer menu)"
+                            title="Priority order: 1 is highest priority (appears first on customer menu)"
                           />
                           <span className="text-[11px] text-gray-400 font-semibold select-none">
-                            #{cat.displayOrder ?? 0}
+                            #{cat.displayOrder ?? 1}
                           </span>
                         </div>
                       </td>
@@ -621,21 +631,21 @@ export default function CategoryManagement() {
                 />
               </div>
 
-              {/* Priority Order (0, 1, 2, 3...) */}
+              {/* Priority Order (1, 2, 3...) */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Priority Order (0, 1, 2, 3...)
+                    Priority Order (1, 2, 3...)
                   </label>
                   <span className="text-[11px] text-green-700 font-semibold">Lower number = appears first</span>
                 </div>
                 <input 
                   type="number"
-                  min="0"
+                  min="1"
                   step="1"
                   value={categoryDisplayOrder}
-                  onChange={e => setCategoryDisplayOrder(parseInt(e.target.value, 10) || 0)}
-                  placeholder="0, 1, 2, 3..."
+                  onChange={e => setCategoryDisplayOrder(parseInt(e.target.value, 10) || 1)}
+                  placeholder="1, 2, 3..."
                   required
                   className="w-full p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-gray-900 bg-white text-sm font-semibold"
                 />
