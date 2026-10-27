@@ -203,7 +203,7 @@ export default function PastOrders() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-              <ShoppingBag className="text-orange-600" size={26} />
+              <ShoppingBag className="text-green-600" size={26} />
               My Past Orders
             </h1>
             <p className="text-gray-500 text-sm mt-0.5">
@@ -218,7 +218,7 @@ export default function PastOrders() {
               className="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
               title="Refresh past orders"
             >
-              <RotateCw size={16} className={refreshing ? 'animate-spin text-orange-600' : 'text-gray-500'} />
+              <RotateCw size={16} className={refreshing ? 'animate-spin text-green-600' : 'text-gray-500'} />
               <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
           </div>
@@ -226,8 +226,8 @@ export default function PastOrders() {
 
         {/* Quick Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200/80 rounded-2xl p-4">
-            <div className="flex items-center justify-between text-orange-700 mb-1">
+          <div className="bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200/80 rounded-2xl p-4">
+            <div className="flex items-center justify-between text-green-700 mb-1">
               <span className="text-xs font-semibold uppercase tracking-wider">Total Orders</span>
               <Receipt size={18} />
             </div>
@@ -269,7 +269,7 @@ export default function PastOrders() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by order #, table, customer or item..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-gray-400"
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all placeholder:text-gray-400"
             />
             {searchQuery && (
               <button
@@ -309,7 +309,7 @@ export default function PastOrders() {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="appearance-none bg-white border border-gray-300 text-gray-700 text-xs font-medium py-2 pl-8 pr-8 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 cursor-pointer"
+                className="appearance-none bg-white border border-gray-300 text-gray-700 text-xs font-medium py-2 pl-8 pr-8 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 cursor-pointer"
               >
                 <option value="ALL">
                   {historyPolicy.days === null || historyPolicy.days === undefined ? 'All Time' : 'All Available'}
@@ -329,8 +329,8 @@ export default function PastOrders() {
       {/* Main Content Area */}
       <div className="flex-1 p-6">
         {historyPolicy.loaded && (
-          <div className="mb-4 flex items-start gap-2 rounded-2xl border border-orange-200 bg-orange-50/80 px-4 py-3 text-xs text-orange-900">
-            <Clock size={16} className="mt-0.5 shrink-0 text-orange-600" />
+          <div className="mb-4 flex items-start gap-2 rounded-2xl border border-green-200 bg-green-50/80 px-4 py-3 text-xs text-green-900">
+            <Clock size={16} className="mt-0.5 shrink-0 text-green-600" />
             <p>
               {historyPolicy.days === null || historyPolicy.days === undefined
                 ? `Your ${historyPolicy.planName || 'restaurant'} plan includes unlimited order history.`
@@ -340,12 +340,12 @@ export default function PastOrders() {
         )}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-            <div className="h-10 w-10 animate-spin rounded-full border-3 border-orange-500 border-t-transparent mb-4" />
+            <div className="h-10 w-10 animate-spin rounded-full border-3 border-green-500 border-t-transparent mb-4" />
             <p className="text-sm font-medium text-gray-500">Loading your past orders...</p>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="bg-white rounded-3xl border border-gray-200/80 p-12 text-center max-w-lg mx-auto shadow-xs my-8">
-            <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-orange-600 shadow-inner">
+            <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-green-600 shadow-inner">
               <Receipt size={32} />
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">No Past Orders Found</h3>
@@ -361,7 +361,7 @@ export default function PastOrders() {
                   setStatusFilter('ALL');
                   setDateRange('ALL');
                 }}
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium text-sm rounded-xl transition-colors shadow-xs cursor-pointer"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium text-sm rounded-xl transition-colors shadow-xs cursor-pointer"
               >
                 Clear All Filters
               </button>
@@ -377,14 +377,14 @@ export default function PastOrders() {
                 <div
                   key={order.id || order._id}
                   onClick={() => setSelectedOrder(order)}
-                  className="bg-white rounded-2xl border border-gray-200/90 hover:border-orange-300 hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden group"
+                  className="bg-white rounded-2xl border border-gray-200/90 hover:border-green-300 hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden group"
                 >
                   {/* Card Header */}
                   <div className="p-5 pb-3">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
                         <span className="px-2.5 py-1 bg-slate-900 text-white text-xs font-bold rounded-lg tracking-wide flex items-center gap-1.5 shadow-xs">
-                          <Utensils size={12} className="text-orange-400" />
+                          <Utensils size={12} className="text-green-400" />
                           {order.tableNumber || order.tableId?.tableNumber || 'Table'}
                         </span>
                         <span className="font-mono text-xs font-bold text-gray-500">
@@ -428,7 +428,7 @@ export default function PastOrders() {
                       {(order.items || []).slice(0, 3).map((item, idx) => (
                         <li key={idx} className="flex items-center justify-between gap-2">
                           <span className="truncate text-gray-800">
-                            <strong className="text-orange-600 mr-1.5">{item.quantity || 1}x</strong>
+                            <strong className="text-green-600 mr-1.5">{item.quantity || 1}x</strong>
                             {item.itemName || item.name}
                             {item.size ? (
                               <span className="text-gray-400 text-[11px] ml-1">({item.size})</span>
@@ -461,7 +461,7 @@ export default function PastOrders() {
                         e.stopPropagation();
                         setSelectedOrder(order);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold rounded-xl transition-colors cursor-pointer group-hover:bg-orange-600 group-hover:text-white"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold rounded-xl transition-colors cursor-pointer group-hover:bg-green-600 group-hover:text-white"
                     >
                       <Receipt size={14} />
                       <span>View Receipt</span>
@@ -485,7 +485,7 @@ export default function PastOrders() {
             <div className="px-6 py-5 bg-slate-900 text-white flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 bg-orange-600 text-white text-xs font-bold rounded-md">
+                  <span className="px-2.5 py-0.5 bg-green-600 text-white text-xs font-bold rounded-md">
                     {selectedOrder.tableNumber || selectedOrder.tableId?.tableNumber || 'Table'}
                   </span>
                   <h3 className="text-lg font-black tracking-tight text-white">
@@ -616,7 +616,7 @@ export default function PastOrders() {
                 )}
                 <div className="flex justify-between text-base font-black text-gray-900 pt-2 border-t border-gray-200">
                   <span>Final Amount</span>
-                  <span className="text-orange-600">
+                  <span className="text-green-600">
                     {formatCurrency(parseFloat(selectedOrder.total || selectedOrder.totalAmount || 0))}
                   </span>
                 </div>

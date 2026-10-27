@@ -83,7 +83,7 @@ export default function Profile() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-8">
           <div className="flex items-center gap-6 mb-8 border-b border-gray-100 pb-8">
-            <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center text-green-600">
               <User size={48} />
             </div>
             <div>
@@ -134,7 +134,7 @@ export default function Profile() {
 
         <div className="bg-gray-50 p-8 border-t border-gray-100">
           <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Hash size={20} className="text-orange-500" />
+            <Hash size={20} className="text-green-500" />
             Assigned Tables
           </h3>
           
@@ -154,14 +154,14 @@ export default function Profile() {
         <div className="bg-gray-50 p-8 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-              <KeyRound size={16} className="text-orange-500" />
+              <KeyRound size={16} className="text-green-500" />
               Account Security
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">Need to update your waiter login password?</p>
           </div>
           <Link
             to="/waiter/settings"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-orange-50 border border-gray-200 text-orange-600 rounded-xl text-xs font-bold transition-all shadow-xs"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-green-50 border border-gray-200 text-green-600 rounded-xl text-xs font-bold transition-all shadow-xs"
           >
             <span>Change Password</span>
             <ArrowRight size={14} />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle, User, LogOut, Menu, X, Bell, Settings } from 'lucide-react';
+import { CheckCircle, User, LogOut, Menu, X, Bell, Settings } from 'lucide-react';
 import useAuthGuard from '../../hooks/useAuthGuard';
 import { getStoredToken, getAuthHeaders } from '../../utils/api';
 
@@ -48,7 +48,7 @@ export default function WaiterLayout() {
   if (authStatus !== 'allowed') {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function WaiterLayout() {
       <aside className={`fixed md:static inset-y-0 left-0 z-50 bg-slate-900 text-white flex flex-col transition-transform duration-300 w-64 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'}`}>
         <div className="w-64 flex flex-col h-full">
           <div className="p-6 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-orange-500 truncate" title={restaurantName}>{restaurantName}</h2>
+            <h2 className="text-xl font-bold text-green-500 truncate" title={restaurantName}>{restaurantName}</h2>
             <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
               <X size={24} />
             </button>
@@ -74,7 +74,9 @@ export default function WaiterLayout() {
         
         <nav className="flex-1 px-4 space-y-2 mt-4">
           {links.map((link) => {
-            const isActive = location.pathname === link.path || (link.path !== '/waiter' && location.pathname.startsWith(link.path));
+            const isActive = link.path === '/waiter'
+              ? location.pathname === '/waiter'
+              : location.pathname === link.path || location.pathname.startsWith(`${link.path}/`);
             return (
               <Link 
                 key={link.path}
@@ -83,7 +85,7 @@ export default function WaiterLayout() {
                   if (window.innerWidth < 768) setIsSidebarOpen(false);
                 }}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-                  isActive ? 'bg-orange-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  isActive ? 'bg-green-600 text-white' : 'text-slate-300 hover:bg-slate-800'
                 }`}
               >
                 {link.icon}

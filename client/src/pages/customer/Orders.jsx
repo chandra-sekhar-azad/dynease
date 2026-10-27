@@ -748,12 +748,6 @@ export default function Orders() {
                           <ShoppingBag size={14} />
                           <span>Reorder All Items</span>
                         </button>
-                        <Link
-                          to="/feedback"
-                          className="py-2.5 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl text-xs font-bold transition-colors border border-gray-200 text-center"
-                        >
-                          Feedback
-                        </Link>
                       </>
                     )}
                   </div>

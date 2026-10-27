@@ -71,10 +71,14 @@ export default function AdminLayout() {
         <nav className="flex-1 px-3 space-y-1 mt-6 overflow-y-auto overflow-x-hidden no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <p className="px-4 text-[10px] font-medium text-gray-400 uppercase tracking-widest mb-2">Platform</p>
           {links.map((link) => {
-            const isRestaurantTab = link.name === 'Restaurant Management';
-            const isActive = isRestaurantTab
-              ? (location.pathname.includes('/admin/restaurants') || location.pathname.includes('/admin/billing') || location.pathname.includes('/admin/plans'))
-              : (location.pathname.includes(link.path) && (link.path !== '/admin' || location.pathname === '/admin'));
+            const isPathActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+            const isActive = link.path === '/admin'
+              ? location.pathname === '/admin'
+              : link.name === 'Restaurant Management'
+                ? (isPathActive('/admin/restaurants') || isPathActive('/admin/billing'))
+                : link.name === 'Plan Management'
+                  ? (isPathActive('/admin/plans') || isPathActive('/admin/plan-management'))
+                  : isPathActive(link.path);
 
             return (
               <Link 
@@ -86,7 +90,7 @@ export default function AdminLayout() {
                   }
                 }}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-[var(--radius-sm)] text-sm font-medium transition-colors ${
-                  isActive ? 'bg-[var(--color-primary-light)] text-white' : 'text-gray-300 hover:bg-[var(--color-primary-light)] hover:text-white'
+                  isActive ? 'bg-[var(--color-primary-light)] text-white' : 'text-gray-300 hover:bg-slate-800 hover:text-white'
                 }`}
                 title={link.name}
               >

@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useRestaurant } from '../../context/RestaurantContext';
 
-export default function CustomerSidebar({ isOpen, onClose, tableLabel, googleReviewLink, onOpenServiceRequest }) {
+export default function CustomerSidebar({ isOpen, onClose, tableLabel, onOpenServiceRequest }) {
   const { liveOrdersCount } = useRestaurant();
   if (!isOpen) return null;
 
@@ -42,26 +42,6 @@ export default function CustomerSidebar({ isOpen, onClose, tableLabel, googleRev
               <span>Call Waiter / Service</span>
               <span className="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full font-medium">Quick</span>
             </button>
-          )}
-          <Link to="/feedback" onClick={onClose} className="block text-gray-700 font-bold hover:text-emerald-600 transition-colors">Leave Feedback</Link>
-          {googleReviewLink ? (
-            <a 
-              href={googleReviewLink} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              onClick={onClose} 
-              className="block text-gray-700 font-bold hover:text-green-600 transition-colors"
-            >
-              Google Review
-            </a>
-          ) : (
-            <Link 
-              to="/google-review" 
-              onClick={onClose} 
-              className="block text-gray-700 font-bold hover:text-green-600 transition-colors"
-            >
-              Google Review
-            </Link>
           )}
         </div>
         {tableLabel && (

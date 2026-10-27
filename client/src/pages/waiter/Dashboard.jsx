@@ -94,8 +94,8 @@ export default function WaiterDashboard() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-gray-800">Waiter Dashboard</h1>
             {restaurantName && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">
-                <Store size={12} className="text-orange-600" />
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                <Store size={12} className="text-green-600" />
                 {restaurantName}
               </span>
             )}
@@ -111,7 +111,7 @@ export default function WaiterDashboard() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4 text-gray-700 flex items-center gap-2"><Bell className="text-orange-500" /> New Orders</h2>
+        <h2 className="text-xl font-bold mb-4 text-gray-700 flex items-center gap-2"><Bell className="text-green-500" /> New Orders</h2>
         
         {orders.length === 0 ? (
           <div className="text-center py-20 text-gray-400 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
@@ -121,14 +121,14 @@ export default function WaiterDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {orders.map((order, idx) => (
-              <div key={idx} className="bg-white rounded-xl shadow-sm p-5 border-l-4 border-orange-500">
+              <div key={idx} className="bg-white rounded-xl shadow-sm p-5 border-l-4 border-green-500">
                 <div className="flex justify-between items-start mb-4 pb-3 border-b border-gray-100">
                   <div>
                     <h3 className="font-bold text-lg text-gray-800">Table {order.table}</h3>
                     <p className="text-sm text-gray-500">{order.id}</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-orange-600 font-bold bg-orange-50 px-2 py-1 rounded text-sm">{order.status}</span>
+                    <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded text-sm">{order.status}</span>
                   </div>
                 </div>
                 
@@ -142,7 +142,7 @@ export default function WaiterDashboard() {
                 
                 <button 
                   onClick={() => setOrders(orders.filter((_, i) => i !== idx))}
-                  className="w-full bg-orange-50 hover:bg-orange-100 text-orange-600 font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full bg-green-50 hover:bg-green-100 text-green-600 font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <CheckCircle size={18} /> Acknowledge
                 </button>

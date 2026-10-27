@@ -79,7 +79,9 @@ export default function RestaurantLayout() {
         
         <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto no-scrollbar scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {links.map((link) => {
-            const isActive = location.pathname === link.path || location.pathname.startsWith(link.path + '/');
+            const isActive = link.path === '/restaurant'
+              ? location.pathname === '/restaurant'
+              : location.pathname === link.path || location.pathname.startsWith(`${link.path}/`);
             return (
               <Link 
                 key={link.path}

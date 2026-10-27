@@ -91,7 +91,6 @@ export default function FeedbackForm() {
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 
         tableLabel={tableLabel} 
-        googleReviewLink={googleReviewLink}
       />
     </div>
   );

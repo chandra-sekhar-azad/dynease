@@ -111,7 +111,7 @@ export default function WaiterSettings() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader2 className="animate-spin text-orange-500 w-8 h-8" />
+        <Loader2 className="animate-spin text-green-500 w-8 h-8" />
       </div>
     );
   }
@@ -121,7 +121,7 @@ export default function WaiterSettings() {
       {/* ── Header ── */}
       <div className="bg-white p-6 rounded-2xl shadow-xs border border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-orange-100 text-orange-600 rounded-xl">
+          <div className="p-3 bg-green-100 text-green-600 rounded-xl">
             <SettingsIcon size={24} />
           </div>
           <div>
@@ -133,7 +133,7 @@ export default function WaiterSettings() {
         {user && (
           <div className="text-right hidden sm:block">
             <p className="text-xs font-bold text-gray-800">{user.name}</p>
-            <span className="text-[10px] bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full font-extrabold border border-orange-200">
+            <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-extrabold border border-green-200">
               {user.role?.replace('_', ' ')}
             </span>
           </div>
@@ -144,7 +144,7 @@ export default function WaiterSettings() {
       <div className="bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-orange-100 text-orange-700">
+            <span className="p-2 rounded-xl bg-green-100 text-green-700">
               <KeyRound size={18} />
             </span>
             <div>
@@ -181,7 +181,7 @@ export default function WaiterSettings() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter current password"
-                className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
               <button
                 type="button"
@@ -205,7 +205,7 @@ export default function WaiterSettings() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Minimum 6 characters"
-                className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
               <button
                 type="button"
@@ -229,7 +229,7 @@ export default function WaiterSettings() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter new password"
-                className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
               <button
                 type="button"
@@ -245,7 +245,7 @@ export default function WaiterSettings() {
             <button
               type="submit"
               disabled={passwordLoading}
-              className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-60 cursor-pointer"
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-60 cursor-pointer"
             >
               {passwordLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Lock className="w-4 h-4" />}
               <span>{passwordLoading ? 'Updating Password...' : 'Save New Password'}</span>

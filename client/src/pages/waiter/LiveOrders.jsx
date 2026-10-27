@@ -844,8 +844,8 @@ export default function LiveOrders() {
                 )}
 
                 {(waiter.restaurantName || waiter.restaurantId?.restaurant_name || waiter.restaurantId?.name || waiter.restaurant?.name) && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
-                    <Store size={12} className="text-orange-600" />
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-200">
+                    <Store size={12} className="text-green-600" />
                     {waiter.restaurantName || waiter.restaurantId?.restaurant_name || waiter.restaurantId?.name || waiter.restaurant?.name}
                   </span>
                 )}
