@@ -834,28 +834,53 @@ exports.getOrders = async (req, res) => {
       conditions.push(and(gte(order_details.date, new Date(startDate)), lte(order_details.date, new Date(endDate))));
     }
 
-    // If caller is STAFF (waiter), check if they have specific table assignments
+    // If caller is STAFF (waiter), check if they have specific table assignments or assigned orders
     if (req.user.userType === 'STAFF') {
-      const myAssignments = await db.select().from(tables_assignment).where(
-        and(
-          eq(tables_assignment.restaurant_id, restaurantId),
-          eq(tables_assignment.staff_id, req.user.id),
-          eq(tables_assignment.assignment_status, 'ASSIGNED')
-        )
-      );
-      if (myAssignments.length > 0) {
-        const assignedTableIds = myAssignments.map(a => a.table_id);
-        conditions.push(or(
-          inArray(order_details.table_id, assignedTableIds),
-          isNull(order_details.table_id)
-        ));
+      if (type === 'past') {
+        const staffAssignments = await db.select().from(tables_assignment).where(
+          and(
+            eq(tables_assignment.restaurant_id, restaurantId),
+            eq(tables_assignment.staff_id, req.user.id)
+          )
+        );
+        const staffTableIds = staffAssignments.map(a => a.table_id).filter(Boolean);
+
+        if (staffTableIds.length > 0) {
+          conditions.push(or(
+            eq(order_details.assigned_waiter_id, req.user.id),
+            and(
+              isNull(order_details.assigned_waiter_id),
+              inArray(order_details.table_id, staffTableIds)
+            )
+          ));
+        } else {
+          conditions.push(eq(order_details.assigned_waiter_id, req.user.id));
+        }
+      } else {
+        const activeAssignments = await db.select().from(tables_assignment).where(
+          and(
+            eq(tables_assignment.restaurant_id, restaurantId),
+            eq(tables_assignment.staff_id, req.user.id),
+            eq(tables_assignment.assignment_status, 'ASSIGNED')
+          )
+        );
+        const activeTableIds = activeAssignments.map(a => a.table_id).filter(Boolean);
+
+        if (activeTableIds.length > 0) {
+          conditions.push(or(
+            eq(order_details.assigned_waiter_id, req.user.id),
+            inArray(order_details.table_id, activeTableIds)
+          ));
+        } else {
+          conditions.push(eq(order_details.assigned_waiter_id, req.user.id));
+        }
       }
     }
 
     const orderRows = await db.select().from(order_details)
       .where(and(...conditions))
       .orderBy(desc(order_details.date))
-      .limit(100);
+      .limit(250);
 
     const orders = [];
     for (const ord of orderRows) {
@@ -870,7 +895,20 @@ exports.getOrders = async (req, res) => {
       const [lead] = ord.lead_id ? await db.select().from(leads).where(eq(leads.id, ord.lead_id)).limit(1) : [null];
 
       let assignedWaiter = null;
-      if (ord.table_id) {
+      if (ord.assigned_waiter_id) {
+        const [w] = await db.select().from(users).where(eq(users.id, ord.assigned_waiter_id)).limit(1);
+        if (w) {
+          assignedWaiter = {
+            _id: w.id,
+            id: w.id,
+            name: w.name,
+            email: w.email,
+            phone: w.phone_number
+          };
+        }
+      }
+
+      if (!assignedWaiter && ord.table_id) {
         const [asgn] = await db.select().from(tables_assignment).where(
           and(
             eq(tables_assignment.table_id, ord.table_id),
@@ -925,21 +963,24 @@ exports.getOrders = async (req, res) => {
           size: oi.customizations || null,
           menuItemId: oi.menu_item_id
         })),
-        subtotal: totalCalculated,
+        subtotal: parseFloat(ord.total_amount || 0) || totalCalculated,
         taxPercent: 0,
-        taxAmount: 0,
-        discount: 0,
-        total: totalCalculated,
-        totalAmount: totalCalculated,
+        taxAmount: parseFloat(ord.tax_amount || 0),
+        discount: parseFloat(ord.discount_amount || 0),
+        total: parseFloat(ord.final_amount || ord.total_amount || 0) || totalCalculated,
+        totalAmount: parseFloat(ord.final_amount || ord.total_amount || 0) || totalCalculated,
         status: (ord.app_status === 'ACCEPTED' || ['ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(ord.order_status)) 
           ? (['PREPARING', 'READY', 'SERVED'].includes(ord.order_status) ? ord.order_status : 'ACCEPTED') 
           : (ord.order_status === 'ORDERED' && ord.app_status === 'PENDING' ? 'SUBMITTED' : ord.order_status),
+        orderStatus: ord.order_status,
         appStatus: (ord.app_status === 'ACCEPTED' || ['ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(ord.order_status)) ? 'ACCEPTED' : ord.app_status,
         assignmentStatus: (ord.app_status === 'ACCEPTED' || ['ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(ord.order_status)) 
           ? 'ACCEPTED' 
           : (['ORDERED', 'PENDING'].includes(ord.order_status) ? 'PENDING_ACCEPTANCE' : 'ASSIGNED'),
-        paymentStatus: ['COMPLETED', 'PAID'].includes(ord.order_status) ? 'PAID' : 'PENDING',
-        assignedWaiterId: assignedWaiter,
+        paymentStatus: ['COMPLETED', 'PAID'].includes(ord.order_status) ? 'PAID' : (ord.payment_status || 'PENDING'),
+        paymentMethod: ord.payment_method || 'CASH',
+        assignedWaiter: assignedWaiter,
+        assignedWaiterId: assignedWaiter || ord.assigned_waiter_id || null,
         createdAt: ord.date || ord.createdat,
         updatedAt: ord.updatedat
       });

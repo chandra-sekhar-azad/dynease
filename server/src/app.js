@@ -16,8 +16,8 @@ const staffRoutes = require('./routes/staffRoutes');
 
 const app = express();
 
-// Trust reverse proxy for rate limiter (Hostinger uses Nginx/LiteSpeed)
-app.set('trust proxy', 1);
+// Trust reverse proxy for rate limiter (Hostinger uses LiteSpeed/Nginx)
+app.set('trust proxy', true);
 
 // Middleware
 app.use(helmet({
@@ -44,9 +44,27 @@ app.use(cookieParser());
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
-  // Never rate-limit CORS preflight requests.
-  skip: (req) => req.method === 'OPTIONS'
+  max: 15000, // accommodate restaurant staff & guest shared Wi-Fi and polling
+  standardHeaders: true,
+  legacyHeaders: true,
+  skip: (req) => {
+    // Never rate-limit CORS preflight requests
+    if (req.method === 'OPTIONS') return true;
+    // Exempt public read-only endpoints (menus, plans, banners, health checks)
+    if (req.method === 'GET') {
+      const url = req.originalUrl || req.path || '';
+      if (
+        url.includes('/public/restaurant/') ||
+        url.includes('/public/menu') ||
+        url.includes('/public/plans') ||
+        url.includes('/public/banners') ||
+        url.includes('/health')
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
 });
 app.use('/api', limiter);
 

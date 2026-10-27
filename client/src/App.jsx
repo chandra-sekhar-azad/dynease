@@ -53,12 +53,21 @@ import { Loader2 } from 'lucide-react';
 import { fetchWithRetry } from './utils/api';
 import { DialogProvider } from './context/DialogContext';
 
+const validatedSubdomainsCache = new Map();
+
 function SubdomainWrapper({ subdomain, children }) {
-  // status: 'loading' | 'valid' | 'notFound' | 'unavailable'
-  const [state, setState] = useState({ status: 'loading' });
+  // If already validated in this session, immediately treat as valid
+  const [state, setState] = useState(() => ({
+    status: validatedSubdomainsCache.has(subdomain) ? 'valid' : 'loading'
+  }));
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (validatedSubdomainsCache.has(subdomain)) {
+      setState({ status: 'valid' });
+      return;
+    }
+
     let cancelled = false;
     setState({ status: 'loading' });
 
@@ -75,7 +84,12 @@ function SubdomainWrapper({ subdomain, children }) {
 
         const data = await res.json().catch(() => null);
         if (cancelled) return;
-        setState(data && data.success ? { status: 'valid' } : { status: 'notFound' });
+        if (data && data.success) {
+          validatedSubdomainsCache.set(subdomain, true);
+          setState({ status: 'valid' });
+        } else {
+          setState({ status: 'notFound' });
+        }
       })
       .catch(() => {
         // Network error / CORS / DNS failure — also a temporary outage, not a 404.
