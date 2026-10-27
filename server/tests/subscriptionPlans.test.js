@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { PLANS, getPlan, getSavingsInfo, getPublicPlans, hasEntitlement } = require('../src/config/plans');
+const { PLANS, getPlan, getSavingsInfo, getPublicPlans, hasEntitlement, isAdsEnabledForPlan } = require('../src/config/plans');
 const SubscriptionService = require('../src/services/SubscriptionService');
 
 describe('Dynease Subscription & Pricing Plans - Test Suite', () => {
@@ -111,6 +111,20 @@ describe('Dynease Subscription & Pricing Plans - Test Suite', () => {
       assert.equal(hasEntitlement('CUSTOM', 'loyaltySystem'), true, 'Custom has loyalty system');
       assert.equal(hasEntitlement('CUSTOM', 'salesAnalytics', 'consolidated'), true, 'Custom has consolidated analytics');
       assert.equal(hasEntitlement('CUSTOM', 'restaurantBranding', 'advanced'), true, 'Custom has advanced branding');
+    });
+
+    it('shows platform ads on Starter, Growth and Business but not Custom', () => {
+      assert.equal(hasEntitlement('STARTER', 'showAds'), true, 'Starter customer menus are ad-supported');
+      assert.equal(hasEntitlement('GROWTH', 'showAds'), true, 'Growth customer menus are ad-supported');
+      assert.equal(hasEntitlement('BUSINESS', 'showAds'), true, 'Business customer menus are ad-supported');
+      assert.equal(hasEntitlement('CUSTOM', 'showAds'), false, 'Custom/Enterprise customer menus are ad-free');
+
+      assert.equal(isAdsEnabledForPlan('STARTER'), true);
+      assert.equal(isAdsEnabledForPlan('GROWTH'), true);
+      assert.equal(isAdsEnabledForPlan('BUSINESS'), true);
+      assert.equal(isAdsEnabledForPlan('CUSTOM'), false);
+      assert.equal(isAdsEnabledForPlan('PRO'), false, 'Legacy PRO maps to ad-free Custom');
+      assert.equal(isAdsEnabledForPlan('UNKNOWN_PLAN'), true, 'Unknown plans fail open to preserve existing behaviour');
     });
   });
 

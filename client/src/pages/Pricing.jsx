@@ -37,6 +37,7 @@ export default function Pricing() {
         liveOrders: true,
         salesAnalytics: 'basic',
         customerReviews: true,
+        showAds: true,
         restaurantBranding: 'basic',
         customerCrm: 'none',
         reportsExport: false,
@@ -79,6 +80,7 @@ export default function Pricing() {
         liveOrders: true,
         salesAnalytics: 'advanced',
         customerReviews: true,
+        showAds: true,
         restaurantBranding: 'customizable',
         customerCrm: 'basic',
         reportsExport: false,
@@ -122,6 +124,7 @@ export default function Pricing() {
         liveOrders: true,
         salesAnalytics: 'advanced',
         customerReviews: true,
+        showAds: true,
         restaurantBranding: 'customizable',
         customerCrm: 'full',
         reportsExport: true,
@@ -168,6 +171,7 @@ export default function Pricing() {
         liveOrders: true,
         salesAnalytics: 'consolidated',
         customerReviews: true,
+        showAds: false,
         restaurantBranding: 'advanced',
         customerCrm: 'loyalty',
         reportsExport: true,
@@ -537,6 +541,13 @@ export default function Pricing() {
                     <td className="py-3.5 px-4 text-center bg-emerald-50/30 text-emerald-600 font-bold">Included</td>
                     <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
                     <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">Included</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3.5 px-6">Ads on Customer Menu</td>
+                    <td className="py-3.5 px-4 text-center font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center bg-emerald-50/30 font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center font-bold">Yes</td>
+                    <td className="py-3.5 px-4 text-center text-emerald-600 font-bold">No (Ad-free)</td>
                   </tr>
                   <tr>
                     <td className="py-3.5 px-6">Sales Analytics</td>

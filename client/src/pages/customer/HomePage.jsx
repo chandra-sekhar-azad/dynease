@@ -44,11 +44,44 @@ export default function HomePage({ forcedSlug }) {
   useEffect(() => {
     let cancelled = false;
 
+    // Banners are plan-gated server-side (Custom/Enterprise is ad-free), so the
+    // request must identify this restaurant even when opened via /r/:slug.
+    const restaurantId =
+      restaurant?.id ||
+      restaurant?._id ||
+      restaurant?.restaurantId ||
+      session?.restaurant?.id ||
+      session?.restaurant?._id ||
+      null;
+    const slug =
+      activeSlug ||
+      restaurant?.slug ||
+      restaurant?.subdomain ||
+      session?.restaurant?.slug ||
+      session?.restaurant?.subdomain ||
+      null;
+
     const fetchBanners = async () => {
       try {
         const apiUrl = import.meta.env.VITE_API_URL || '';
-        const res = await fetch(`${apiUrl}/public/banners`);
+        const params = new URLSearchParams();
+        if (restaurantId) params.set('restaurantId', restaurantId);
+        if (slug) params.set('slug', slug);
+        const query = params.toString();
+        const res = await fetch(
+          `${apiUrl}/public/banners${query ? `?${query}` : ''}`,
+          { headers: getTenantHeaders() }
+        );
         const json = await res.json();
+
+        if (json.success && json.data?.adsEnabled === false) {
+          if (!cancelled) {
+            setBanners([]);
+            setCurrentBannerIndex(0);
+          }
+          return;
+        }
+
         const fetchedAds = json.success
           ? (json.data?.banners || json.data?.ads || [])
           : [];
@@ -90,7 +123,7 @@ export default function HomePage({ forcedSlug }) {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
     };
-  }, []);
+  }, [restaurant, activeSlug, session]);
 
   useEffect(() => {
     if (banners.length <= 1) return;

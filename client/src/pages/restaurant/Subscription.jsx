@@ -103,14 +103,14 @@ export default function RestaurantSubscription() {
       name: 'Starter',
       monthlyPrice: 999,
       yearlyPrice: 9990,
-      limitsText: '10 Tables • 50 Items • 3 Staff'
+      limitsText: '5 Tables • 50 Items • 3 Staff • 7-day order history'
     },
     {
       id: 'GROWTH',
       name: 'Growth',
       monthlyPrice: 1999,
       yearlyPrice: 19990,
-      limitsText: '30 Tables • 200 Items • 10 Staff • Reports',
+      limitsText: '20 Tables • 200 Items • 10 Staff • 30-day order history',
       popular: true
     },
     {
@@ -118,14 +118,14 @@ export default function RestaurantSubscription() {
       name: 'Business',
       monthlyPrice: 3499,
       yearlyPrice: 34990,
-      limitsText: 'Up to 3 Locations • Unlimited Tables • 30 Staff'
+      limitsText: 'Up to 3 Locations • 40 Tables • 30 Staff • 1-year order history'
     },
     {
       id: 'PRO',
       name: 'Pro',
       monthlyPrice: 5999,
       yearlyPrice: 59990,
-      limitsText: 'Up to 5 Locations • Unlimited Staff • Full CRM & Loyalty'
+      limitsText: 'Unlimited Tables & Staff • Full CRM & Loyalty • Unlimited order history'
     }
   ];
 
@@ -154,9 +154,10 @@ export default function RestaurantSubscription() {
   const isExpired = status === 'EXPIRED' || remainingDays === 0;
   const isPending = subscription.renewalRequest?.status === 'PENDING';
   const currentPlanId = String(plan || planName || '').toUpperCase();
+  const currentPlanOptionId = currentPlanId === 'CUSTOM' ? 'PRO' : currentPlanId;
 
   const openPlanModal = () => {
-    setSelectedPlan(currentPlanId || 'GROWTH');
+    setSelectedPlan(currentPlanOptionId || 'GROWTH');
     setShowModal(true);
   };
 
@@ -442,7 +443,7 @@ export default function RestaurantSubscription() {
                 {planOptions.map((opt) => {
                   const price = billingCycle === 'yearly' ? opt.yearlyPrice : opt.monthlyPrice;
                   const isSelected = selectedPlan === opt.id;
-                  const isCurrent = currentPlanId === opt.id;
+                  const isCurrent = currentPlanId === opt.id || (currentPlanId === 'CUSTOM' && opt.id === 'PRO');
 
                   return (
                     <div

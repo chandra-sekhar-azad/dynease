@@ -26,6 +26,7 @@ const WaiterAssignmentService = require('../services/waiterAssignmentService');
 const OrderService = require('../services/OrderService');
 const CustomerSessionService = require('../services/CustomerSessionService');
 const { getPlan, getPublicPlans } = require('../config/plans');
+const { getOrderRetentionFilter } = require('../middlewares/entitlementMiddleware');
 const CategoryOrderingService = require('../services/CategoryOrderingService');
 
 
@@ -932,6 +933,32 @@ exports.getOrders = async (req, res) => {
       conditions.push(and(gte(order_details.date, new Date(startDate)), lte(order_details.date, new Date(endDate))));
     }
 
+    // Apply the restaurant's plan-based order history retention to every
+    // authenticated user, including staff. Live orders stay visible; only
+    // completed/cancelled/paid history older than the plan window is hidden.
+    let orderHistoryDays = null;
+    let planName = null;
+    try {
+      const planUsage = await SubscriptionService.getUsageAndLimits(null, { restaurantId });
+      const planLimits = planUsage?.limits || {};
+      const hasRetentionConfig = Object.prototype.hasOwnProperty.call(planLimits, 'orderHistoryDays');
+      orderHistoryDays = hasRetentionConfig
+        ? planLimits.orderHistoryDays
+        : (getPlan(planUsage?.planId)?.limits?.orderHistoryDays ?? null);
+      planName = planUsage?.planName || null;
+
+      const historyCutoff = getOrderRetentionFilter({ orderHistoryDays });
+
+      if (historyCutoff) {
+        conditions.push(or(
+          sql`${order_details.order_status} NOT IN ('COMPLETED', 'CANCELLED', 'PAID')`,
+          gte(order_details.date, historyCutoff)
+        ));
+      }
+    } catch (planError) {
+      console.error('[RestaurantController] Error resolving order history limit:', planError.message);
+    }
+
     // If caller is STAFF (waiter), check if they have specific table assignments or assigned orders
     if (req.user.userType === 'STAFF') {
       if (type === 'past') {
@@ -1092,7 +1119,14 @@ exports.getOrders = async (req, res) => {
       });
     }
 
-    res.status(200).json({ success: true, data: { orders } });
+    res.status(200).json({
+      success: true,
+      data: {
+        orders,
+        orderHistoryDays,
+        planName
+      }
+    });
   } catch (error) {
     console.error('[RestaurantController] Error fetching orders:', error);
     res.status(500).json({ success: false, message: 'Server Error' });

@@ -18,8 +18,10 @@ const {
 
 const RealtimeService = require('../services/RealtimeService');
 const CustomerSessionService = require('../services/CustomerSessionService');
+const SubscriptionService = require('../services/SubscriptionService');
 const { verifyProximity } = require('../utils/geo');
 const { normalizePhoneNumber } = require('../utils/phone');
+const { normalizeSubdomain } = require('../utils/tenant');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -1245,11 +1247,81 @@ exports.createServiceRequest = async (req, res, next) => {
   }
 };
 
+// Plan-based ad policy is polled by every customer menu, so cache the result
+// briefly instead of resolving the restaurant plan on every request.
+const ADS_POLICY_TTL_MS = 60 * 1000;
+const adsPolicyCache = new Map();
+
+async function resolveAdsPolicy(req) {
+  const registry = req.tenantRegistry || req.restaurant || null;
+  const rawRestaurantId =
+    registry?.id ||
+    registry?.restaurantId ||
+    req.query.restaurantId ||
+    req.query.restaurant_id ||
+    null;
+  const restaurantId =
+    rawRestaurantId && UUID_RE.test(String(rawRestaurantId))
+      ? String(rawRestaurantId)
+      : null;
+  const rawSlug =
+    req.query.slug ||
+    req.query.subdomain ||
+    registry?.subdomain ||
+    registry?.domain ||
+    (!restaurantId ? rawRestaurantId : null);
+  const subdomain = rawSlug ? normalizeSubdomain(rawSlug) : null;
+
+  // No tenant context (e.g. platform-level page): keep banners visible.
+  if (!restaurantId && !subdomain) {
+    return { adsEnabled: true, planId: null };
+  }
+
+  const cacheKey = restaurantId ? `id:${restaurantId}` : `slug:${subdomain}`;
+  const cached = adsPolicyCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.policy;
+  }
+
+  let policy;
+  try {
+    const subscription = await SubscriptionService.getSubscriptionForRestaurant(
+      restaurantId,
+      subdomain
+    );
+    policy = subscription
+      ? { adsEnabled: subscription.showAds !== false, planId: subscription.planId }
+      : { adsEnabled: true, planId: null };
+  } catch (err) {
+    // Never break the customer menu because the plan lookup failed.
+    console.error('[PublicController] Error resolving ads policy:', err.message);
+    return { adsEnabled: true, planId: null };
+  }
+
+  adsPolicyCache.set(cacheKey, {
+    policy,
+    expiresAt: Date.now() + ADS_POLICY_TTL_MS
+  });
+
+  return policy;
+}
+
 /**
  * GET /api/public/banners or /api/public/ads
+ * Banners are only served to restaurants whose plan includes ads
+ * (Starter/Growth/Business). Custom/Enterprise is ad-free.
  */
 exports.getBanners = async (req, res, next) => {
   try {
+    const { adsEnabled, planId } = await resolveAdsPolicy(req);
+
+    if (!adsEnabled) {
+      return res.status(200).json({
+        success: true,
+        data: { banners: [], ads: [], adsEnabled: false, planId }
+      });
+    }
+
     const bannerRows = await db.select().from(ads).where(
       eq(ads.ad_status, true)
     ).orderBy(ads.display_order, desc(ads.createdat));
@@ -1266,7 +1338,10 @@ exports.getBanners = async (req, res, next) => {
       createdAt: b.createdat
     }));
 
-    res.status(200).json({ success: true, data: { banners, ads: banners } });
+    res.status(200).json({
+      success: true,
+      data: { banners, ads: banners, adsEnabled: true, planId }
+    });
   } catch (error) {
     next(error);
   }

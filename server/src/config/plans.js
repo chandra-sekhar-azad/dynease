@@ -31,6 +31,7 @@ const PLANS = {
       qrOrdering: true,
       liveOrders: true,
       customerReviews: true,      // Included to help small restaurants build trust
+      showAds: true,              // Customer menu is ad-supported
       salesAnalytics: 'basic',    // 'basic' | 'advanced' | 'consolidated'
       restaurantBranding: 'basic',// Basic: restaurant name and logo
       customerCrm: 'none',        // Not included
@@ -78,6 +79,7 @@ const PLANS = {
       qrOrdering: true,
       liveOrders: true,
       customerReviews: true,      // Included
+      showAds: true,              // Customer menu is ad-supported
       salesAnalytics: 'advanced', // Advanced trends and breakdowns
       restaurantBranding: 'customizable', // Customizable colors & layouts
       customerCrm: 'basic',       // Basic customer profiles and visit history
@@ -126,6 +128,7 @@ const PLANS = {
       qrOrdering: true,
       liveOrders: true,
       customerReviews: true,      // Included
+      showAds: true,              // Customer menu is ad-supported
       salesAnalytics: 'advanced', // Advanced
       restaurantBranding: 'customizable', // Customizable
       customerCrm: 'full',        // Full CRM
@@ -177,6 +180,7 @@ const PLANS = {
       qrOrdering: true,
       liveOrders: true,
       customerReviews: true,
+      showAds: false,                     // Ad-free customer menu (enterprise)
       salesAnalytics: 'consolidated',     // Advanced + consolidated multi-outlet
       restaurantBranding: 'advanced',     // Advanced custom branding
       customerCrm: 'loyalty',             // Full CRM + loyalty program
@@ -248,6 +252,17 @@ function getPlan(planId) {
 }
 
 /**
+ * Returns whether the customer menu for a plan should display platform ads.
+ * Unknown/legacy plan identifiers fall back to `true` so existing restaurants
+ * keep their current ad-supported behaviour until a plan is resolved.
+ */
+function isAdsEnabledForPlan(planId) {
+  const plan = getPlan(planId);
+  if (!plan) return true;
+  return plan.features?.showAds !== false;
+}
+
+/**
  * Returns public array of active plans with savings calculations.
  */
 function getPublicPlans() {
@@ -307,5 +322,6 @@ module.exports = {
   getPlan,
   getPublicPlans,
   getSavingsInfo,
-  hasEntitlement
+  hasEntitlement,
+  isAdsEnabledForPlan
 };

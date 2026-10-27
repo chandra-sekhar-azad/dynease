@@ -1,4 +1,4 @@
-const { getPlan, PLANS, hasEntitlement } = require('../config/plans');
+const { getPlan, PLANS, hasEntitlement, isAdsEnabledForPlan } = require('../config/plans');
 const { db, schema } = require('../db/client');
 const { eq, and, sql, isNull } = require('drizzle-orm');
 const { restaurants, tables, menu_categories_items, users, plans, audit_log } = schema;
@@ -34,12 +34,40 @@ class SubscriptionService {
     if (!restaurant) return null;
 
     let planConfig = PLANS.STARTER;
+    let storedPlan = null;
     if (restaurant.plan_id) {
       const [p] = await db.select().from(plans).where(eq(plans.id, restaurant.plan_id)).limit(1);
       if (p) {
-        planConfig = getPlan(p.name) || PLANS.STARTER;
+        storedPlan = p;
+        planConfig = getPlan(p.name) || getPlan(p.configuration?.planId) || PLANS.STARTER;
       }
     }
+
+    // An explicit admin override names the effective plan (e.g. CUSTOM).
+    if (restaurant.is_plan_overridden && restaurant.overriden_plan) {
+      const overridePlan = getPlan(restaurant.overriden_plan);
+      if (overridePlan) {
+        planConfig = overridePlan;
+        // Stored configuration belongs to the base plan; don't let it
+        // overwrite entitlements of the overridden plan.
+        storedPlan = null;
+      }
+    }
+
+    // Merge stored plan configuration over the canonical config so admin
+    // overrides work while newly added entitlements (e.g. showAds) still
+    // resolve for plans seeded before the entitlement existed.
+    const planLimits = {
+      ...(planConfig.limits || {}),
+      ...(storedPlan?.configuration?.limits || {})
+    };
+    const planFeatures = {
+      ...(planConfig.features || {}),
+      ...(storedPlan?.configuration?.features || {})
+    };
+    const showAds = planFeatures.showAds !== undefined
+      ? planFeatures.showAds === true
+      : isAdsEnabledForPlan(planConfig.planId);
 
     const now = new Date();
     const subStartDate = restaurant.subscription_start_date || restaurant.createdat;
@@ -61,9 +89,27 @@ class SubscriptionService {
       nextBillingDate: periodEnd,
       remainingDays: remainingDays,
       pricePaise: planConfig.monthlyPricePaise || 0,
-      limits: planConfig.limits,
-      features: planConfig.features
+      limits: planLimits,
+      features: planFeatures,
+      showAds
     };
+  }
+
+  /**
+   * Resolves whether platform ads/banners may be shown to customers of a
+   * restaurant. Custom/Enterprise plans are ad-free (showAds: false);
+   * Starter, Growth and Business are ad-supported.
+   * Unknown restaurants fail open to preserve existing banner behaviour.
+   */
+  async areAdsEnabledForRestaurant(restaurantId = null, subdomain = null) {
+    try {
+      const subscription = await this.getSubscriptionForRestaurant(restaurantId, subdomain);
+      if (!subscription) return true;
+      return subscription.showAds !== false;
+    } catch (err) {
+      console.error('[SubscriptionService] Error resolving ads entitlement:', err.message);
+      return true;
+    }
   }
 
   /**
@@ -89,10 +135,19 @@ class SubscriptionService {
           if (rest.plan_id) {
             const [dbPlan] = await db.select().from(plans).where(eq(plans.id, rest.plan_id)).limit(1);
             if (dbPlan) {
+              const canonicalPlan = getPlan(dbPlan.name) || getPlan(dbPlan.configuration?.planId);
               planName = dbPlan.name;
-              planId = (dbPlan.name || 'STARTER').toUpperCase();
-              limits = dbPlan.configuration?.limits ? { ...dbPlan.configuration.limits } : null;
-              features = dbPlan.configuration?.features ? { ...dbPlan.configuration.features } : {};
+              planId = canonicalPlan?.planId || (dbPlan.name || 'STARTER').toUpperCase();
+              // Canonical config first, then stored overrides, so entitlements
+              // added after a plan row was seeded still resolve.
+              limits = {
+                ...(canonicalPlan?.limits || {}),
+                ...(dbPlan.configuration?.limits || {})
+              };
+              features = {
+                ...(canonicalPlan?.features || {}),
+                ...(dbPlan.configuration?.features || {})
+              };
             }
           }
           if (!limits) {

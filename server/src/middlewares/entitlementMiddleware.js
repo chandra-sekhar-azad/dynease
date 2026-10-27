@@ -43,22 +43,27 @@ exports.requireEntitlement = (entitlementKey, requiredLevel = null) => {
 };
 
 /**
- * Returns date filter object for Order query based on subscription plan order history retention limit.
+ * Returns the earliest order date visible under a plan's order history retention limit.
+ * Accepts either a canonical plan ID or a resolved plan limits object.
  * Retention limits:
  * - STARTER: 7 days
  * - GROWTH: 30 days
  * - BUSINESS: 365 days (1 year)
- * - PRO: null (unlimited)
+ * - PRO/CUSTOM: null (unlimited)
  */
-exports.getOrderRetentionFilter = (planId) => {
-  const plan = getPlan(planId);
-  const retentionDays = plan?.limits?.orderHistoryDays;
+exports.getOrderRetentionFilter = (planOrLimits, now = new Date()) => {
+  const retentionDays = planOrLimits && typeof planOrLimits === 'object'
+    ? planOrLimits.orderHistoryDays
+    : getPlan(planOrLimits)?.limits?.orderHistoryDays;
 
   if (retentionDays === null || retentionDays === undefined) {
     return null; // Unlimited history
   }
 
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-  return cutoffDate;
+  const days = Number(retentionDays);
+  if (!Number.isFinite(days) || days < 0) {
+    return null;
+  }
+
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 };

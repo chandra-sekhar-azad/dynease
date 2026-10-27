@@ -10,6 +10,7 @@ export default function Orders() {
   const [connected, setConnected] = useState(false);
   const [activeTab, setActiveTab] = useState('LIVE'); // 'LIVE' or 'PAST'
   const [searchTerm, setSearchTerm] = useState('');
+  const [historyPolicy, setHistoryPolicy] = useState({ days: null, planName: null, loaded: false });
 
   const getHeaders = () => {
     const token = localStorage.getItem('token');
@@ -102,6 +103,11 @@ export default function Orders() {
         // Map backend _id to id if necessary
         const mappedOrders = data.data.orders.map(o => ({ ...o, id: o._id }));
         setOrders(mappedOrders);
+        setHistoryPolicy({
+          days: data.data.orderHistoryDays ?? null,
+          planName: data.data.planName || null,
+          loaded: true
+        });
       }
     } catch (err) {
       console.error(err);
@@ -135,6 +141,11 @@ export default function Orders() {
     const searchString = `${o.orderNumber || ''} ${o.tableNumber || ''} ${o.assignedWaiter?.name || o.waiterName || ''} ${o.customerName || ''} ${o.customerPhone || ''}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
+
+  const formatHistoryWindow = (days) => {
+    if (days === 365) return '1 year';
+    return `${days} ${days === 1 ? 'day' : 'days'}`;
+  };
 
   return (
     <div className="p-2 sm:p-4 md:p-6">
@@ -181,6 +192,16 @@ export default function Orders() {
         </div>
 
         <div className="p-3 sm:p-6">
+          {activeTab === 'PAST' && historyPolicy.loaded && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-xs text-emerald-900">
+              <Clock size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+              <p>
+                {historyPolicy.days === null || historyPolicy.days === undefined
+                  ? `Your ${historyPolicy.planName || 'current'} plan includes unlimited order history.`
+                  : `Showing the last ${formatHistoryWindow(historyPolicy.days)} of order history for your ${historyPolicy.planName || 'current'} plan. Older orders are hidden.`}
+              </p>
+            </div>
+          )}
           {loading ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
@@ -240,7 +261,9 @@ export default function Orders() {
                         </span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {activeTab === 'PAST'
+                          ? new Date(order.createdAt).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                          : new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-right">
                         {activeTab === 'LIVE' && (

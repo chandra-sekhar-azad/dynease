@@ -31,6 +31,7 @@ export default function PastOrders() {
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'COMPLETED' | 'PAID' | 'CANCELLED'
   const [dateRange, setDateRange] = useState('ALL'); // 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'ALL'
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [historyPolicy, setHistoryPolicy] = useState({ days: null, planName: null, loaded: false });
 
   const fetchPastOrders = async (isManualRefresh = false) => {
     const token = getStoredToken();
@@ -47,6 +48,11 @@ export default function PastOrders() {
       const data = await res.json();
       if (data.success && data.data?.orders) {
         setOrders(data.data.orders);
+        setHistoryPolicy({
+          days: data.data.orderHistoryDays ?? null,
+          planName: data.data.planName || null,
+          loaded: true
+        });
       }
     } catch (err) {
       console.error('Failed to load past orders:', err);
@@ -150,6 +156,11 @@ export default function PastOrders() {
     } catch {
       return dateStr;
     }
+  };
+
+  const formatHistoryWindow = (days) => {
+    if (days === 365) return '1 year';
+    return `${days} ${days === 1 ? 'day' : 'days'}`;
   };
 
   const getStatusBadge = (status) => {
@@ -300,7 +311,9 @@ export default function PastOrders() {
                 onChange={(e) => setDateRange(e.target.value)}
                 className="appearance-none bg-white border border-gray-300 text-gray-700 text-xs font-medium py-2 pl-8 pr-8 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 cursor-pointer"
               >
-                <option value="ALL">All Time</option>
+                <option value="ALL">
+                  {historyPolicy.days === null || historyPolicy.days === undefined ? 'All Time' : 'All Available'}
+                </option>
                 <option value="TODAY">Today</option>
                 <option value="YESTERDAY">Yesterday</option>
                 <option value="WEEK">Last 7 Days</option>
@@ -315,6 +328,16 @@ export default function PastOrders() {
 
       {/* Main Content Area */}
       <div className="flex-1 p-6">
+        {historyPolicy.loaded && (
+          <div className="mb-4 flex items-start gap-2 rounded-2xl border border-orange-200 bg-orange-50/80 px-4 py-3 text-xs text-orange-900">
+            <Clock size={16} className="mt-0.5 shrink-0 text-orange-600" />
+            <p>
+              {historyPolicy.days === null || historyPolicy.days === undefined
+                ? `Your ${historyPolicy.planName || 'restaurant'} plan includes unlimited order history.`
+                : `Your ${historyPolicy.planName || 'restaurant'} plan limits order history to the last ${formatHistoryWindow(historyPolicy.days)}. Older orders are hidden for all staff.`}
+            </p>
+          </div>
+        )}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
             <div className="h-10 w-10 animate-spin rounded-full border-3 border-orange-500 border-t-transparent mb-4" />
