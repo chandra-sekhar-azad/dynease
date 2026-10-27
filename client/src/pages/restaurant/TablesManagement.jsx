@@ -1,8 +1,134 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Plus, Download, Printer, Trash2, Loader2, X, AlertCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import JSZip from 'jszip';
 import { useSocketEvents } from '../../lib/socket';
 import { showConfirm, toast } from '../../context/DialogContext';
+
+const QR_FORMATS = ['png', 'jpg', 'pdf'];
+
+const loadImage = (src) => new Promise((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = () => reject(new Error('Could not render the QR code image.'));
+  image.src = src;
+});
+
+const safeFilePart = (value) => (
+  String(value || 'table')
+    .trim()
+    .replace(/[^a-z0-9_-]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'table'
+);
+
+const triggerDownload = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+};
+
+const createTableQRCodeCanvas = async (table) => {
+  const source = document.getElementById(`qr-${table._id}`);
+  if (!source) throw new Error('QR code is not available on this page.');
+
+  const svg = source.cloneNode(true);
+  const width = 1000;
+  const padding = 80;
+  const qrSize = width - padding * 2;
+  // Render the vector QR at the final image size so it stays sharp.
+  svg.setAttribute('width', String(qrSize));
+  svg.setAttribute('height', String(qrSize));
+  if (!svg.getAttribute('xmlns')) {
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+
+  const svgBlob = new Blob(
+    [new XMLSerializer().serializeToString(svg)],
+    { type: 'image/svg+xml;charset=utf-8' }
+  );
+  const svgUrl = URL.createObjectURL(svgBlob);
+
+  try {
+    const image = await loadImage(svgUrl);
+    const canvas = document.createElement('canvas');
+    const title = `Table ${table.tableNumber}`;
+    const customName = (table.tableName || '').trim();
+    const hasCustomName = customName && customName.toLowerCase() !== title.toLowerCase();
+    const titleTop = padding + qrSize + 90;
+    const height = titleTop + (hasCustomName ? 205 : 145);
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(image, padding, padding, qrSize, qrSize);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#111827';
+    ctx.font = '700 62px Arial, sans-serif';
+    ctx.fillText(title, width / 2, titleTop);
+
+    if (hasCustomName) {
+      ctx.fillStyle = '#4b5563';
+      ctx.font = '500 38px Arial, sans-serif';
+      ctx.fillText(customName, width / 2, titleTop + 58);
+    }
+
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '400 30px Arial, sans-serif';
+    ctx.fillText('Scan to Order', width / 2, titleTop + (hasCustomName ? 126 : 64));
+
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
+};
+
+const canvasToImageBlob = (canvas, format) => {
+  const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error(`Could not create the ${format.toUpperCase()} file.`));
+    }, mimeType, format === 'jpg' ? 0.95 : undefined);
+  });
+};
+
+const createQRCodePdf = async (tables) => {
+  const { jsPDF } = await import('jspdf');
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 15;
+
+  for (let index = 0; index < tables.length; index += 1) {
+    if (index > 0) pdf.addPage();
+
+    const canvas = await createTableQRCodeCanvas(tables[index]);
+    const scale = Math.min(
+      (pageWidth - margin * 2) / canvas.width,
+      (pageHeight - margin * 2) / canvas.height
+    );
+    const renderWidth = canvas.width * scale;
+    const renderHeight = canvas.height * scale;
+    const x = (pageWidth - renderWidth) / 2;
+    const y = (pageHeight - renderHeight) / 2;
+
+    // JPEG keeps multi-page PDFs reasonably small while remaining scan-friendly
+    // because the QR source is high resolution and uses high error correction.
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', x, y, renderWidth, renderHeight);
+  }
+
+  return pdf.output('blob');
+};
 
 export default function TablesManagement() {
   const [tables, setTables] = useState([]);
@@ -12,6 +138,9 @@ export default function TablesManagement() {
   const [formData, setFormData] = useState({ tableNumber: '', tableName: '' });
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedTableIds, setSelectedTableIds] = useState([]);
+  const [qrDownloading, setQrDownloading] = useState(null);
+  const [qrFormat, setQrFormat] = useState('png');
 
   const getHeaders = (includeContentType = true) => {
     const token = localStorage.getItem('token');
@@ -214,22 +343,62 @@ export default function TablesManagement() {
     printWindow.document.close();
   };
 
-  const downloadQR = (table) => {
-    const svg = document.getElementById(`qr-${table._id}`);
-    if (!svg) return;
-    
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `table-${table.tableNumber}-qr.svg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const toggleTableSelection = (id) => {
+    setSelectedTableIds((prev) => (
+      prev.includes(id) ? prev.filter((tableId) => tableId !== id) : [...prev, id]
+    ));
   };
+
+  const selectedTables = tables.filter((table) => selectedTableIds.includes(table._id));
+  const allTablesSelected = tables.length > 0 && tables.every((table) => selectedTableIds.includes(table._id));
+
+  const toggleSelectAllTables = () => {
+    setSelectedTableIds(allTablesSelected ? [] : tables.map((table) => table._id));
+  };
+
+  const downloadTablesQR = async (targetTables, key) => {
+    if (!targetTables.length || qrDownloading) return;
+
+    const format = qrFormat;
+    setQrDownloading(key);
+    try {
+      if (format === 'pdf') {
+        const pdfBlob = await createQRCodePdf(targetTables);
+        const filename = targetTables.length === 1
+          ? `table-${safeFilePart(targetTables[0].tableNumber)}-qr.pdf`
+          : 'table-qr-codes.pdf';
+        triggerDownload(pdfBlob, filename);
+        toast.success(targetTables.length === 1
+          ? `QR code for Table ${targetTables[0].tableNumber} downloaded as PDF`
+          : `${targetTables.length} QR codes downloaded as a combined PDF`);
+      } else if (targetTables.length === 1) {
+        const table = targetTables[0];
+        const canvas = await createTableQRCodeCanvas(table);
+        const image = await canvasToImageBlob(canvas, format);
+        triggerDownload(image, `table-${safeFilePart(table.tableNumber)}-qr.${format}`);
+        toast.success(`QR code for Table ${table.tableNumber} downloaded as ${format.toUpperCase()}`);
+      } else {
+        const zip = new JSZip();
+        for (const table of targetTables) {
+          const canvas = await createTableQRCodeCanvas(table);
+          const image = await canvasToImageBlob(canvas, format);
+          zip.file(`table-${safeFilePart(table.tableNumber)}-qr.${format}`, image);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        triggerDownload(zipBlob, `table-qr-codes-${format}.zip`);
+        toast.success(`${targetTables.length} ${format.toUpperCase()} QR codes downloaded as a ZIP`);
+      }
+    } catch (err) {
+      console.error('Failed to download QR code', err);
+      toast.error('Failed to download QR code');
+    } finally {
+      setQrDownloading(null);
+    }
+  };
+
+  const downloadQR = (table) => downloadTablesQR([table], table._id);
+  const downloadAllQR = () => downloadTablesQR(tables, 'all');
+  const downloadSelectedQR = () => downloadTablesQR(selectedTables, 'selected');
 
   if (loading) return <div className="p-6 flex justify-center"><Loader2 className="animate-spin text-green-500 w-8 h-8" /></div>;
 
@@ -264,65 +433,142 @@ export default function TablesManagement() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {tables.map(table => (
-            <div key={table._id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:border-green-300 transition-colors">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-1">Table {table.tableNumber}</h3>
-                  <p className="text-gray-500 font-medium">{table.tableName || 'Main Area'} • {table.capacity || 4} Seats</p>
-                </div>
-                <div className="flex flex-col items-end gap-1.5">
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                    table.isOccupied ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}>
-                    {table.isOccupied ? '• Occupied' : '• Free'}
-                  </span>
-                  {table.isOccupied && (
-                    <button
-                      onClick={() => handleFreeTable(table)}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors shadow-2xs cursor-pointer"
-                      title="Cancel active occupation and mark table as free"
-                    >
-                      Free Table
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => handleToggleStatus(table)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors border ${
-                      table.status === 'ACTIVE' 
-                        ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
-                        : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+        <>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={allTablesSelected}
+                  onChange={toggleSelectAllTables}
+                  className="h-4 w-4 accent-green-600 cursor-pointer"
+                />
+                Select all tables
+              </label>
+              <div className="inline-flex items-center self-start rounded-lg border border-gray-200 bg-white p-0.5" role="group" aria-label="QR download format">
+                <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">Format</span>
+                {QR_FORMATS.map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    onClick={() => setQrFormat(format)}
+                    disabled={qrDownloading !== null}
+                    aria-pressed={qrFormat === format}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-colors disabled:cursor-not-allowed ${
+                      qrFormat === format
+                        ? 'bg-green-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100'
                     }`}
-                    title="Click to toggle status"
                   >
-                    {table.status}
+                    {format}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              {selectedTables.length > 0 && (
+                <button
+                  onClick={downloadSelectedQR}
+                  disabled={qrDownloading !== null}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {qrDownloading === 'selected' ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  Download selected ({selectedTables.length})
+                </button>
+              )}
+              <button
+                onClick={downloadAllQR}
+                disabled={qrDownloading !== null}
+                className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {qrDownloading === 'all' ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                Download all
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {tables.map(table => (
+              <div
+                key={table._id}
+                className={`bg-white p-6 rounded-2xl shadow-sm border transition-colors ${
+                  selectedTableIds.includes(table._id)
+                    ? 'border-green-400 ring-1 ring-green-200'
+                    : 'border-gray-200 hover:border-green-300'
+                }`}
+              >
+                <div className="flex justify-between items-start mb-6 gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedTableIds.includes(table._id)}
+                      onChange={() => toggleTableSelection(table._id)}
+                      aria-label={`Select Table ${table.tableNumber}`}
+                      className="mt-2 h-4 w-4 accent-green-600 cursor-pointer shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-1">Table {table.tableNumber}</h3>
+                      <p className="text-gray-500 font-medium">{table.tableName || 'Main Area'} • {table.capacity || 4} Seats</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      table.isOccupied ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}>
+                      {table.isOccupied ? '• Occupied' : '• Free'}
+                    </span>
+                    {table.isOccupied && (
+                      <button
+                        onClick={() => handleFreeTable(table)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors shadow-2xs cursor-pointer"
+                        title="Cancel active occupation and mark table as free"
+                      >
+                        Free Table
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleToggleStatus(table)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-colors border ${
+                        table.status === 'ACTIVE'
+                          ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                      }`}
+                      title="Click to toggle status"
+                    >
+                      {table.status}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center bg-gray-50 p-6 rounded-xl border border-gray-100 mb-6">
+                  <div className="bg-white p-4 rounded-xl shadow-sm mb-4">
+                    <QRCodeSVG id={`qr-${table._id}`} value={table.qrCodeUrl} size={150} level="H" />
+                  </div>
+                  <p className="text-sm font-bold text-gray-800 text-center">{table.tableName || `Table ${table.tableNumber}`}</p>
+                  <p className="text-sm font-bold text-gray-600 uppercase tracking-widest text-center mt-1">Scan to Order</p>
+                  <p className="text-xs text-gray-400 mt-2 text-center break-all">{table.qrCodeUrl}</p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => downloadQR(table)}
+                    disabled={qrDownloading !== null}
+                    className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {qrDownloading === table._id ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                    {qrDownloading === table._id ? 'Saving...' : `Download ${qrFormat.toUpperCase()}`}
+                  </button>
+                  <button onClick={() => printQR(table)} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
+                    <Printer size={18} /> Print
+                  </button>
+                  <button onClick={() => handleDelete(table._id)} className="p-2.5 text-red-500 hover:bg-red-50 border border-gray-200 hover:border-red-200 rounded-xl transition-colors shadow-sm">
+                    <Trash2 size={20} />
                   </button>
                 </div>
               </div>
-
-              <div className="flex flex-col items-center bg-gray-50 p-6 rounded-xl border border-gray-100 mb-6">
-                <div className="bg-white p-4 rounded-xl shadow-sm mb-4">
-                  <QRCodeSVG id={`qr-${table._id}`} value={table.qrCodeUrl} size={150} level="H" />
-                </div>
-                <p className="text-sm font-bold text-gray-600 uppercase tracking-widest text-center">Scan to Order</p>
-                <p className="text-xs text-gray-400 mt-2 text-center break-all">{table.qrCodeUrl}</p>
-              </div>
-
-              <div className="flex gap-2">
-                <button onClick={() => downloadQR(table)} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
-                  <Download size={18} /> Download
-                </button>
-                <button onClick={() => printQR(table)} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
-                  <Printer size={18} /> Print
-                </button>
-                <button onClick={() => handleDelete(table._id)} className="p-2.5 text-red-500 hover:bg-red-50 border border-gray-200 hover:border-red-200 rounded-xl transition-colors shadow-sm">
-                  <Trash2 size={20} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Add Modal */}

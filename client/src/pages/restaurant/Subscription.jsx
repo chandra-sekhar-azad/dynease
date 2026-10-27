@@ -153,6 +153,12 @@ export default function RestaurantSubscription() {
   const { plan, planName, status, remainingDays, endDate, startDate, usage, limits } = subscription;
   const isExpired = status === 'EXPIRED' || remainingDays === 0;
   const isPending = subscription.renewalRequest?.status === 'PENDING';
+  const currentPlanId = String(plan || planName || '').toUpperCase();
+
+  const openPlanModal = () => {
+    setSelectedPlan(currentPlanId || 'GROWTH');
+    setShowModal(true);
+  };
 
   // Capacity calculations with percentage caps
   const calcPercent = (used, max) => {
@@ -202,7 +208,7 @@ export default function RestaurantSubscription() {
             </div>
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openPlanModal}
             className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shrink-0 transition-all shadow-sm"
           >
             Renew Now
@@ -242,7 +248,7 @@ export default function RestaurantSubscription() {
 
           <div className="flex items-center gap-3 w-full md:w-auto">
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openPlanModal}
               disabled={isPending}
               className="w-full md:w-auto justify-center px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
@@ -436,20 +442,29 @@ export default function RestaurantSubscription() {
                 {planOptions.map((opt) => {
                   const price = billingCycle === 'yearly' ? opt.yearlyPrice : opt.monthlyPrice;
                   const isSelected = selectedPlan === opt.id;
+                  const isCurrent = currentPlanId === opt.id;
 
                   return (
                     <div
                       key={opt.id}
                       onClick={() => setSelectedPlan(opt.id)}
+                      aria-current={isCurrent ? 'true' : undefined}
                       className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-                        isSelected 
-                          ? 'border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500' 
-                          : 'border-gray-200 hover:border-gray-300'
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500'
+                          : isCurrent
+                            ? 'border-emerald-300 bg-emerald-50/20'
+                            : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-bold text-sm text-gray-900">{opt.name}</span>
+                          {isCurrent && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-emerald-600 text-white px-2 py-0.5 rounded-md">
+                              <Check size={10} /> Current Plan
+                            </span>
+                          )}
                           {opt.popular && (
                             <span className="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
                               Popular
