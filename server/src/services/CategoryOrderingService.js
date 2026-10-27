@@ -33,6 +33,78 @@ class CategoryOrderingService {
   }
 
   /**
+   * Renumbers all non-deleted categories for a restaurant to a continuous
+   * 1..N sequence.
+   *
+   * This repairs legacy data where priorities started at 0, contained gaps after
+   * old deletions, or shared duplicate values. Categories are ranked by their
+   * current display_order and then by category name for deterministic ties.
+   *
+   * @param {Object} options
+   * @param {Object} [options.tx] - Optional Drizzle transaction
+   * @param {string} options.restaurantId - Restaurant UUID
+   * @returns {Promise<number>} Number of category rows whose priority changed
+   */
+  static async normalizePriorities({ tx, restaurantId }) {
+    if (!tx) {
+      return await db.transaction(async (t) => {
+        return await CategoryOrderingService.normalizePriorities({
+          tx: t,
+          restaurantId
+        });
+      });
+    }
+
+    const runner = tx;
+
+    // Cheap check first: skip the renumbering update if the sequence is already 1..N.
+    const [stats] = await runner.select({
+      count: sql`COUNT(*)`,
+      minPriority: sql`MIN(${menu_categories.display_order})`,
+      maxPriority: sql`MAX(${menu_categories.display_order})`,
+      distinctCount: sql`COUNT(DISTINCT ${menu_categories.display_order})`
+    }).from(menu_categories).where(
+      and(
+        eq(menu_categories.restaurant_id, restaurantId),
+        isNull(menu_categories.deletedat)
+      )
+    );
+
+    const totalCount = parseInt(stats?.count || 0, 10);
+    if (totalCount === 0) return 0;
+
+    const minPriority = parseInt(stats.minPriority, 10);
+    const maxPriority = parseInt(stats.maxPriority, 10);
+    const distinctCount = parseInt(stats.distinctCount, 10);
+
+    if (minPriority === 1 && maxPriority === totalCount && distinctCount === totalCount) {
+      return 0;
+    }
+
+    // Rank non-deleted categories and assign 1..N. Only rows that actually change are updated.
+    const result = await runner.execute(sql`
+      WITH ranked AS (
+        SELECT
+          id,
+          ROW_NUMBER() OVER (
+            ORDER BY display_order ASC, category ASC, createdat ASC, id ASC
+          )::int AS new_order
+        FROM menu_categories
+        WHERE restaurant_id = ${restaurantId}
+          AND deletedat IS NULL
+      )
+      UPDATE menu_categories AS mc
+      SET display_order = ranked.new_order,
+          updatedat = NOW()
+      FROM ranked
+      WHERE mc.id = ranked.id
+        AND mc.display_order IS DISTINCT FROM ranked.new_order
+    `);
+
+    return result?.rowCount || 0;
+  }
+
+  /**
    * Reorders a category to a new target priority using automatic positional shifting.
    *
    * 1. When Moving Down (oldPriority < targetPriority):
@@ -67,6 +139,9 @@ class CategoryOrderingService {
 
     const runner = tx;
     const validatedTarget = this.validatePriority(targetPriority);
+
+    // Repair legacy priorities (0-based, gaps, duplicates) before shifting.
+    await this.normalizePriorities({ tx: runner, restaurantId });
 
     // 1. Fetch target category
     const [currentCat] = await runner.select().from(menu_categories).where(
@@ -234,6 +309,9 @@ class CategoryOrderingService {
 
     const runner = tx;
 
+    // Repair legacy priorities before calculating the next available slot.
+    await this.normalizePriorities({ tx: runner, restaurantId });
+
     const [stats] = await runner.select({
       maxPriority: sql`MAX(${menu_categories.display_order})`,
       count: sql`COUNT(*)`
@@ -295,6 +373,9 @@ class CategoryOrderingService {
     }
 
     const runner = tx;
+
+    // Repair legacy priorities so the delete shift leaves a continuous 1..N-1 sequence.
+    await this.normalizePriorities({ tx: runner, restaurantId });
 
     const [category] = await runner.select().from(menu_categories).where(
       and(

@@ -1670,7 +1670,13 @@ class WaiterAssignmentService {
       if (!assignedTablesMap.has(a.staff_id)) {
         assignedTablesMap.set(a.staff_id, []);
       }
-      assignedTablesMap.get(a.staff_id).push(tableCodeMap.get(a.table_id) || 'Table');
+      const code = tableCodeMap.get(a.table_id) || 'Table';
+      assignedTablesMap.get(a.staff_id).push({
+        id: a.table_id,
+        tableId: a.table_id,
+        tableCode: code,
+        tableNumber: code
+      });
     }
 
     const result = [];

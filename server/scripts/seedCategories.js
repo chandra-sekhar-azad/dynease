@@ -123,10 +123,15 @@ async function main() {
     existingMap.set(c.category.trim().toLowerCase(), c);
   }
 
+  const existingMaxOrder = existingCategories.reduce(
+    (max, c) => Math.max(max, c.display_order ?? 0),
+    0
+  );
+
   const toInsert = [];
   const skipped = [];
 
-  CATEGORIES.forEach((name, index) => {
+  CATEGORIES.forEach((name) => {
     const trimmed = name.trim();
     if (existingMap.has(trimmed.toLowerCase())) {
       skipped.push(trimmed);
@@ -136,7 +141,7 @@ async function main() {
         category: trimmed,
         description: '',
         image: null,
-        display_order: index + 1,
+        display_order: existingMaxOrder + toInsert.length + 1,
         menu_category_status: 'ACTIVE',
       });
     }

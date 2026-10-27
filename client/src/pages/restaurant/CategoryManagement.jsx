@@ -62,7 +62,7 @@ export default function CategoryManagement() {
       });
       const data = await res.json();
       if (data.success) {
-        const sorted = (data.data.categories || []).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+        const sorted = (data.data.categories || []).sort((a, b) => (a.displayOrder ?? 1) - (b.displayOrder ?? 1));
         setCategories(sorted);
       }
     } catch (err) {
@@ -100,7 +100,7 @@ export default function CategoryManagement() {
     setNewCategoryDesc('');
     setCategoryType('veg');
     // Default priority order to next sequential integer (1-indexed)
-    const maxOrder = categories.reduce((max, c) => Math.max(max, c.displayOrder ?? 0), 0);
+    const maxOrder = categories.reduce((max, c) => Math.max(max, c.displayOrder ?? 1), 0);
     setCategoryDisplayOrder(maxOrder + 1);
     setCategoryImage(null);
     setPreviewImage(null);
@@ -184,7 +184,7 @@ export default function CategoryManagement() {
         } else {
           setCategories(prev => {
             const next = prev.map(c => c._id === catId ? { ...c, ...data.data.category } : c);
-            return next.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+            return next.sort((a, b) => (a.displayOrder ?? 1) - (b.displayOrder ?? 1));
           });
         }
       } else {
@@ -550,7 +550,7 @@ export default function CategoryManagement() {
                         <div className="flex items-center gap-2">
                           <h3 className="font-bold text-base text-gray-800 leading-snug">{cat.name}</h3>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-                            #{cat.displayOrder ?? 0}
+                            #{cat.displayOrder ?? 1}
                           </span>
                         </div>
                       </div>
@@ -587,7 +587,7 @@ export default function CategoryManagement() {
                   {cat.description && <p className="text-xs text-gray-500 line-clamp-2 mt-2">{cat.description}</p>}
                   
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Priority: {cat.displayOrder ?? 0}</span>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Priority: {cat.displayOrder ?? 1}</span>
                     <span className="bg-green-50 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">
                       {count} {count === 1 ? 'item' : 'items'}
                     </span>

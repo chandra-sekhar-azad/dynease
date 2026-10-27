@@ -12,6 +12,7 @@ describe('Category Priority Automatic Positional Shifting Suite', () => {
   let restaurantA;
   let restaurantB;
   let singleCatRestaurant;
+  let legacyRestaurant;
   let categoriesA = [];
 
   // Helper to fetch active categories sorted by display_order
@@ -64,6 +65,10 @@ describe('Category Priority Automatic Positional Shifting Suite', () => {
     if (singleCatRestaurant) {
       await db.delete(menu_categories).where(eq(menu_categories.restaurant_id, singleCatRestaurant.id));
       await db.delete(restaurants).where(eq(restaurants.id, singleCatRestaurant.id));
+    }
+    if (legacyRestaurant) {
+      await db.delete(menu_categories).where(eq(menu_categories.restaurant_id, legacyRestaurant.id));
+      await db.delete(restaurants).where(eq(restaurants.id, legacyRestaurant.id));
     }
     await pool.end();
   });
@@ -462,6 +467,107 @@ describe('Category Priority Automatic Positional Shifting Suite', () => {
       assert.equal(listAfter[i].id, listBefore[i].id);
       assert.equal(listAfter[i].display_order, listBefore[i].display_order);
     }
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // SCENARIO 11: Legacy 0-based/gapped priorities are repaired to 1..N
+  // ─────────────────────────────────────────────────────────────
+  it('Scenario 11: Normalizes legacy priorities to 1..N and fills the gap after deletion', async () => {
+    const [rLegacy] = await db.insert(restaurants).values({
+      name: 'Legacy Priority Restaurant',
+      restaurant_name: 'Legacy Priority Restaurant',
+      domain: `legacy-priority-${Date.now()}`,
+      plan_id: samplePlanId,
+      restaurant_status: 'ACTIVE'
+    }).returning();
+    legacyRestaurant = rLegacy;
+
+    const legacyRows = [
+      { category: 'Legacy Zero B', display_order: 0 },
+      { category: 'Legacy Zero A', display_order: 0 },
+      { category: 'Legacy Five B', display_order: 5 },
+      { category: 'Legacy Five A', display_order: 5 },
+      { category: 'Legacy Seven', display_order: 7 }
+    ];
+
+    for (const row of legacyRows) {
+      await db.insert(menu_categories).values({
+        restaurant_id: legacyRestaurant.id,
+        category: row.category,
+        display_order: row.display_order,
+        menu_category_status: 'ACTIVE'
+      });
+    }
+
+    // Legacy 0s, duplicates and gaps must become a clean 1..5 sequence.
+    const changed = await CategoryOrderingService.normalizePriorities({
+      restaurantId: legacyRestaurant.id
+    });
+    assert.equal(changed, 5);
+
+    let list = await getSortedCategories(legacyRestaurant.id);
+    assert.deepEqual(list.map(c => c.display_order), [1, 2, 3, 4, 5]);
+    assert.deepEqual(list.map(c => c.category), [
+      'Legacy Zero A',
+      'Legacy Zero B',
+      'Legacy Five A',
+      'Legacy Five B',
+      'Legacy Seven'
+    ]);
+
+    // A second normalization run must be a no-op.
+    assert.equal(
+      await CategoryOrderingService.normalizePriorities({ restaurantId: legacyRestaurant.id }),
+      0
+    );
+
+    // Deleting priority 2 pulls every later category up so 1..4 stays continuous.
+    await db.transaction(async (tx) => {
+      await CategoryOrderingService.deleteCategoryWithShift({
+        tx,
+        restaurantId: legacyRestaurant.id,
+        categoryId: list.find(c => c.display_order === 2).id
+      });
+    });
+
+    list = await getSortedCategories(legacyRestaurant.id);
+    assert.deepEqual(list.map(c => c.display_order), [1, 2, 3, 4]);
+    assert.deepEqual(list.map(c => c.category), [
+      'Legacy Zero A',
+      'Legacy Five A',
+      'Legacy Five B',
+      'Legacy Seven'
+    ]);
+
+    // Inserting at priority 1 shifts the existing sequence back to 1..5.
+    let created;
+    await db.transaction(async (tx) => {
+      const assigned = await CategoryOrderingService.shiftForCreate({
+        tx,
+        restaurantId: legacyRestaurant.id,
+        targetPriority: 1
+      });
+      assert.equal(assigned, 1);
+
+      const [cat] = await tx.insert(menu_categories).values({
+        restaurant_id: legacyRestaurant.id,
+        category: 'New First Category',
+        display_order: assigned,
+        menu_category_status: 'ACTIVE'
+      }).returning();
+      created = cat;
+    });
+
+    list = await getSortedCategories(legacyRestaurant.id);
+    assert.deepEqual(list.map(c => c.display_order), [1, 2, 3, 4, 5]);
+    assert.equal(list[0].id, created.id);
+    assert.deepEqual(list.map(c => c.category), [
+      'New First Category',
+      'Legacy Zero A',
+      'Legacy Five A',
+      'Legacy Five B',
+      'Legacy Seven'
+    ]);
   });
 
   // ─────────────────────────────────────────────────────────────

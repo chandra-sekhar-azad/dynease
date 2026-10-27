@@ -62,12 +62,28 @@ export default function WaiterAssignment() {
       if (waitersData.success) setWaiters(waitersData.data.waiters);
       if (settingsData.success) setSettings(settingsData.data.settings);
       if (historyData.success) setHistory(historyData.data.events);
-      if (reqData.success) setServiceRequests(reqData.data.serviceRequests);
+      if (reqData.success) {
+        const activeReqs = (reqData.data.serviceRequests || []).filter(r => 
+          r.status !== 'RESOLVED' && r.status !== 'CANCELLED' && r.status !== 'CLOSED'
+        );
+        setServiceRequests(activeReqs);
+      }
     } catch (err) {
       console.error('Error fetching assignment data:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatTableDisplay = (t) => {
+    if (!t) return '';
+    const val = typeof t === 'string' ? t : (t.tableNumber || t.tableCode || t.table_code || t.code || t.name);
+    if (!val) return 'Table';
+    const str = String(val).trim();
+    if (/^t-?\d+/i.test(str)) {
+      return str.toUpperCase();
+    }
+    return `T-${str}`;
   };
 
   useEffect(() => {
@@ -130,10 +146,15 @@ export default function WaiterAssignment() {
       });
       const data = await res.json();
       if (data.success) {
-        setServiceRequests(prev => prev.filter(r => r._id !== requestId));
+        setServiceRequests(prev => prev.filter(r => (r._id || r.id) !== requestId));
+        toast.success('Service request marked as resolved.');
+        fetchAllData();
+      } else {
+        toast.error(data.message || 'Failed to resolve request');
       }
     } catch (e) {
       console.error(e);
+      toast.error('Network error while resolving request');
     }
   };
 
@@ -330,7 +351,7 @@ export default function WaiterAssignment() {
                       </td>
                       <td className="py-4 px-4 text-xs font-medium text-gray-600">
                         {w.assignedTables?.length > 0 
-                          ? w.assignedTables.map(t => `T-${t.tableNumber}`).join(', ')
+                          ? w.assignedTables.map(formatTableDisplay).join(', ')
                           : <span className="text-gray-400 italic">None</span>}
                       </td>
                     </tr>
@@ -352,43 +373,52 @@ export default function WaiterAssignment() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-              {serviceRequests.map(req => (
-                <div key={req._id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-lg text-gray-900">Table {req.tableNumber}</h4>
-                      <span className={`px-2.5 py-1 rounded text-xs font-bold ${
-                        req.status === 'OPEN' ? 'bg-blue-100 text-blue-800 animate-pulse' : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        {req.status}
-                      </span>
+              {serviceRequests.map(req => {
+                const reqTable = req.tableNumber || req.tableId?.tableNumber || req.table_code || (req.tableId?.tableName ? req.tableId.tableName.replace(/^Table\s*/i, '') : '');
+                const waiterName = req.assignedWaiter?.name || req.assignedWaiterId?.name || (typeof req.assignedWaiter === 'string' ? req.assignedWaiter : 'Unassigned');
+
+                return (
+                  <div key={req._id || req.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-bold text-lg text-gray-900">
+                          Table {reqTable ? formatTableDisplay(reqTable) : '—'}
+                        </h4>
+                        <span className={`px-2.5 py-1 rounded text-xs font-bold ${
+                          req.status === 'OPEN' ? 'bg-blue-100 text-blue-800 animate-pulse' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {req.status}
+                        </span>
+                      </div>
+
+                      <p className="text-sm font-semibold text-blue-600 mb-2">
+                        {(req.type || '').replace(/_/g, ' ')}
+                      </p>
+
+                      {req.note && (
+                        <p className="text-xs text-gray-600 italic bg-gray-50 p-2.5 rounded-lg mb-3">
+                          "{req.note}"
+                        </p>
+                      )}
+
+                      <p className="text-[11px] text-gray-400 mb-4">
+                        Assigned Waiter: <strong className="text-gray-700">{waiterName}</strong>
+                      </p>
                     </div>
 
-                    <p className="text-sm font-semibold text-blue-600 mb-2">
-                      {req.type.replace('_', ' ')}
-                    </p>
-
-                    {req.note && (
-                      <p className="text-xs text-gray-600 italic bg-gray-50 p-2.5 rounded-lg mb-3">
-                        "{req.note}"
-                      </p>
+                    {req.status !== 'RESOLVED' && req.status !== 'CLOSED' && (
+                      <div className="flex gap-2 pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => handleResolveRequest(req._id || req.id, 'RESOLVED')}
+                          className="w-full py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
+                        >
+                          Mark Resolved
+                        </button>
+                      </div>
                     )}
-
-                    <p className="text-[11px] text-gray-400 mb-4">
-                      Assigned Waiter: <strong className="text-gray-700">{req.assignedWaiterId?.name || 'Unassigned'}</strong>
-                    </p>
                   </div>
-
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => handleResolveRequest(req._id, 'RESOLVED')}
-                      className="w-full py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition-colors"
-                    >
-                      Mark Resolved
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

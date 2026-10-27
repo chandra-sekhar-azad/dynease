@@ -132,7 +132,7 @@ export default function Orders() {
   const pastOrders = orders.filter(o => ['COMPLETED', 'CANCELLED', 'PAID'].includes(o.status));
 
   const displayOrders = (activeTab === 'LIVE' ? liveOrders : pastOrders).filter(o => {
-    const searchString = `${o.orderNumber || ''} ${o.tableNumber || ''} ${o.customerName || ''} ${o.customerPhone || ''}`.toLowerCase();
+    const searchString = `${o.orderNumber || ''} ${o.tableNumber || ''} ${o.assignedWaiter?.name || o.waiterName || ''} ${o.customerName || ''} ${o.customerPhone || ''}`.toLowerCase();
     return searchString.includes(searchTerm.toLowerCase());
   });
 
@@ -154,7 +154,7 @@ export default function Orders() {
           <div className="relative w-full sm:w-72">
             <input
               type="text"
-              placeholder="Search by phone, table, order..."
+              placeholder="Search by phone, table, order, waiter..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-full text-sm"
@@ -197,6 +197,7 @@ export default function Orders() {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Order ID</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Table</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Waiter</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Items</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
@@ -209,6 +210,16 @@ export default function Orders() {
                     <tr key={order.id} className="hover:bg-gray-50/50">
                       <td className="px-4 py-4 whitespace-nowrap font-medium text-gray-900">{order.orderNumber || order.id?.substring(0,8)}</td>
                       <td className="px-4 py-4 whitespace-nowrap text-gray-600">Table {order.tableNumber}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {order.assignedWaiter?.name || order.waiterName ? (
+                          <div className="flex items-center gap-1.5 font-medium text-gray-900">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                            <span>{order.assignedWaiter?.name || order.waiterName}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic text-xs">Unassigned</span>
+                        )}
+                      </td>
                       <td className="px-4 py-4">
                         <div className="max-w-xs truncate text-sm text-gray-600">
                           {order.items?.map(i => `${i.quantity || i.qty}x ${i.itemName || i.name}`).join(', ')}

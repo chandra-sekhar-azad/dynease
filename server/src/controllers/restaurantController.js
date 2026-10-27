@@ -36,6 +36,10 @@ const CategoryOrderingService = require('../services/CategoryOrderingService');
 exports.getCategories = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
+
+    // Repair legacy 0-based/gapped priorities so the API always returns 1..N.
+    await CategoryOrderingService.normalizePriorities({ restaurantId });
+
     const categoryRows = await db.select().from(menu_categories).where(
       and(
         eq(menu_categories.restaurant_id, restaurantId),
@@ -67,7 +71,7 @@ exports.getCategories = async (req, res) => {
         name: c.category,
         description: c.description || '',
         image: c.image || null,
-        displayOrder: c.display_order ?? 0,
+        displayOrder: c.display_order ?? 1,
         isActive: c.menu_category_status === 'ACTIVE',
         type: isNonVeg ? 'non-veg' : 'veg'
       };
@@ -448,11 +452,19 @@ exports.createMenuItem = async (req, res) => {
         catId = foundCat.id;
         catName = foundCat.category;
       } else {
-        const [newCat] = await db.insert(menu_categories).values({
-          restaurant_id: restaurantId,
-          category: category.trim(),
-          menu_category_status: 'ACTIVE'
-        }).returning();
+        const newCat = await db.transaction(async (tx) => {
+          const assignedOrder = await CategoryOrderingService.shiftForCreate({
+            tx,
+            restaurantId
+          });
+          const [created] = await tx.insert(menu_categories).values({
+            restaurant_id: restaurantId,
+            category: category.trim(),
+            display_order: assignedOrder,
+            menu_category_status: 'ACTIVE'
+          }).returning();
+          return created;
+        });
         catId = newCat.id;
         catName = newCat.category;
       }
@@ -468,11 +480,19 @@ exports.createMenuItem = async (req, res) => {
         catId = firstCat.id;
         catName = firstCat.category;
       } else {
-        const [newCat] = await db.insert(menu_categories).values({
-          restaurant_id: restaurantId,
-          category: 'General',
-          menu_category_status: 'ACTIVE'
-        }).returning();
+        const newCat = await db.transaction(async (tx) => {
+          const assignedOrder = await CategoryOrderingService.shiftForCreate({
+            tx,
+            restaurantId
+          });
+          const [created] = await tx.insert(menu_categories).values({
+            restaurant_id: restaurantId,
+            category: 'General',
+            display_order: assignedOrder,
+            menu_category_status: 'ACTIVE'
+          }).returning();
+          return created;
+        });
         catId = newCat.id;
         catName = newCat.category;
       }
@@ -987,14 +1007,21 @@ exports.getOrders = async (req, res) => {
       }
 
       if (!assignedWaiter && ord.table_id) {
-        const [asgn] = await db.select().from(tables_assignment).where(
+        let [asgn] = await db.select().from(tables_assignment).where(
           and(
             eq(tables_assignment.table_id, ord.table_id),
             eq(tables_assignment.assignment_status, 'ASSIGNED')
           )
         ).limit(1);
 
-        if (asgn) {
+        // Fallback to latest table assignment for past orders
+        if (!asgn) {
+          [asgn] = await db.select().from(tables_assignment).where(
+            eq(tables_assignment.table_id, ord.table_id)
+          ).orderBy(desc(tables_assignment.updatedat)).limit(1);
+        }
+
+        if (asgn?.staff_id) {
           const [w] = await db.select().from(users).where(eq(users.id, asgn.staff_id)).limit(1);
           if (w) {
             assignedWaiter = {
@@ -1059,6 +1086,7 @@ exports.getOrders = async (req, res) => {
         paymentMethod: ord.payment_method || 'CASH',
         assignedWaiter: assignedWaiter,
         assignedWaiterId: assignedWaiter || ord.assigned_waiter_id || null,
+        waiterName: assignedWaiter?.name || null,
         createdAt: ord.date || ord.createdat,
         updatedAt: ord.updatedat
       });
@@ -1840,13 +1868,48 @@ exports.updateMyAvailability = async (req, res) => {
 exports.getServiceRequests = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const requests = await db.select().from(service_requests).where(
+    const { status } = req.query;
+
+    const conditions = [
       eq(service_requests.restaurant_id, restaurantId)
+    ];
+
+    if (status) {
+      if (status === 'ACTIVE') {
+        conditions.push(sql`${service_requests.request_status} NOT IN ('RESOLVED', 'CANCELLED', 'CLOSED')`);
+      } else if (status !== 'ALL') {
+        conditions.push(eq(service_requests.request_status, status));
+      }
+    } else {
+      // By default, only return active/unresolved service requests
+      conditions.push(sql`${service_requests.request_status} NOT IN ('RESOLVED', 'CANCELLED', 'CLOSED')`);
+    }
+
+    const requests = await db.select().from(service_requests).where(
+      and(...conditions)
     ).orderBy(desc(service_requests.createdat)).limit(50);
 
     const formatted = [];
     for (const reqItem of requests) {
       const [table] = reqItem.table_id ? await db.select().from(tables).where(eq(tables.id, reqItem.table_id)).limit(1) : [null];
+
+      let assignedWaiter = null;
+      if (reqItem.details?.assigned_waiter_id) {
+        const [w] = await db.select().from(users).where(eq(users.id, reqItem.details.assigned_waiter_id)).limit(1);
+        if (w) assignedWaiter = { id: w.id, name: w.name, email: w.email };
+      }
+      if (!assignedWaiter && reqItem.table_id) {
+        const [asgn] = await db.select().from(tables_assignment).where(
+          and(
+            eq(tables_assignment.table_id, reqItem.table_id),
+            eq(tables_assignment.assignment_status, 'ASSIGNED')
+          )
+        ).limit(1);
+        if (asgn?.staff_id) {
+          const [w] = await db.select().from(users).where(eq(users.id, asgn.staff_id)).limit(1);
+          if (w) assignedWaiter = { id: w.id, name: w.name, email: w.email };
+        }
+      }
 
       formatted.push({
         _id: reqItem.id,
@@ -1859,6 +1922,9 @@ exports.getServiceRequests = async (req, res) => {
           tableName: table?.table_code || 'Table',
           section: 'Main'
         } : null,
+        tableNumber: table?.table_code || 'Table',
+        assignedWaiter,
+        assignedWaiterId: assignedWaiter,
         type: reqItem.request_type,
         status: reqItem.request_status,
         note: reqItem.details?.note || '',
