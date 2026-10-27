@@ -266,6 +266,27 @@ exports.deleteCategory = async (req, res) => {
 //  MENU ITEM CRUD
 // ──────────────────────────────────────────
 
+function formatItemNameWithSize(baseName, size) {
+  if (!size || !size.trim()) return (baseName || '').trim();
+  const cleanBase = (baseName || '').trim();
+  const cleanSize = size.trim();
+
+  // If baseName already ends with (size) (case-insensitive), don't duplicate
+  const sizeEscaped = cleanSize.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const endsWithExactSize = new RegExp(`\\(${sizeEscaped}\\)$`, 'i');
+  if (endsWithExactSize.test(cleanBase)) {
+    return cleanBase;
+  }
+
+  // If baseName ends with another parenthesized suffix (e.g. "(Half)" when changing to "Full"), replace it
+  const hasParenthesizedSuffix = /\s*\([^)]+\)$/;
+  if (hasParenthesizedSuffix.test(cleanBase)) {
+    return cleanBase.replace(hasParenthesizedSuffix, ` (${cleanSize})`);
+  }
+
+  return `${cleanBase} (${cleanSize})`;
+}
+
 exports.createMenuItem = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
@@ -304,21 +325,20 @@ exports.createMenuItem = async (req, res) => {
       .filter(q => q && q.size && String(q.size).trim() && q.price !== undefined && q.price !== '' && !isNaN(parseFloat(q.price)))
       .map(q => ({ size: String(q.size).trim(), price: parseFloat(parseFloat(q.price).toFixed(2)) }));
 
-    // Determine effective price
-    let effectivePrice = null;
-    if (parsedQuantities.length > 0) {
-      effectivePrice = parsedQuantities[0].price;
-    } else if (price !== undefined && price !== null && price !== '' && !isNaN(parseFloat(price))) {
-      effectivePrice = parseFloat(price);
-      parsedQuantities = [{ size: (itemSize || size || 'Full').toUpperCase(), price: effectivePrice }];
+    // Fallback if price is supplied without quantities array
+    if (parsedQuantities.length === 0 && price !== undefined && price !== null && price !== '' && !isNaN(parseFloat(price))) {
+      const singlePrice = parseFloat(price);
+      if (singlePrice >= 0) {
+        parsedQuantities = [{ size: String(itemSize || size || 'Full').trim(), price: singlePrice }];
+      }
     }
 
-    if (effectivePrice === null || isNaN(effectivePrice) || effectivePrice < 0) {
+    if (parsedQuantities.length === 0) {
       return res.status(400).json({ success: false, message: 'Please provide at least one portion size and valid price.' });
     }
 
-    // Enforce subscription plan menu item limit
-    await SubscriptionService.checkResourceLimit(null, req.tenantRegistry || { restaurantId }, 'menuItems', 1);
+    // Enforce subscription plan menu item limit for the number of separate items being created
+    await SubscriptionService.checkResourceLimit(null, req.tenantRegistry || { restaurantId }, 'menuItems', parsedQuantities.length);
 
     // Resolve category and enforce tenant isolation
     let catId = categoryId;
@@ -395,8 +415,6 @@ exports.createMenuItem = async (req, res) => {
 
     const itemType = (dietaryPreference || type || '').toLowerCase().includes('non') ? 'NON_VEG' : 'VEG';
     const validSizes = ['SMALL', 'MEDIUM', 'LARGE', 'JUMBO', 'FULL', 'HALF'];
-    const chosenSize = (parsedQuantities[0]?.size || itemSize || size || 'FULL').toUpperCase();
-    const finalSize = validSizes.includes(chosenSize) ? chosenSize : 'FULL';
 
     let ratingVal = null;
     if (rating !== undefined && rating !== null && !isNaN(rating)) {
@@ -404,44 +422,64 @@ exports.createMenuItem = async (req, res) => {
       if (r >= 0 && r <= 5) ratingVal = r.toFixed(2);
     }
 
-    const [menuItem] = await db.insert(menu_categories_items).values({
-      restaurant_id: restaurantId,
-      category_id: catId,
-      name: name.trim(),
-      description: description?.trim() || '',
-      image,
-      price: effectivePrice.toFixed(2),
-      quantities: parsedQuantities,
-      menu_item_status: isAvailable !== false ? 'AVAILABLE' : 'UNAVAILABLE',
-      menu_item_type: itemType,
-      item_size: finalSize,
-      rating: ratingVal,
-      display_order: displayOrder !== undefined ? parseInt(displayOrder, 10) || 0 : 0
-    }).returning();
+    const baseDisplayOrder = displayOrder !== undefined ? parseInt(displayOrder, 10) || 0 : 0;
+    const createdMenuItems = [];
+
+    // Create separate menu item for each portion size/quantity
+    for (let i = 0; i < parsedQuantities.length; i++) {
+      const q = parsedQuantities[i];
+      const portionSize = q.size;
+      const portionPrice = q.price;
+      const formattedName = formatItemNameWithSize(name, portionSize);
+
+      const upperSize = portionSize.toUpperCase();
+      const finalSize = validSizes.includes(upperSize) ? upperSize : 'FULL';
+
+      const [menuItem] = await db.insert(menu_categories_items).values({
+        restaurant_id: restaurantId,
+        category_id: catId,
+        name: formattedName,
+        description: description?.trim() || '',
+        image,
+        price: portionPrice.toFixed(2),
+        quantities: [{ size: portionSize, price: portionPrice }],
+        menu_item_status: isAvailable !== false ? 'AVAILABLE' : 'UNAVAILABLE',
+        menu_item_type: itemType,
+        item_size: finalSize,
+        rating: ratingVal,
+        display_order: baseDisplayOrder + i
+      }).returning();
+
+      createdMenuItems.push({
+        _id: menuItem.id,
+        id: menuItem.id,
+        restaurantId: menuItem.restaurant_id,
+        category: catName,
+        categoryId: menuItem.category_id,
+        name: menuItem.name,
+        description: menuItem.description,
+        price: parseFloat(menuItem.price),
+        isAvailable: menuItem.menu_item_status === 'AVAILABLE',
+        dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'VEG' : 'NON_VEG',
+        itemSize: menuItem.item_size,
+        displayOrder: menuItem.display_order,
+        rating: menuItem.rating ? parseFloat(menuItem.rating) : null,
+        preparationTime: 15,
+        image,
+        quantities: menuItem.quantities || [{ size: portionSize, price: portionPrice }]
+      });
+    }
 
     RealtimeService.menuUpdated(restaurantId);
 
     res.status(201).json({
       success: true,
+      message: createdMenuItems.length > 1
+        ? `${createdMenuItems.length} menu items created successfully`
+        : 'Menu item created successfully',
       data: {
-        menuItem: {
-          _id: menuItem.id,
-          id: menuItem.id,
-          restaurantId: menuItem.restaurant_id,
-          category: catName,
-          categoryId: menuItem.category_id,
-          name: menuItem.name,
-          description: menuItem.description,
-          price: parseFloat(menuItem.price),
-          isAvailable: menuItem.menu_item_status === 'AVAILABLE',
-          dietaryPreference: menuItem.menu_item_type === 'VEG' ? 'VEG' : 'NON_VEG',
-          itemSize: menuItem.item_size,
-          displayOrder: menuItem.display_order,
-          rating: menuItem.rating ? parseFloat(menuItem.rating) : null,
-          preparationTime: 15,
-          image,
-          quantities: menuItem.quantities || parsedQuantities || []
-        }
+        menuItem: createdMenuItems[0],
+        menuItems: createdMenuItems
       }
     });
   } catch (error) {
@@ -489,6 +527,7 @@ exports.updateMenuItem = async (req, res) => {
     if (description !== undefined) updateFields.description = description.trim();
 
     // Parse and handle quantities
+    let extraCreatedItems = [];
     if (req.body.quantities !== undefined) {
       let parsedQuantities = [];
       try {
@@ -503,13 +542,50 @@ exports.updateMenuItem = async (req, res) => {
         .filter(q => q && q.size && String(q.size).trim() && q.price !== undefined && q.price !== '' && !isNaN(parseFloat(q.price)))
         .map(q => ({ size: String(q.size).trim(), price: parseFloat(parseFloat(q.price).toFixed(2)) }));
 
-      updateFields.quantities = parsedQuantities;
-      if (parsedQuantities.length > 0 && (price === undefined || price === null || price === '')) {
-        updateFields.price = parsedQuantities[0].price.toFixed(2);
+      if (parsedQuantities.length > 0) {
+        const firstPortion = parsedQuantities[0];
+        updateFields.quantities = [{ size: firstPortion.size, price: firstPortion.price }];
+        updateFields.price = firstPortion.price.toFixed(2);
+
+        const targetBaseName = name?.trim() || existingItem.name;
+        updateFields.name = formatItemNameWithSize(targetBaseName, firstPortion.size);
+
+        const validSizes = ['SMALL', 'MEDIUM', 'LARGE', 'JUMBO', 'FULL', 'HALF'];
+        const chosenSize = firstPortion.size.toUpperCase();
+        if (validSizes.includes(chosenSize)) {
+          updateFields.item_size = chosenSize;
+        }
+
+        // If extra quantities were provided in edit, create them as separate items
+        if (parsedQuantities.length > 1) {
+          await SubscriptionService.checkResourceLimit(null, req.tenantRegistry || { restaurantId }, 'menuItems', parsedQuantities.length - 1);
+          for (let i = 1; i < parsedQuantities.length; i++) {
+            const extraQ = parsedQuantities[i];
+            const extraName = formatItemNameWithSize(targetBaseName, extraQ.size);
+            const extraUpper = extraQ.size.toUpperCase();
+            const extraFinalSize = validSizes.includes(extraUpper) ? extraUpper : 'FULL';
+
+            const [extraItem] = await db.insert(menu_categories_items).values({
+              restaurant_id: restaurantId,
+              category_id: updateFields.category_id || existingItem.category_id,
+              name: extraName,
+              description: updateFields.description !== undefined ? updateFields.description : existingItem.description,
+              image: updateFields.image || existingItem.image,
+              price: extraQ.price.toFixed(2),
+              quantities: [{ size: extraQ.size, price: extraQ.price }],
+              menu_item_status: updateFields.menu_item_status || existingItem.menu_item_status,
+              menu_item_type: updateFields.menu_item_type || existingItem.menu_item_type,
+              item_size: extraFinalSize,
+              rating: updateFields.rating !== undefined ? updateFields.rating : existingItem.rating,
+              display_order: (existingItem.display_order || 0) + i
+            }).returning();
+            extraCreatedItems.push(extraItem);
+          }
+        }
       }
     }
     
-    if (price !== undefined && price !== null && price !== '') {
+    if (price !== undefined && price !== null && price !== '' && (req.body.quantities === undefined || req.body.quantities.length === 0)) {
       const parsedPrice = parseFloat(price);
       if (isNaN(parsedPrice) || parsedPrice < 0) {
         return res.status(400).json({ success: false, message: 'Price must be a valid non-negative number.' });
@@ -540,7 +616,7 @@ exports.updateMenuItem = async (req, res) => {
       updateFields.category_id = categoryId;
     }
 
-    if (itemSize || size) {
+    if ((itemSize || size) && (!updateFields.item_size)) {
       const validSizes = ['SMALL', 'MEDIUM', 'LARGE', 'JUMBO', 'FULL', 'HALF'];
       const chosenSize = (itemSize || size).toUpperCase();
       if (validSizes.includes(chosenSize)) updateFields.item_size = chosenSize;

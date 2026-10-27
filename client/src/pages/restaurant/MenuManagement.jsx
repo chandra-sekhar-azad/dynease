@@ -116,16 +116,17 @@ export default function MenuManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!editingItem && isMenuLimitReached) {
-      toast.warning('Your menu items limit reached. Please contact admin.');
-      return;
-    }
     const cleanQuantities = quantities
       .filter(q => q.size && q.size.trim() && q.price !== '' && !isNaN(q.price) && Number(q.price) >= 0)
       .map(q => ({ size: q.size.trim(), price: Number(q.price) }));
 
     if (cleanQuantities.length === 0) {
       toast.warning('Please add at least one portion / quantity with a valid price (e.g. Full: ₹200).');
+      return;
+    }
+
+    if (!editingItem && maxMenuItems !== null && maxMenuItems !== undefined && (items.length + cleanQuantities.length) > maxMenuItems) {
+      toast.warning(`Cannot add ${cleanQuantities.length} items. Your plan limit allows only ${Math.max(0, maxMenuItems - items.length)} more item(s). Please contact admin.`);
       return;
     }
 
@@ -158,7 +159,7 @@ export default function MenuManagement() {
         setQuantities([{ size: 'Full', price: '' }]);
         setImageFile(null);
         fetchMenu();
-        toast.success(editingItem ? 'Menu item updated successfully!' : 'Item added to menu!');
+        toast.success(json.message || (editingItem ? 'Menu item updated successfully!' : 'Item added to menu!'));
       } else {
         toast.error(json.message || 'Error saving item');
       }
@@ -584,7 +585,9 @@ export default function MenuManagement() {
                 <div className="flex justify-between items-center mb-2">
                   <div>
                     <label className="block text-sm font-semibold text-gray-800">Portions / Quantities & Pricing *</label>
-                    <p className="text-xs text-gray-500">Set prices for portion sizes (e.g. Full, Half, Small, Medium, Large, or Custom)</p>
+                    <p className="text-xs text-gray-500">
+                      Each portion size will create a separate menu item (e.g. {formData.name?.trim() ? `${formData.name.trim()} (Half)` : 'Dish (Half)'}, {formData.name?.trim() ? `${formData.name.trim()} (Full)` : 'Dish (Full)'}).
+                    </p>
                   </div>
                 </div>
 
