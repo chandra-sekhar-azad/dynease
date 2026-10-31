@@ -3,7 +3,8 @@ import {
   PlayCircle, Check, ArrowRight,
   ScanLine, ListTree, ShoppingCart, Smile,
   FileText, Columns, Zap, Users, Monitor, BarChart2,
-  CheckCircle2, Sparkles, Printer, Smartphone, TrendingUp, RotateCw
+  CheckCircle2, Sparkles, Printer, Smartphone, TrendingUp, RotateCw,
+  QrCode
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -28,7 +29,7 @@ import vegDumBiryaniImg from '../assets/biriyani/Veg Dum Biryani.jpg';
 import seafood1Img from '../assets/seafood/seafood1.png';
 import seafood2Img from '../assets/seafood/seafood2.png';
 import seafood3Img from '../assets/seafood/seafood3.png';
-import iconImg from '../assets/icon.png';
+
 
 const BENEFITS = [
   {
@@ -134,17 +135,6 @@ export default function LandingPage() {
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [isLaunchingDemo, setIsLaunchingDemo] = useState(false);
   const [flippedCards, setFlippedCards] = useState({});
-  const [allFlipped, setAllFlipped] = useState(false);
-
-  const toggleFlipAll = () => {
-    const nextState = !allFlipped;
-    setAllFlipped(nextState);
-    const updated = {};
-    BENEFITS.forEach((b) => {
-      updated[b.id] = nextState;
-    });
-    setFlippedCards(updated);
-  };
 
   const toggleCardFlip = (id) => {
     setFlippedCards((prev) => ({
@@ -200,7 +190,327 @@ export default function LandingPage() {
       </section>
       </div>
 
-      {/* How It Works */}
+      {/* Our Solutions */}
+      <section id="solutions" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white via-[#f7fdfa] to-[#f4faf6] relative overflow-hidden">
+        {/* Subtle decorative glow */}
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[900px] h-[400px] bg-gradient-to-r from-emerald-100/40 via-teal-100/30 to-emerald-50/20 rounded-full blur-3xl pointer-events-none -z-10" />
+
+        <div className="max-w-7xl mx-auto">
+          {/* Section Header */}
+          <div className="text-center max-w-3xl mx-auto mb-10 md:mb-14">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 tracking-tight">
+              OUR <span className="text-[var(--color-primary)]">SOLUTIONS</span>
+            </h2>
+          </div>
+
+          {/* Solutions Cards Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10 items-stretch">
+            {/* Solution 1: Digital Menu App */}
+            <div className="bg-white rounded-3xl border border-gray-200/90 hover:border-emerald-300 p-7 sm:p-9 md:p-10 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between relative overflow-hidden group">
+              {/* Corner ambient glow */}
+              <div className="absolute -top-20 -right-20 w-52 h-52 bg-emerald-400/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
+
+              <div>
+                {/* Header Badge */}
+                <div className="flex items-center justify-between gap-3 mb-6">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200">
+                    <Smartphone size={13} className="text-emerald-600" />
+                    <span>Interactive Dining</span>
+                  </span>
+                </div>
+
+                {/* Title & Icon */}
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-300">
+                    <Smartphone size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                      Digital Menu App
+                    </h3>
+                    <p className="text-xs font-semibold text-emerald-600 tracking-wide uppercase mt-0.5">
+                      Smart Menu Management & Ordering
+                    </p>
+                  </div>
+                </div>
+
+                {/* Description Text */}
+                <p className="text-gray-600 text-base leading-relaxed mb-6">
+                  A software application designed to replace traditional paper menus in restaurants, cafes, and other food and beverage establishments.
+                </p>
+
+                {/* Interactive UI Mockup Card Preview */}
+                <div className="bg-gradient-to-br from-[#f8fdf9] to-[#f0fdf4] border border-emerald-100/90 rounded-2xl p-4 sm:p-5 mb-8 shadow-inner">
+                  {/* Category Pills */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-2 text-xs font-semibold">
+                    <span className="bg-emerald-600 text-white px-3 py-1 rounded-full shadow-xs">Popular</span>
+                    <span className="bg-white border border-gray-200 text-gray-600 px-3 py-1 rounded-full">Starters</span>
+                    <span className="bg-white border border-gray-200 text-gray-600 px-3 py-1 rounded-full">Biryani</span>
+                    <span className="bg-white border border-gray-200 text-gray-600 px-3 py-1 rounded-full">Beverages</span>
+                  </div>
+
+                  {/* Menu Item Sample */}
+                  <div className="bg-white rounded-xl p-3 border border-emerald-100 shadow-sm flex items-center gap-3.5 mt-2">
+                    <img 
+                      src={chickenDumBiryaniImg} 
+                      alt="Chicken Dum Biryani" 
+                      className="w-16 h-16 rounded-lg object-cover shrink-0 shadow-2xs"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" title="Non-Veg"></span>
+                        <h4 className="font-bold text-gray-900 text-sm truncate">Chicken Dum Biryani</h4>
+                      </div>
+                      <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">Slow-cooked fragrant basmati rice with spices</p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-emerald-700 font-bold text-sm">₹320</span>
+                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          + Added to Cart
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Feature Pill Tags */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-emerald-100/60 text-[11px] text-gray-500">
+                    <span className="inline-flex items-center gap-1 text-emerald-800 font-medium">
+                      <Zap size={12} className="text-emerald-600" /> Live Kitchen Sync
+                    </span>
+                    <span>•</span>
+                    <span className="inline-flex items-center gap-1 text-emerald-800 font-medium">
+                      <BarChart2 size={12} className="text-emerald-600" /> Sales Insights
+                    </span>
+                  </div>
+                </div>
+
+                {/* Features Section */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                      FEATURES
+                    </span>
+                  </div>
+
+                  <ul className="space-y-3.5">
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check size={14} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-gray-900 text-base">Menu Customization</span>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 leading-relaxed">
+                          Modify prices, add mouth-watering dish images, customize categories, and mark items out-of-stock instantly without reprints.
+                        </p>
+                      </div>
+                    </li>
+
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check size={14} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-gray-900 text-base">Order Placement</span>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 leading-relaxed">
+                          Allow guests to build carts and place food orders directly from their tables, routing instantly to kitchen display screens.
+                        </p>
+                      </div>
+                    </li>
+
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check size={14} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-gray-900 text-base">Analytics</span>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 leading-relaxed">
+                          Gain actionable visibility into revenue figures, peak dining hours, customer trends, and top-performing menu dishes.
+                        </p>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Card CTA */}
+              <div className="pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleWatchDemo}
+                  disabled={isLaunchingDemo}
+                  className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-75"
+                >
+                  <PlayCircle size={17} />
+                  <span>{isLaunchingDemo ? 'Opening Demo...' : 'Watch Interactive Demo'}</span>
+                </button>
+                <Link
+                  to="/features"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-gray-700 hover:text-emerald-700 bg-gray-50 hover:bg-emerald-50 px-5 py-3.5 rounded-xl font-semibold text-sm border border-gray-200 transition-colors"
+                >
+                  <span>Explore App</span>
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+            </div>
+
+            {/* Solution 2: QR Menu */}
+            <div className="bg-white rounded-3xl border border-gray-200/90 hover:border-teal-300 p-7 sm:p-9 md:p-10 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between relative overflow-hidden group">
+              {/* Corner ambient glow */}
+              <div className="absolute -top-20 -right-20 w-52 h-52 bg-teal-400/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
+
+              <div>
+                {/* Header Badge */}
+                <div className="flex items-center justify-between gap-3 mb-6">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-teal-800 bg-teal-50 border border-teal-200">
+                    <QrCode size={13} className="text-teal-600" />
+                    <span>Zero App Required</span>
+                  </span>
+                </div>
+
+                {/* Title & Icon */}
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-teal-600/20 group-hover:scale-105 transition-transform duration-300">
+                    <QrCode size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                      QR Menu
+                    </h3>
+                    <p className="text-xs font-semibold text-teal-600 tracking-wide uppercase mt-0.5">
+                      Touchless Table-Side Ordering
+                    </p>
+                  </div>
+                </div>
+
+                {/* Description Text */}
+                <p className="text-gray-600 text-base leading-relaxed mb-6">
+                  With a QR code, a food establishment can create a digital board for a restaurant and then generate a unique QR code that can be printed and displayed on tables or other areas of the establishment.
+                </p>
+
+                {/* QR Display Preview */}
+                <div className="bg-gradient-to-br from-[#f0fdf9] to-[#ecfdf5] border border-teal-100 rounded-2xl p-4 sm:p-5 mb-8 shadow-inner flex flex-col sm:flex-row items-center gap-4">
+                  <div className="bg-white p-3 rounded-xl border border-teal-100 shadow-md flex flex-col items-center shrink-0">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <img 
+                        src="/brand/logo-horizontal.svg" 
+                        alt="Dynease" 
+                        className="h-3.5 w-auto object-contain"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/favicon.svg';
+                        }}
+                      />
+                    </div>
+                    <QRCodeSVG 
+                      value="https://dynease.com/r/demo-restaurant?table=01"
+                      size={100}
+                      level="M"
+                      fgColor="#064e3b"
+                    />
+                    <div className="mt-1.5 px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-[10px] font-bold">
+                      TABLE 01
+                    </div>
+                  </div>
+
+                  <div className="text-center sm:text-left flex-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-teal-200 text-teal-800 text-[11px] font-bold mb-2">
+                      <ScanLine size={12} className="text-teal-600" />
+                      <span>Instant Camera Scan</span>
+                    </div>
+                    <h4 className="font-bold text-gray-900 text-sm sm:text-base">Scan to Browse Menu</h4>
+                    <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                      Unique QR codes printed on elegant table stands, coasters, or wall boards for fast guest access.
+                    </p>
+                    <div className="mt-2 flex items-center justify-center sm:justify-start gap-2 text-[11px] text-gray-500 font-medium">
+                      <span className="text-teal-700 font-semibold">✓ iOS & Android</span>
+                      <span>•</span>
+                      <span className="text-teal-700 font-semibold">✓ No App Install</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Features Section */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                      FEATURES
+                    </span>
+                  </div>
+
+                  <ul className="space-y-3.5">
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check size={14} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-gray-900 text-base">Quick & Easy Access</span>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 leading-relaxed">
+                          Guests instantly access your menu by scanning table QR codes with any smartphone camera—no apps to download.
+                        </p>
+                      </div>
+                    </li>
+
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check size={14} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-gray-900 text-base">Contactless Ordering</span>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 leading-relaxed">
+                          Hygienic, touch-free browsing and order submission removes physical paper contact and reduces customer wait times.
+                        </p>
+                      </div>
+                    </li>
+
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check size={14} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-gray-900 text-base">Easy Updation</span>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 leading-relaxed">
+                          Push instant updates across all tables in real-time when updating prices, changing ingredients, or managing daily specials.
+                        </p>
+                      </div>
+                    </li>
+
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check size={14} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <span className="font-bold text-gray-900 text-base">Reduced Printing Cost</span>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 leading-relaxed">
+                          Completely eliminate expensive reprinting bills, laminated card replacements, and worn-out paper menu waste.
+                        </p>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Card CTA */}
+              <div className="pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center gap-3">
+                <Link
+                  to="/register"
+                  className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition-all shadow-md shadow-teal-600/20"
+                >
+                  <span>Generate Your Table QR</span>
+                  <ArrowRight size={16} />
+                </Link>
+                <Link
+                  to="/how-it-works"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-gray-700 hover:text-teal-700 bg-gray-50 hover:bg-teal-50 px-5 py-3.5 rounded-xl font-semibold text-sm border border-gray-200 transition-colors"
+                >
+                  <span>How It Works</span>
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <section className="pt-4 pb-8 px-4 sm:px-6 lg:px-8 bg-[#f4faf6]">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -238,26 +548,6 @@ export default function LandingPage() {
             <p className="text-base sm:text-lg text-gray-600 leading-relaxed">
               Empowering food businesses to eliminate printing overheads, accelerate kitchen workflows, and boost revenue with modern QR menus.
             </p>
-
-            {/* Interactive hint & toggle */}
-            <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-3 bg-white/95 backdrop-blur-sm border border-emerald-200/80 px-4 py-2 rounded-full shadow-xs text-xs sm:text-sm text-gray-600">
-              <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
-                <RotateCw size={13} className="text-emerald-600" />
-                <span>3D Interactive Cards</span>
-              </span>
-              <span className="text-gray-300 hidden sm:inline">•</span>
-              <span className="text-gray-500">Hover or tap cards to flip</span>
-              <span className="text-gray-300 hidden sm:inline">•</span>
-              <button 
-                type="button"
-                onClick={toggleFlipAll}
-                className="text-[var(--color-primary)] font-bold hover:underline cursor-pointer flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200 transition-colors"
-                aria-label="Toggle flip state for all cards"
-              >
-                <RotateCw size={12} className={allFlipped ? 'rotate-180 transition-transform' : 'transition-transform'} />
-                <span>{allFlipped ? 'Flip Back to Front' : 'Flip All Cards'}</span>
-              </button>
-            </div>
           </div>
 
           {/* 4 Flipping Cards Grid */}
@@ -739,11 +1029,18 @@ function InteractivePhoneMockup() {
 
       {/* 1. Splash Screen */}
       {stage === 'splash' && (
-        <div className="flex-1 bg-white flex flex-col items-center justify-center h-full w-full relative select-none">
-          <div className="text-center animate-pulse">
-            <img src={iconImg} alt="Dynease Icon" className="w-24 h-24 mx-auto mb-4 object-contain drop-shadow" />
-            <h1 className="text-3xl font-extrabold text-[var(--color-primary)] tracking-widest">Dynease</h1>
-            <p className="text-xs text-gray-400 font-medium mt-1">Smart Dining Experience</p>
+        <div className="flex-1 bg-white flex flex-col items-center justify-center h-full w-full relative select-none px-6">
+          <div className="text-center animate-pulse flex flex-col items-center">
+            <img 
+              src="/brand/logo-horizontal.svg" 
+              alt="Dynease Logo" 
+              className="w-48 max-w-full h-auto mx-auto object-contain drop-shadow-sm mb-3"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/brand/logo-horizontal.png';
+              }}
+            />
+            <p className="text-xs text-gray-400 font-medium tracking-wide">Smart Dining Experience</p>
           </div>
           <div className="absolute bottom-10 flex items-center gap-2 text-[11px] text-gray-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
@@ -779,8 +1076,15 @@ function InteractivePhoneMockup() {
             {/* Table QR Standee Card */}
             <div className={`w-40 bg-white rounded-2xl p-3 shadow-2xl flex flex-col items-center border transition-all duration-300 ${scanSuccess ? 'scale-105 border-emerald-400 ring-2 ring-emerald-400/50' : 'border-gray-200'}`}>
               <div className="flex items-center gap-1.5 mb-2">
-                <img src={iconImg} alt="Dynease" className="w-4 h-4 object-contain" />
-                <span className="text-[10px] font-extrabold text-emerald-800 tracking-wider">SPICE GARDEN</span>
+                <img 
+                  src="/brand/logo-horizontal.svg" 
+                  alt="Dynease" 
+                  className="h-3.5 w-auto object-contain"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/favicon.svg';
+                  }}
+                />
               </div>
               <div className="p-1 bg-white rounded-lg border border-gray-100 shadow-sm">
                 <QRCodeSVG 

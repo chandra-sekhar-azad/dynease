@@ -20,32 +20,31 @@ export default function Footer({ className = "" }) {
         
         <div className="flex flex-wrap justify-center gap-8 text-sm font-medium">
           <Link to="/" className="hover:text-[#34d399] transition-colors">Home</Link>
-          <a href="/#benefits" className="hover:text-[#34d399] transition-colors">Benefits</a>
           <Link to="/features" className="hover:text-[#34d399] transition-colors">Features</Link>
           <Link to="/how-it-works" className="hover:text-[#34d399] transition-colors">How It Works</Link>
           <Link to="/pricing" className="hover:text-[#34d399] transition-colors">Pricing</Link>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col gap-2.5 w-full sm:w-auto">
           <a
             href="mailto:contact@dynease.in"
-            className="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all backdrop-blur-sm border border-white/10 shadow-sm"
+            className="flex items-center space-x-3 p-2.5 px-3.5 rounded-xl hover:bg-white/10 transition-all backdrop-blur-sm border border-white/10 shadow-sm"
           >
-            <Mail className="w-5 h-5 text-emerald-400 shrink-0" />
+            <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
             <div className="text-left">
-              <span className="text-[11px] text-gray-400 uppercase tracking-wider font-medium block">Email</span>
-              <span className="text-sm font-semibold">contact@dynease.in</span>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium block leading-tight">Email</span>
+              <span className="text-xs sm:text-sm font-semibold">contact@dynease.in</span>
             </div>
           </a>
 
           <a
             href="tel:+918897536435"
-            className="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/10 transition-all backdrop-blur-sm border border-white/10 shadow-sm"
+            className="flex items-center space-x-3 p-2.5 px-3.5 rounded-xl hover:bg-white/10 transition-all backdrop-blur-sm border border-white/10 shadow-sm"
           >
-            <Phone className="w-5 h-5 text-emerald-400 shrink-0" />
+            <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
             <div className="text-left">
-              <span className="text-[11px] text-gray-400 uppercase tracking-wider font-medium block">Phone</span>
-              <span className="text-sm font-semibold">+91 88975 36435</span>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium block leading-tight">Phone</span>
+              <span className="text-xs sm:text-sm font-semibold">+91 88975 36435</span>
             </div>
           </a>
         </div>

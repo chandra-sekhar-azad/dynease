@@ -74,16 +74,16 @@ a, button {
 }
 
 /* ───────────────────────────────────────────────────────────── */
-/* Universal Small & Tiny Scrollbar                              */
+/* Universal Sleek Green Scrollbar                               */
 /* ───────────────────────────────────────────────────────────── */
-* {
+html, body, * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.45) transparent;
+  scrollbar-color: #108a4a transparent;
 }
 
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -91,13 +91,23 @@ a, button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.38);
+  background-color: #108a4a;
+  background-image: linear-gradient(180deg, #108a4a 0%, #059669 100%);
   border-radius: 9999px;
-  transition: background-color 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background-clip: padding-box;
+  transition: background-color 0.2s ease, filter 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(107, 114, 128, 0.65);
+  background-color: #0d733d;
+  background-image: linear-gradient(180deg, #0d733d 0%, #047857 100%);
+  filter: brightness(0.95);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #09532c;
+  background-image: linear-gradient(180deg, #09532c 0%, #065f46 100%);
 }
 
 ::-webkit-scrollbar-corner {
