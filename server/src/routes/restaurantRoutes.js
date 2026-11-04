@@ -5,6 +5,10 @@ const { protect, restrictTo } = require('../middleware/auth');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
+const menuImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1024 * 1024 }
+});
 
 router.use(protect);
 router.use(restrictTo('RESTAURANT_OWNER', 'RESTAURANT_STAFF'));
@@ -16,8 +20,8 @@ router.put('/categories/:id', upload.single('image'), restaurantController.updat
 router.delete('/categories/:id', restaurantController.deleteCategory);
 
 // ── Menu item routes ──
-router.post('/menu', upload.single('image'), restaurantController.createMenuItem);
-router.put('/menu/:id', upload.single('image'), restaurantController.updateMenuItem);
+router.post('/menu', menuImageUpload.single('image'), restaurantController.createMenuItem);
+router.put('/menu/:id', menuImageUpload.single('image'), restaurantController.updateMenuItem);
 router.get('/menu', restaurantController.getMenu);
 router.delete('/menu/:id', restaurantController.deleteMenuItem);
 router.patch('/menu/:id/status', restaurantController.toggleMenuItemStatus);

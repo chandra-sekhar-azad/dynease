@@ -15,6 +15,8 @@ const DIET_BADGE = {
   NON_VEG: 'bg-red-100 text-red-700',
 };
 
+const MAX_MENU_IMAGE_SIZE = 1024 * 1024;
+
 export default function MenuManagement() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -113,6 +115,17 @@ export default function MenuManagement() {
 
   const maxMenuItems = planLimits?.maxMenuItems ?? null;
   const isMenuLimitReached = maxMenuItems !== null && maxMenuItems !== undefined && items.length >= maxMenuItems;
+
+  const handleImageSelection = (file, input) => {
+    if (!file) return;
+    if (file.size > MAX_MENU_IMAGE_SIZE) {
+      toast.error('Menu item image must be less than or equal to 1 MB.');
+      if (input) input.value = '';
+      setImageFile(null);
+      return;
+    }
+    setImageFile(file);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -552,7 +565,7 @@ export default function MenuManagement() {
                     e.preventDefault();
                     setIsDragging(false);
                     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      setImageFile(e.dataTransfer.files[0]);
+                      handleImageSelection(e.dataTransfer.files[0]);
                     }
                   }}
                   className={`w-full p-6 border-2 border-dashed rounded-lg text-center transition-colors ${
@@ -563,7 +576,7 @@ export default function MenuManagement() {
                     type="file" 
                     id="menuImageUpload"
                     accept="image/*" 
-                    onChange={e => setImageFile(e.target.files[0])} 
+                    onChange={e => handleImageSelection(e.target.files[0], e.target)}
                     className="hidden" 
                   />
                   <label htmlFor="menuImageUpload" className="cursor-pointer flex flex-col items-center">
@@ -573,7 +586,7 @@ export default function MenuManagement() {
                     ) : (
                       <>
                         <span className="text-sm font-medium text-gray-700">Click to upload or drag & drop</span>
-                        <span className="text-xs text-gray-500 mt-1">SVG, PNG, JPG or GIF (max. 5MB)</span>
+                        <span className="text-xs text-gray-500 mt-1">SVG, PNG, JPG or GIF (max. 1MB)</span>
                       </>
                     )}
                   </label>
